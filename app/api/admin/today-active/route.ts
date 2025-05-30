@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"; // Assume this is your Prisma client setup
+import  prisma  from "@/lib/prisma"; // Assume this is your Prisma client setup
 
 // Returns the list of users with active access today
 export async function GET(req: NextRequest) {
