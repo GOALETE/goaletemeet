@@ -1,9 +1,5 @@
-import RegistrationForm from "./components/RegistrationForm";
+import UnderConstruction from "./under-construction";
 
 export default function Home() {
-  return (
-    <main className="min-h-screen flex items-center justify-center">
-      <RegistrationForm />
-    </main>
-  );
+  return <UnderConstruction />;
 }
