@@ -14,23 +14,68 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+# GoAlete Club - Subscription Meeting App
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Next.js (App router, React)
+- Neon DB (PostgreSQL, via Prisma)
+- Razorpay (payments)
+- Zoom & Google Calendar APIs (meeting access)
+- Vercel (deploy, cron jobs)
 
-## Learn More
+## Setup
 
-To learn more about Next.js, take a look at the following resources:
+1. **Clone & Install**
+   ```
+   git clone <your-repo>
+   cd <your-repo>
+   pnpm install
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Configure .env**
+   ```
+   DATABASE_URL=postgresql://<user>:<pass>@<neon-url>:5432/<db>
+   RAZORPAY_KEY_ID=...
+   RAZORPAY_KEY_SECRET=...
+   GOOGLE_SERVICE_ACCOUNT_JSON=...
+   ZOOM_JWT=...
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Prisma Migrate**
+   ```
+   npx prisma generate
+   npx prisma migrate dev --name init
+   ```
 
-## Deploy on Vercel
+4. **Run Locally**
+   ```
+   pnpm dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+5. **Deploy**
+   - Connect your repo to Vercel
+   - Set environment variables
+   - Deploy!
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Features
+
+- Elegant subscription form (see `/components/RegistrationForm.tsx`)
+- Razorpay integration
+- Daily invite automation (cron: `/api/cron-send-invites`)
+- Simple admin dashboard (WIP)
+
+## Integrations
+
+- **Razorpay**: See [Razorpay docs](https://razorpay.com/docs/api/) for client and webhook setup.
+- **Google Calendar API**: Use a service account to create events and invite emails.
+- **Zoom API**: Use JWT or OAuth to update allowed emails for the static meeting.
+
+## Security
+
+- Meeting links are never public.
+- Only paid/active emails can join, enforced via API and daily calendar/invite logic.
+
+---
+
+PRs, feedback, and issues welcome!
