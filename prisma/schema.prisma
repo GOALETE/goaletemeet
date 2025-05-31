@@ -33,7 +33,9 @@ model Subscription {
   sessionDate  DateTime?
   startDate    DateTime
   endDate      DateTime
-  paymentRef   String
+  orderId      String   @unique
+  paymentRef   String?
+  paymentStatus String  // 'pending', 'approved', 'failed'
   status       String   // 'pending', 'active', 'expired', 'cancelled'
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
