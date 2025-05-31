@@ -108,6 +108,8 @@ export async function POST(request: NextRequest) {
     
     // Add duration field - using 'as any' to bypass TypeScript errors until Prisma client is properly updated
     data.duration = duration;
+    // Add price field (in rupees)
+    data.price = Math.round(amount / 100);
     
     const subscription = await prisma.subscription.create({
       data,

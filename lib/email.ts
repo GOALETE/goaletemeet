@@ -3,6 +3,8 @@
  * Using nodemailer with Gmail SMTP
  */
 import nodemailer from 'nodemailer';
+const dotenv = require('dotenv');
+dotenv.config();
 
 // Configure nodemailer with Gmail SMTP
 const transporter = nodemailer.createTransport({
@@ -248,7 +250,7 @@ export async function sendWelcomeEmail({
   planType: string;
   startDate: Date;
   endDate: Date;
-  amount: number;
+  amount: number; // This should now be the price in rupees, not paise
 }): Promise<boolean> {
   // Format dates for display
   const dateOptions: Intl.DateTimeFormatOptions = { 
@@ -261,7 +263,7 @@ export async function sendWelcomeEmail({
   const formattedEndDate = endDate.toLocaleDateString('en-US', dateOptions);
   
   // Display amount in INR
-  const formattedAmount = `₹${(amount/100).toFixed(2)}`;
+  const formattedAmount = `₹${amount.toFixed(2)}`;
   
   // Plan type display name
   const planDisplay = planType === 'single' ? 'Single Session' : 'Monthly Plan';

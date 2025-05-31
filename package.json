@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate --no-engine",
-    "test:email": "tsx scripts/test-email.ts"
+    "test:email": "tsx scripts/test-email.ts",
+    "test:admin": "tsx scripts/test-admin-auth.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
