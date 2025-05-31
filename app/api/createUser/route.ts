@@ -1,22 +1,37 @@
-import { PrismaClient } from '@prisma/client'
+import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // Create or fetch user
 export async function POST(request: NextRequest) {
   try {
+    const userSchema = z.object({
+      firstName: z.string().min(1),
+      lastName: z.string().min(1),
+      email: z.string().email(),
+      phone: z.string().min(8),
+      source: z.string().min(1),
+      reference: z.string().optional(),
+    });
     const data = await request.json();
+    const parsed = userSchema.safeParse(data);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid input", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
     // Upsert user (create if not exists, else return existing)
     const user = await prisma.user.upsert({
-      where: { email: data.email },
+      where: { email: parsed.data.email },
       update: {},
       create: {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        phone: data.phone,
-        source: data.source,
-        referenceName: data.reference,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        source: parsed.data.source,
+        referenceName: parsed.data.reference,
         // subscriptions will be empty by default
       },
     });
@@ -34,7 +49,10 @@ export async function PATCH(request: NextRequest) {
   try {
     const data = await request.json();
     if (!data.userId || !data.subscriptionId) {
-      return NextResponse.json({ error: "userId and subscriptionId required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "userId and subscriptionId required" },
+        { status: 400 }
+      );
     }
     // Connect subscription to user
     const user = await prisma.user.update({

@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import prisma from "@/lib/prisma";
+import { z } from "zod";
 
 // Create order and DB subscription entry
 export async function POST(request: NextRequest) {
+  const orderSchema = z.object({
+    amount: z.number().int().positive(),
+    currency: z.string().min(1),
+    planType: z.string().min(1),
+    sessionDate: z.string().optional(),
+    monthStart: z.string().optional(),
+    userId: z.string().uuid(),
+  });
   const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
   const key_secret = process.env.RAZORPAY_KEY_SECRET || process.env.NEXT_PUBLIC_RAZORPAY_KEY_SECRET;
 
@@ -14,10 +23,12 @@ export async function POST(request: NextRequest) {
   const razorpay = new Razorpay({ key_id, key_secret });
 
   try {
-    const { amount, currency, planType, sessionDate, monthStart, userId } = await request.json();
-    if (!amount || !userId || !planType) {
-      return NextResponse.json({ message: `amount, userId, and planType are required` }, { status: 400 });
+    const body = await request.json();
+    const parsed = orderSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
     }
+    const { amount, currency, planType, sessionDate, monthStart, userId } = parsed.data;
     const options = {
       amount,
       currency: currency || "INR",

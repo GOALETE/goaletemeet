@@ -20,6 +20,17 @@ export default function RegistrationForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    console.log("Form submitted with data:", {
+      firstName,
+      lastName,
+      email,
+      phone,
+      plan,
+      sessionDate,
+      monthStart,
+      source,
+      reference,
+    });
     try {
       // 1. Create or fetch user
       const userRes = await fetch("/api/createUser", {
@@ -36,8 +47,10 @@ export default function RegistrationForm() {
       });
       const userData = await userRes.json();
       if (!userRes.ok || !userData.userId) throw new Error("User creation failed");
-      const userId = userData.userId;
+      console.log("User creation successful:", userData);
 
+      const userId = userData.userId;
+/*
       // 2. Create order/subscription (pending)
       const price = plan === "monthly" ? 4999 : 499;
       const orderRes = await fetch("/api/createOrder", {
@@ -104,6 +117,7 @@ export default function RegistrationForm() {
         console.error(response.error);
       });
       razorpay.open();
+      */
     } catch (error) {
       alert("Payment failed. Please try again.");
       console.error(error);
@@ -118,7 +132,7 @@ export default function RegistrationForm() {
       <img
         src="/goalete_logo.jpeg"
         alt="GoAlete Watermark"
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 w-[400px] h-[400px] object-contain pointer-events-none select-none z-0"
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 w-[600px] h-[600px] object-contain pointer-events-none select-none z-0"
         aria-hidden="true"
       />
       <form
@@ -126,7 +140,7 @@ export default function RegistrationForm() {
         className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg border border-gray-200 space-y-8 relative z-10"
       >
         <div className="text-center mb-4 flex flex-col items-center gap-2">
-          <img src="/goalete_logo.jpeg" alt="GoAlete Logo" className="w-16 h-16 rounded-full shadow border border-gray-200 bg-white object-cover" />
+          <img src="/goalete_logo.jpeg" alt="GoAlete Logo" className="w-24 h-24 rounded-full shadow border border-gray-200 bg-white object-cover" />
           <h2 className="text-2xl font-bold text-gray-800 tracking-tight mb-1">GOALETE CLUB</h2>
           <p className="text-gray-500 text-base font-medium">How to Achieve Any Goal in Life</p>
         </div>
