@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     include: { user: true }
   });
   return NextResponse.json({
-    users: activeSubs.map(sub => ({
+    users: activeSubs.map((sub: any) => ({
       id: sub.user.id,
       name: `${sub.user.firstName} ${sub.user.lastName}`,
       email: sub.user.email,

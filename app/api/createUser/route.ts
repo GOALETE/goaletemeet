@@ -4,7 +4,11 @@ import prisma from "@/lib/prisma";
 
 // Create or fetch user
 export async function POST(request: NextRequest) {
+  console.log("Received request to create or fetch user");
+  // Validate request body
   try {
+    // Define schema for user input validation
+    console.log("Defining user schema");
     const userSchema = z.object({
       firstName: z.string().min(1),
       lastName: z.string().min(1),
@@ -13,8 +17,12 @@ export async function POST(request: NextRequest) {
       source: z.string().min(1),
       reference: z.string().optional(),
     });
+    console.log("Parsing request body");
     const data = await request.json();
+    console.log("Validating user data");
     const parsed = userSchema.safeParse(data);
+    // Check if the parsed data is valid
+    console.log("Parsed data:", parsed);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid input", details: parsed.error.flatten() },
@@ -22,6 +30,8 @@ export async function POST(request: NextRequest) {
       );
     }
     // Upsert user (create if not exists, else return existing)
+    console.log("Upserting user in database");
+    // Use Prisma to create or update user
     const user = await prisma.user.upsert({
       where: { email: parsed.data.email },
       update: {},
@@ -35,8 +45,11 @@ export async function POST(request: NextRequest) {
         // subscriptions will be empty by default
       },
     });
+    console.log("User upserted successfully:", user);
     return NextResponse.json({ userId: user.id }, { status: 201 });
   } catch (error) {
+    console.error("Error creating or fetching user:", error);
+    // Handle any errors that occur during the process
     return NextResponse.json(
       { error: "Failed to register user", details: error },
       { status: 500 }
