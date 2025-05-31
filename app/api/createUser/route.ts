@@ -17,9 +17,9 @@ export async function POST(request: NextRequest) {
       source: z.string().min(1),
       reference: z.string().optional(),
     });
-    console.log("Parsing request body");
+    //console.log("Parsing request body");
     const data = await request.json();
-    console.log("Validating user data");
+    //console.log("Validating user data");
     const parsed = userSchema.safeParse(data);
     // Check if the parsed data is valid
     console.log("Parsed data:", parsed);

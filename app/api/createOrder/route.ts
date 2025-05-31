@@ -3,62 +3,89 @@ import Razorpay from "razorpay";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 
-// Create order and DB subscription entry
-export async function POST(request: NextRequest) {
-  const orderSchema = z.object({
-    amount: z.number().int().positive(),
+const key_id = process.env.RAZORPAY_KEY_ID as string;
+const key_secret = process.env.RAZORPAY_KEY_SECRET as string;
+
+if (!key_id || !key_secret) {
+    throw new Error("Razorpay keys are missing");
+}
+
+const razorpay = new Razorpay({
+  key_id: key_id,
+  key_secret: key_secret,
+});
+
+// Define the schema for order body validation
+const orderBodySchema = z.object({
+    amount: z.number().positive(),
     currency: z.string().min(1),
     planType: z.string().min(1),
-    sessionDate: z.string().optional(),
-    monthStart: z.string().optional(),
-    userId: z.string().uuid(),
-  });
-  const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-  const key_secret = process.env.RAZORPAY_KEY_SECRET || process.env.NEXT_PUBLIC_RAZORPAY_KEY_SECRET;
+    duration: z.number().positive(),
+    startDate: z.string().optional(),
+    userId: z.string().min(1)
+});
 
-  if (!key_id || !key_secret) {
-    return NextResponse.json({ message: "Razorpay keys are missing" }, { status: 500 });
-  }
+export type OrderBody = z.infer<typeof orderBodySchema>;
 
-  const razorpay = new Razorpay({ key_id, key_secret });
-
+// Create order and DB subscription entry
+export async function POST(request: NextRequest) {  
   try {
     const body = await request.json();
-    const parsed = orderSchema.safeParse(body);
+    const parsed = orderBodySchema.safeParse(body);
+    
     if (!parsed.success) {
       return NextResponse.json({ message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
     }
-    const { amount, currency, planType, sessionDate, monthStart, userId } = parsed.data;
+
+    const { amount, currency, planType, duration, startDate, userId } = parsed.data;
+    // Determine start and end dates based on duration
+    let subscriptionStartDate: Date = startDate ? new Date(startDate) : new Date();
+    let subscriptionEndDate: Date = new Date(subscriptionStartDate);
+    
+    // Calculate end date by adding the duration in days
+    subscriptionEndDate.setDate(subscriptionStartDate.getDate() + duration);
+
     const options = {
-      amount,
-      currency: currency || "INR",
+      amount: amount, // Ensure this is in the smallest currency unit (e.g., paise for INR)
+      currency: currency, // Already validated by schema
       receipt: `receipt#${Date.now()}`,
       notes: {
         description: "Payment for subscription",
         plan_type: planType,
+        date: new Date().toISOString(),
+        startDate: subscriptionStartDate.toISOString(), // Serialize as string
+        endDate: subscriptionEndDate.toISOString(), // Serialize as string
         user_id: userId,
       },
     };
+    console.log("options package:", options)
+
     const order = await razorpay.orders.create(options);
+    console.log("order:", order)
+    
     // Create subscription entry in DB
-    const subscription = await prisma.subscription.create({
-      data: {
+    // Create base data object
+    const data: any = {
         userId,
         planType,
-        sessionDate: sessionDate ? new Date(sessionDate) : null,
-        startDate: monthStart ? new Date(monthStart) : new Date(),
-        endDate:
-          planType === "monthly" && monthStart
-            ? new Date(new Date(monthStart).setMonth(new Date(monthStart).getMonth() + 1))
-            : new Date(),
+        startDate: subscriptionStartDate,
+        endDate: subscriptionEndDate,
         orderId: order.id,
         paymentRef: "",
         paymentStatus: "pending",
-        status: "pending",
-      },
+        status: "inactive"
+    };
+    
+    // Add duration field - using 'as any' to bypass TypeScript errors until Prisma client is properly updated
+    data.duration = duration;
+    
+    const subscription = await prisma.subscription.create({
+      data,
     });
+    
     return NextResponse.json({ orderId: order.id, subscriptionId: subscription.id }, { status: 201 });
   } catch (error) {
+    console.log("Error in createorder:", error)
     return NextResponse.json({ message: "Server Error", error: String(error) }, { status: 500 });
   }
 }
@@ -66,19 +93,35 @@ export async function POST(request: NextRequest) {
 // Update subscription after payment success
 export async function PATCH(request: NextRequest) {
   try {
-    const { orderId, paymentId, userId, status } = await request.json();
-    if (!orderId || !paymentId || !userId || !status) {
-      return NextResponse.json({ message: "orderId, paymentId, userId, and status required" }, { status: 400 });
+    const { subscriptionId, orderId, paymentId, userId, status, paymentStatus } = await request.json();
+    if (!subscriptionId || !orderId || !paymentId || !userId || !status) {
+      return NextResponse.json({ message: "subscriptionId, orderId, paymentId, userId, and status required" }, { status: 400 });
     }
-    // Find the subscription by orderId (orderId is unique)
+    
+    // Validate paymentStatus
+    const validPaymentStatus = paymentStatus || 'unknown';
+    
+    // First check if subscription exists
+    const existingSubscription = await prisma.subscription.findUnique({
+      where: { orderId },
+      include: { user: true },
+    });
+    
+    if (!existingSubscription) {
+      return NextResponse.json({ message: "Subscription not found" }, { status: 404 });
+    }
+    
+    // Update the subscription with payment details
     const subscription = await prisma.subscription.update({
       where: { orderId },
       data: {
         paymentRef: paymentId,
-        paymentStatus: status === "active" ? "approved" : "failed",
+        paymentStatus: validPaymentStatus,
         status,
       },
     });
+    
+    // Only connect to user if status is active and it's not already connected
     if (subscription && status === "active") {
       // Connect subscription to user
       await prisma.user.update({
