@@ -36,10 +36,25 @@ model Subscription {
   user          User     @relation(fields: [userId], references: [id])
 }
 
+model DailyMeetingLink {
+  id              String         @id @default(uuid())
+  meetingDate     DateTime       @unique
+  meetingLink     String
+  platform        String         // "zoom" or "google-meet"
+  isUsed          Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  meetingSetting  MeetingSetting @relation(fields: [meetingSettingId], references: [id])
+  meetingSettingId Int
+}
+
 model MeetingSetting {
-  id        Int      @id @default(1)
-  platform  String
-  zoomLink  String?
-  meetLink  String?
-  updatedAt DateTime @updatedAt
+  id             Int      @id @default(1)
+  platform       String   // "zoom" or "google-meet"
+  zoomLink       String?
+  meetLink       String?
+  meetingTitle   String   @default("GOALETE Club Session")
+  meetingDesc    String?
+  updatedAt      DateTime @updatedAt
+  dailyLinks     DailyMeetingLink[]
 }

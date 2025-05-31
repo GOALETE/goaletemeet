@@ -28,4 +28,6 @@ export const prisma = globalForPrisma.prisma || createPrismaClient()
 // In development, attach to global to prevent connection churn
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
+export const plainPrisma = new PrismaClient();
+
 export default prisma

@@ -21,6 +21,7 @@ bun dev
 - Next.js (App router, React)
 - Neon DB (PostgreSQL, via Prisma)
 - Razorpay (payments)
+- Gmail SMTP (email notifications)
 - Zoom & Google Calendar APIs (meeting access)
 - Vercel (deploy, cron jobs)
 
@@ -38,6 +39,8 @@ bun dev
    DATABASE_URL=postgresql://<user>:<pass>@<neon-url>:5432/<db>
    RAZORPAY_KEY_ID=...
    RAZORPAY_KEY_SECRET=...
+   EMAIL_USER=your-email@gmail.com
+   EMAIL_PASSWORD=your-app-password
    GOOGLE_SERVICE_ACCOUNT_JSON=...
    ZOOM_JWT=...
    ```
@@ -62,12 +65,15 @@ bun dev
 
 - Elegant subscription form (see `/components/RegistrationForm.tsx`)
 - Razorpay integration
-- Daily invite automation (cron: `/api/cron-send-invites`)
+- Daily invite automation (cron: `/api/cron-daily-invites`)
+- Welcome emails after successful payment
+- Platform-specific meeting invites (Google Meet or Zoom)
 - Simple admin dashboard (WIP)
 
 ## Integrations
 
 - **Razorpay**: See [Razorpay docs](https://razorpay.com/docs/api/) for client and webhook setup.
+- **Gmail SMTP**: Used for sending welcome emails and meeting invites with calendar attachments. See [Email Documentation](./docs/email-functionality.md).
 - **Google Calendar API**: Use a service account to create events and invite emails.
 - **Zoom API**: Use JWT or OAuth to update allowed emails for the static meeting.
 

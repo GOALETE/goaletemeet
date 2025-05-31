@@ -34,10 +34,31 @@ export default function RegistrationForm() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [duration, setDuration] = useState(PLAN_PRICING.single.duration)
+  const [duration, setDuration] = useState(PLAN_PRICING.single.duration)  
   const [showPayment, setShowPayment] = useState(false);
   const [formData, setFormData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
+  // Set today's date as the default start date when component mounts
+  useEffect(() => {
+    setStartDate(new Date().toISOString().split('T')[0]);
+  }, []);
+
+  // Check for subscription conflicts when user changes plan or date
+  useEffect(() => {
+    // Only check if email is entered
+    if (email && email.includes('@')) {
+      checkSubscriptionConflict();
+    }
+  }, [email, plan, startDate]);
+
+  // Helper function to check if a date is today
+  const isToday = (dateString: string): boolean => {
+    if (!dateString) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return dateString === today;
+  };
 
   // Update duration when plan changes
   const handlePlanChange = (newPlan: "single" | "monthly") => {
@@ -45,10 +66,46 @@ export default function RegistrationForm() {
     setDuration(PLAN_PRICING[newPlan].duration);
   };
 
+  // Check for existing subscription conflicts
+  const checkSubscriptionConflict = async () => {
+    if (!email || !email.includes('@') || !startDate) return;
+    
+    setIsCheckingSubscription(true);
+    setErrorMessage(null);
+    
+    try {
+      // Calculate end date based on plan duration
+      const start = new Date(startDate);
+      const end = new Date(startDate);
+      end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
+      
+      const response = await fetch("/api/check-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          planType: plan,
+          startDate: start.toISOString(),
+          endDate: end.toISOString()
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!data.canSubscribe) {
+        setErrorMessage(data.message);
+      }
+    } catch (error) {
+      console.error("Error checking subscription:", error);
+    } finally {
+      setIsCheckingSubscription(false);
+    }
+  };
   // handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage(null); // Reset error message on new submission
     console.log("Form submitted with data:", {
       firstName,
       lastName,
@@ -59,9 +116,32 @@ export default function RegistrationForm() {
       duration,
       source,
       reference,
-    });
-    try {
-      const price = PLAN_PRICING[plan].amount 
+    });    try {
+      const price = PLAN_PRICING[plan].amount;
+      
+      // Double-check subscription availability
+      const start = new Date(startDate);
+      const end = new Date(startDate);
+      end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
+      
+      const checkResponse = await fetch("/api/check-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          planType: plan,
+          startDate: start.toISOString(),
+          endDate: end.toISOString()
+        }),
+      });
+      
+      const checkData = await checkResponse.json();
+      
+      if (!checkData.canSubscribe) {
+        setErrorMessage(checkData.message);
+        setIsLoading(false);
+        return;
+      }
 
       // 1. Create or fetch user
       const userRes = await fetch("/api/createUser", {
@@ -74,16 +154,15 @@ export default function RegistrationForm() {
           phone,
           source,
           reference,
-        }),
+        }),      
       });
       const userData = await userRes.json();
       if (!userRes.ok || !userData.userId) throw new Error("User creation failed");
       console.log("User creation successful:", userData);      
       
       const userId = userData.userId;
-
-      // 2. Create order/subscription (pending)
       
+      // 2. Create order/subscription (pending)
       const orderRes = await fetch("/api/createOrder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,15 +175,27 @@ export default function RegistrationForm() {
           userId,
         }),
       });
+      
       const orderData = await orderRes.json();
-      if (!orderRes.ok || !orderData.orderId) throw new Error("Order creation failed");
+        
+      // Check for error response due to existing subscription
+      if (orderRes.status === 409) {
+        setIsLoading(false);
+        setErrorMessage(orderData.details || "You already have an active subscription.");
+        return;
+      }
+      
+      if (!orderRes.ok || !orderData.orderId) {
+        throw new Error("Order creation failed: " + (orderData.message || "Unknown error"));
+      }
+      
       console.log("orderData:", orderData)
 
 
       const orderId = orderData.orderId;
-      const subscriptionId = orderData.subscriptionId;      // 3. Start Razorpay payment
-
-
+      const subscriptionId = orderData.subscriptionId;      
+      
+      // 3. Start Razorpay payment
       if (!isRazorpayLoaded) {
         alert("Payment gateway is still loading. Please wait a moment and try again.");
         setIsLoading(false);
@@ -123,11 +214,10 @@ export default function RegistrationForm() {
                 await fetch(`/api/createOrder?orderId=${orderId}`, { method: "DELETE" });
                 console.log("deleted the order")
             }
-        },
-        handler: async function (response: any) {
+        },        handler: async function (response: any) {
           try {
             // 4. On payment success, update subscription and user
-            await fetch("/api/createOrder", {
+            const updateResponse = await fetch("/api/createOrder", {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -139,6 +229,20 @@ export default function RegistrationForm() {
                 status: "active",
               }),
             });
+            
+            // If subscription starts today, trigger immediate meeting invite
+            if (isToday(startDate)) {
+              await fetch("/api/send-meeting-invite", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  subscriptionId,
+                  userId,
+                  isImmediate: true
+                }),
+              });
+            }
+            
             alert("Payment Successful! Registration complete.");
           } catch (error) {
             alert("Payment verification or registration failed. Please contact support.");
@@ -180,8 +284,15 @@ export default function RegistrationForm() {
       });
       razorpay.open();
     } catch (error) {
-      alert("Payment failed. Please try again.");
-      console.error(error);
+      console.error("Registration error:", error);
+      
+      // Extract meaningful error message
+      let errorMsg = "Payment failed. Please try again.";
+      if (error instanceof Error) {
+        errorMsg = error.message;
+      }
+      
+      setErrorMessage(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -231,12 +342,19 @@ export default function RegistrationForm() {
             onChange={(e) => setLastName(e.target.value)}
             className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
             required
-          />
-          <input
+          />          <input
             type="email"
             placeholder="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setErrorMessage(null);
+            }}
+            onBlur={() => {
+              if (email && email.includes('@')) {
+                checkSubscriptionConflict();
+              }
+            }}
             className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
             required
           />
@@ -257,7 +375,12 @@ export default function RegistrationForm() {
                   name="plan"
                   value="single"
                   checked={plan === "single"}
-                  onChange={() => handlePlanChange("single")}
+                  onChange={() => {
+                    handlePlanChange("single");
+                    if (email && email.includes('@')) {
+                      setTimeout(() => checkSubscriptionConflict(), 500);
+                    }
+                  }}
                   className="accent-gray-600"
                 />
                 <span className="text-gray-800">Single Session</span>
@@ -270,7 +393,12 @@ export default function RegistrationForm() {
                   name="plan"
                   value="monthly"
                   checked={plan === "monthly"}
-                  onChange={() => handlePlanChange("monthly")}
+                  onChange={() => {
+                    handlePlanChange("monthly");
+                    if (email && email.includes('@')) {
+                      setTimeout(() => checkSubscriptionConflict(), 500);
+                    }
+                  }}
                   className="accent-gray-600"
                 />
                 <span className="text-gray-800">Monthly Plan</span>
@@ -278,16 +406,20 @@ export default function RegistrationForm() {
               <span className="text-xs text-gray-400 font-medium pr-6">({PLAN_PRICING.monthly.display})</span>
             </label>
           </div>
-        </div>
-
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+        </div>        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <label className="block mb-1 font-medium text-gray-700">
             {plan === "single" ? "Session Date" : "Start Date"}
-          </label>
-          <input
+          </label>          <input
             type="date"
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            onChange={(e) => {
+              setStartDate(e.target.value);
+              if (email && email.includes('@')) {
+                // Set timeout to avoid too many API calls while user is selecting
+                setTimeout(() => checkSubscriptionConflict(), 500);
+              }
+            }}
+            min={new Date().toISOString().split('T')[0]} // Prevent selecting dates before today
             className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-white text-gray-900"
             required
           />
@@ -314,8 +446,23 @@ export default function RegistrationForm() {
               onChange={(e) => setReference(e.target.value)}
               className="w-full p-3 mt-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-white text-gray-900"
             />
-          )}
-        </div>
+          )}        </div>        {errorMessage && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+            <p className="font-medium text-sm">{errorMessage}</p>
+            {isCheckingSubscription && (
+              <div className="mt-2 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-700"></div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isCheckingSubscription && !errorMessage && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
+            <p className="font-medium text-sm">Checking subscription availability...</p>
+          </div>
+        )}
 
         <button
           type="submit"

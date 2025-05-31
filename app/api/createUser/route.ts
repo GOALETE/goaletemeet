@@ -28,8 +28,7 @@ export async function POST(request: NextRequest) {
         { error: "Invalid input", details: parsed.error.flatten() },
         { status: 400 }
       );
-    }
-    // Upsert user (create if not exists, else return existing)
+    }    // Upsert user (create if not exists, else return existing)
     console.log("Upserting user in database");
     // Use Prisma to create or update user
     const user = await prisma.user.upsert({
@@ -42,11 +41,22 @@ export async function POST(request: NextRequest) {
         phone: parsed.data.phone,
         source: parsed.data.source,
         referenceName: parsed.data.reference,
-        // subscriptions will be empty by default
       },
-    });
-    console.log("User upserted successfully:", user);
-    return NextResponse.json({ userId: user.id }, { status: 201 });
+      include: {
+        subscriptions: true
+      }
+    });    // Check for active subscription
+    const today = new Date();
+    const activeSub = user.subscriptions.find(sub =>
+      sub.status === "active" && new Date(sub.endDate) >= today
+    );
+    
+    return NextResponse.json({ 
+      userId: user.id, 
+      hasActiveSubscription: !!activeSub,
+      activeSubscriptionEndDate: activeSub ? activeSub.endDate : null,
+      activeSubscriptionPlanType: activeSub ? activeSub.planType : null
+    }, { status: 201 });
   } catch (error) {
     console.error("Error creating or fetching user:", error);
     // Handle any errors that occur during the process
