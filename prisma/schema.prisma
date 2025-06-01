@@ -1,5 +1,6 @@
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
   previewFeatures = ["fullTextSearchPostgres"]
 }
 
@@ -17,6 +18,7 @@ model User {
   source        String
   referenceName String?
   createdAt     DateTime       @default(now())
+  role          String         @default("user")
   subscriptions Subscription[]
 }
 
@@ -33,29 +35,21 @@ model Subscription {
   orderId       String   @unique
   paymentStatus String
   duration      Int?
-  price         Int      @default(0)// Price in rupees (not paise)
+  price         Int      @default(0)
   user          User     @relation(fields: [userId], references: [id])
 }
 
-model DailyMeetingLink {
-  id              String         @id @default(uuid())
-  meetingDate     DateTime       @unique
-  meetingLink     String
-  platform        String         // "zoom" or "google-meet"
-  isUsed          Boolean        @default(false)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  meetingSetting  MeetingSetting @relation(fields: [meetingSettingId], references: [id])
-  meetingSettingId Int
-}
-
-model MeetingSetting {
-  id             Int      @id @default(1)
-  platform       String   // "zoom" or "google-meet"
-  zoomLink       String?
-  meetLink       String?
-  meetingTitle   String   @default("GOALETE Club Session")
-  meetingDesc    String?
-  updatedAt      DateTime @updatedAt
-  dailyLinks     DailyMeetingLink[]
+model Meeting {
+  id           String   @id @default(uuid())
+  meetingDate  DateTime @unique
+  platform     String
+  meetingLink  String
+  startTime    DateTime
+  endTime      DateTime
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  isDefault    Boolean  @default(false)
+  meetingDesc  String?  @default("Join us for a GOALETE Club session to learn how to achieve any goal in life.")
+  meetingTitle String   @default("GOALETE Club Session")
 }

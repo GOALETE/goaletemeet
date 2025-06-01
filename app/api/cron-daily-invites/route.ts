@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sendMeetingInvite } from "@/lib/email";
+import { getOrCreateDailyMeetingLink } from "@/lib/subscription";
 
 // This function will be triggered by a CRON job (e.g., using Vercel Cron)
 export async function GET(request: NextRequest) {
@@ -10,59 +11,15 @@ export async function GET(request: NextRequest) {
     today.setHours(0, 0, 0, 0); // Set to start of day
     
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setDate(tomorrow.getDate() + 1);    // Get or create today's meeting
+    const todayMeeting = await getOrCreateDailyMeetingLink();
 
-    // Get meeting settings to determine platform
-    const meetingSettings = await prisma.meetingSetting.findFirst({
-      where: { id: 1 }
-    });
-
-    if (!meetingSettings) {
-      return NextResponse.json({ message: "Meeting settings not found" }, { status: 404 });
-    }    // Check if we already have a meeting link for today
-    const existingLink = await prisma.dailyMeetingLink.findFirst({
-      where: {
-        meetingDate: {
-          gte: new Date(today.setHours(0, 0, 0, 0)),
-          lt: new Date(today.setHours(23, 59, 59, 999))
-        }
-      }
-    });
-
-    // If no link exists for today, create one
-    let dailyMeetingLink;
-    
-    if (!existingLink) {
-      // Generate a new meeting link based on the platform
-      let meetingLink;
-      const platform = meetingSettings.platform;
-      
-      if (platform === "zoom") {
-        // Use the default Zoom link or generate a new one if you have Zoom API integration
-        meetingLink = meetingSettings.zoomLink || "https://zoom.us/j/yourdefaultlink";
-      } else {
-        // Use the default Google Meet link or generate a new one
-        meetingLink = meetingSettings.meetLink || "https://meet.google.com/yourdefaultlink";
-      }
-      
-      // Create the daily meeting link record using Prisma client
-      // @ts-ignore - Ignoring TypeScript error until Prisma types are fully updated
-      dailyMeetingLink = await prisma.dailyMeetingLink.create({
-        data: {
-          meetingDate: today,
-          meetingLink,
-          platform,
-          meetingSettingId: meetingSettings.id
-        }
-      });
-      
-      console.log(`Created new meeting link for today: ${meetingLink}`);
-    } else {
-      dailyMeetingLink = existingLink;
-      console.log(`Using existing meeting link for today: ${existingLink.meetingLink}`);
+    if (!todayMeeting) {
+      return NextResponse.json({ message: "Failed to get or create meeting for today" }, { status: 500 });
     }
     
-    // Find all active subscriptions that:
+    console.log(`Using meeting for today: ${todayMeeting.meetingLink}`);
+      // Find all active subscriptions that:
     // 1. Have already started (startDate <= today)
     // 2. Haven't ended yet (endDate >= today)
     const activeSubscriptions = await prisma.subscription.findMany({
@@ -76,18 +33,23 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log(`Found ${activeSubscriptions.length} active subscriptions for today`);
+    console.log(`Found ${activeSubscriptions.length} active subscriptions for today`);    // Use the meeting details
+    const meetingLink = todayMeeting.meetingLink;
+    const platform = todayMeeting.platform;
 
-    // Use the meeting link from DailyMeetingLink
-    const meetingLink = dailyMeetingLink.meetingLink;
-    const platform = dailyMeetingLink.platform;
-
-    // Calculate meeting time for today (8:00 PM / 20:00)
+    // Get meeting time settings from environment variables
+    const defaultTime = process.env.DEFAULT_MEETING_TIME || "21:00"; // format: "HH:MM"
+    const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || "60"); // minutes
+    
+    // Parse default time from HH:MM format
+    const [hours, minutes] = defaultTime.split(':').map(Number);
+    
+    // Calculate meeting time for today using environment variables
     const meetingStartTime = new Date(today);
-    meetingStartTime.setHours(20, 0, 0, 0);
+    meetingStartTime.setHours(hours || 21, minutes || 0, 0, 0);
     
     const meetingEndTime = new Date(meetingStartTime);
-    meetingEndTime.setHours(21, 0, 0, 0); // 1 hour duration
+    meetingEndTime.setMinutes(meetingStartTime.getMinutes() + defaultDuration); // Use duration from env vars
 
     // Process each subscription and send invites
     const results = await Promise.all(
@@ -130,11 +92,9 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    const successCount = results.filter(r => r.status === "sent").length;
-
-    return NextResponse.json({ 
+    const successCount = results.filter(r => r.status === "sent").length;    return NextResponse.json({ 
       message: `Successfully sent ${successCount} out of ${results.length} meeting invites`,
-      dailyMeetingLink,
+      todayMeeting,
       invitesSent: results
     }, { status: 200 });
   } catch (error) {

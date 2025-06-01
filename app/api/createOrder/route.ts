@@ -90,7 +90,17 @@ export async function POST(request: NextRequest) {
     };
     console.log("options package:", options)
 
-    const order = await razorpay.orders.create(options);
+    let order;
+    try {
+      order = await razorpay.orders.create(options);
+      if (!order || !order.id) {
+        console.error('Razorpay order creation failed:', order);
+        return NextResponse.json({ message: 'Failed to create order with Razorpay', details: order }, { status: 502 });
+      }
+    } catch (razorpayError) {
+      console.error('Error from Razorpay:', razorpayError);
+      return NextResponse.json({ message: 'Razorpay order creation error', error: String(razorpayError) }, { status: 502 });
+    }
     console.log("order:", order)
     
     // Create subscription entry in DB
@@ -106,7 +116,7 @@ export async function POST(request: NextRequest) {
         status: "inactive"
     };
     
-    // Add duration field - using 'as any' to bypass TypeScript errors until Prisma client is properly updated
+    // Add duration field - using "as any" to bypass TypeScript errors until Prisma client is properly updated
     data.duration = duration;
     // Add price field (in rupees)
     data.price = Math.round(amount / 100);
@@ -131,7 +141,7 @@ export async function PATCH(request: NextRequest) {
     }
     
     // Validate paymentStatus
-    const validPaymentStatus = paymentStatus || 'unknown';
+    const validPaymentStatus = paymentStatus || "unknown";
     
     // First check if subscription exists
     const existingSubscription = await prisma.subscription.findUnique({
@@ -156,7 +166,7 @@ export async function PATCH(request: NextRequest) {
       }
     });
     
-    // Only connect to user if status is active and it's not already connected
+    // Only connect to user if status is active and it"s not already connected
     if (subscription && status === "active") {
       // Connect subscription to user
       await prisma.user.update({
@@ -167,7 +177,7 @@ export async function PATCH(request: NextRequest) {
       });
       
       // Import the email utility
-      const { sendWelcomeEmail, sendMeetingInvite } = await import('@/lib/email');
+      const { sendWelcomeEmail, sendMeetingInvite } = await import("@/lib/email");
       
       // Send welcome email with subscription details
       await sendWelcomeEmail({
@@ -178,7 +188,7 @@ export async function PATCH(request: NextRequest) {
         planType: subscription.planType,
         startDate: subscription.startDate,
         endDate: subscription.endDate,
-        amount: parseFloat(orderId.split('_')[1]) || 499900 // Use default amount if extraction fails
+        amount: parseFloat(orderId.split("_")[1]) || 499900 // Use default amount if extraction fails
       });
       
       // Check if the subscription starts today
@@ -188,11 +198,12 @@ export async function PATCH(request: NextRequest) {
       const subscriptionStartDate = new Date(subscription.startDate);
       subscriptionStartDate.setHours(0, 0, 0, 0);
       
-      const isToday = subscriptionStartDate.getTime() === today.getTime();        // If subscription starts today, send meeting invite immediately
+      const isToday = subscriptionStartDate.getTime() === today.getTime();
+      
+      // If subscription starts today, send meeting invite immediately
       if (isToday) {
-        // Get today's meeting link
-        // @ts-ignore - Ignoring TypeScript error until Prisma types are fully updated
-        const todayMeetingLink = await prisma.dailyMeetingLink.findFirst({
+        // Get today"s meeting from the Meeting model
+        const todayMeeting = await prisma.meeting.findFirst({
           where: {
             meetingDate: {
               gte: new Date(new Date().setHours(0, 0, 0, 0)),
@@ -200,48 +211,52 @@ export async function PATCH(request: NextRequest) {
             }
           },
           orderBy: {
-            createdAt: 'desc'
+            createdAt: "desc"
           }
         });
         
-        // If no meeting link exists for today, use the default one from settings
-        let meetingLink, platform;
+        // If no meeting exists for today, create one
+        let meetingLink, platform, meetingStartTime, meetingEndTime;
         
-        if (todayMeetingLink) {
-          meetingLink = todayMeetingLink.meetingLink;
-          platform = todayMeetingLink.platform;
-          
-          // Mark the link as used
-          // @ts-ignore - Ignoring TypeScript error until Prisma types are fully updated
-          await prisma.dailyMeetingLink.update({
-            where: { id: todayMeetingLink.id },
-            data: { isUsed: true }
-          });
+        if (todayMeeting) {
+          meetingLink = todayMeeting.meetingLink;
+          platform = todayMeeting.platform;
+          meetingStartTime = todayMeeting.startTime;
+          meetingEndTime = todayMeeting.endTime;
         } else {
-          // Get default meeting settings
-          const meetingSettings = await prisma.meetingSetting.findFirst({
-            where: { id: 1 }
+          // Get default meeting settings from environment variables
+          const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || "google-meet";
+          const defaultTime = process.env.DEFAULT_MEETING_TIME || "21:00"; // format: "HH:MM"
+          const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || "60"); // minutes
+          
+          // Parse default time from HH:MM format
+          const [hours, minutes] = defaultTime.split(':').map(Number);
+          
+          // Create a default meeting for today
+          const newMeeting = await prisma.meeting.create({
+            data: {
+              meetingDate: today,
+              platform: defaultPlatform,
+              meetingLink: defaultPlatform === "zoom" 
+                ? `https://zoom.us/j/goalete-${Date.now().toString(36)}`
+                : `https://meet.google.com/goalete-${Date.now().toString(36)}`,
+              startTime: new Date(new Date().setHours(hours || 21, minutes || 0, 0, 0)),
+              endTime: new Date(new Date().setHours(hours || 21, minutes || 0, 0, 0).valueOf() + defaultDuration * 60000),
+              createdBy: "system",
+              isDefault: true,
+              meetingDesc: "Join us for a GOALETE Club session to learn how to achieve any goal in life.",
+              meetingTitle: "GOALETE Club Daily Session"
+            }
           });
           
-          if (!meetingSettings) {
-            console.error("Meeting settings not found");
-          } else {
-            platform = meetingSettings.platform;
-            meetingLink = meetingSettings.platform === "zoom" 
-              ? meetingSettings.zoomLink 
-              : meetingSettings.meetLink;
-          }
+          meetingLink = newMeeting.meetingLink;
+          platform = newMeeting.platform;
+          meetingStartTime = newMeeting.startTime;
+          meetingEndTime = newMeeting.endTime;
         }
         
+        // Send meeting invite if we have meeting details
         if (meetingLink) {
-          // Calculate meeting time for today (8:00 PM)
-          const meetingStartTime = new Date();
-          meetingStartTime.setHours(20, 0, 0, 0);
-          
-          const meetingEndTime = new Date(meetingStartTime);
-          meetingEndTime.setHours(21, 0, 0, 0); // 1 hour duration
-          
-          // Send meeting invite
           await sendMeetingInvite({
             recipient: {
               name: `${subscription.user.firstName} ${subscription.user.lastName}`,

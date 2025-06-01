@@ -22,9 +22,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const { subscriptionId, userId, isImmediate } = parsed.data;
-
-    // Get subscription details
+    const { subscriptionId, userId, isImmediate } = parsed.data;    // Get subscription details
     const subscription = await prisma.subscription.findUnique({
       where: { id: subscriptionId },
       include: { user: true }
@@ -34,43 +32,78 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Subscription not found" }, { status: 404 });
     }
 
-    // Get meeting settings
-    const meetingSettings = await prisma.meetingSetting.findFirst({
-      where: { id: 1 } // Assuming you have a default meeting setting
+    // Get today's meeting from the Meeting model
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayMeeting = await prisma.meeting.findFirst({
+      where: {
+        meetingDate: {
+          gte: new Date(today.setHours(0, 0, 0, 0)),
+          lt: new Date(today.setHours(23, 59, 59, 999))
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
     });
 
-    if (!meetingSettings) {
-      return NextResponse.json({ message: "Meeting settings not found" }, { status: 404 });
-    }    // Get the meeting link based on platform
-    const platform = meetingSettings.platform;
-    const meetingLink = platform === "zoom" 
-      ? meetingSettings.zoomLink 
-      : meetingSettings.meetLink;
-
-    if (!meetingLink) {
+    // If no meeting exists for today, create one
+    let meetingLink, platform, meetingStartTime, meetingEndTime, meetingTitle, meetingDesc;
+    
+    if (todayMeeting) {
+      meetingLink = todayMeeting.meetingLink;
+      platform = todayMeeting.platform;
+      meetingStartTime = todayMeeting.startTime;
+      meetingEndTime = todayMeeting.endTime;
+      meetingTitle = todayMeeting.meetingTitle;
+      meetingDesc = todayMeeting.meetingDesc || "Join us for a GOALETE Club session to learn how to achieve any goal in life.";    } else {
+      // Get default meeting settings from environment variables
+      const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || "google-meet";
+      const defaultTime = process.env.DEFAULT_MEETING_TIME || "21:00"; // format: "HH:MM"
+      const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || "60"); // minutes
+      
+      // Parse default time from HH:MM format
+      const [hours, minutes] = defaultTime.split(':').map(Number);
+      
+      // Create a default meeting for today
+      const newMeeting = await prisma.meeting.create({
+        data: {
+          meetingDate: today,
+          platform: defaultPlatform,
+          meetingLink: defaultPlatform === "zoom" 
+            ? `https://zoom.us/j/goalete-${Date.now().toString(36)}`
+            : `https://meet.google.com/goalete-${Date.now().toString(36)}`,
+          startTime: new Date(new Date().setHours(hours || 21, minutes || 0, 0, 0)),
+          endTime: new Date(new Date().setHours(hours || 21, minutes || 0, 0, 0).valueOf() + defaultDuration * 60000),
+          createdBy: "system",
+          isDefault: true,
+          meetingDesc: "Join us for a GOALETE Club session to learn how to achieve any goal in life.",
+          meetingTitle: "GOALETE Club Daily Session"
+        }
+      });
+      
+      meetingLink = newMeeting.meetingLink;
+      platform = newMeeting.platform;
+      meetingStartTime = newMeeting.startTime;
+      meetingEndTime = newMeeting.endTime;
+      meetingTitle = newMeeting.meetingTitle;
+      meetingDesc = newMeeting.meetingDesc || "Join us for a GOALETE Club session to learn how to achieve any goal in life.";
+    }    if (!meetingLink) {
       return NextResponse.json({ message: "Meeting link not available" }, { status: 400 });
     }
 
-    // Calculate meeting start and end times
-    const meetingDate = new Date(subscription.startDate);
-    // Set meeting time to 8:00 PM (20:00)
-    meetingDate.setHours(20, 0, 0, 0);
-    
-    const meetingEndDate = new Date(meetingDate);
-    // Set meeting duration to 1 hour
-    meetingEndDate.setHours(meetingEndDate.getHours() + 1);
-    
-    // Send the meeting invite with default values
+    // Send the meeting invite with meeting details
     await sendMeetingInvite({
       recipient: {
         name: `${subscription.user.firstName} ${subscription.user.lastName}`,
         email: subscription.user.email
       },
-      meetingTitle: "GOALETE Club Session", // Default title 
-      meetingDescription: "Join us for a GOALETE Club session to learn how to achieve any goal in life.",
+      meetingTitle: meetingTitle || "GOALETE Club Session", 
+      meetingDescription: meetingDesc || "Join us for a GOALETE Club session to learn how to achieve any goal in life.",
       meetingLink,
-      startTime: meetingDate,
-      endTime: meetingEndDate,
+      startTime: meetingStartTime,
+      endTime: meetingEndTime,
       platform: platform === "zoom" ? "Zoom" : "Google Meet"
     });
 
@@ -80,8 +113,8 @@ export async function POST(request: NextRequest) {
       details: {
         email: subscription.user.email,
         startDate: subscription.startDate,
-        meetingPlatform: meetingSettings.platform,
-        meetingTime: meetingDate.toISOString(),
+        meetingPlatform: platform,
+        meetingTime: meetingStartTime.toISOString(),
         isImmediate
       }
     }, { status: 200 });
