@@ -76,6 +76,7 @@ export function createCalendarEvent(options: {
   };
 }): string {
   const formatDate = (date: Date) => {
+    // Create date string in UTC format for iCalendar
     return date
       .toISOString()
       .replace(/-/g, '')
@@ -83,6 +84,7 @@ export function createCalendarEvent(options: {
       .split('.')[0] + 'Z';
   };
 
+  // Add IST timezone information
   const icsEvent = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -93,11 +95,20 @@ export function createCalendarEvent(options: {
     `DTSTART:${formatDate(options.startTime)}`,
     `DTEND:${formatDate(options.endTime)}`,
     `DTSTAMP:${formatDate(new Date())}`,
+    'X-MICROSOFT-CDO-TZID:India Standard Time', // Add explicit timezone identifier for Outlook
+    'BEGIN:VTIMEZONE',
+    'TZID:Asia/Kolkata',
+    'BEGIN:STANDARD',
+    'DTSTART:20230101T000000',
+    'TZOFFSETFROM:+0530',
+    'TZOFFSETTO:+0530',
+    'END:STANDARD',
+    'END:VTIMEZONE',
     `ORGANIZER;CN=${options.organizer.name}:mailto:${options.organizer.email}`,
     `UID:${Math.random().toString(36).substring(2)}@goalete.com`,
     `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${options.attendee.name}:mailto:${options.attendee.email}`,
-    `SUMMARY:${options.summary}`,
-    `DESCRIPTION:${options.description}`,
+    `SUMMARY:${options.summary} (IST)`,
+    `DESCRIPTION:${options.description}\\n\\nNote: All times are in Indian Standard Time (IST).`,
     `LOCATION:${options.location}`,
     'SEQUENCE:0',
     'STATUS:CONFIRMED',
@@ -144,23 +155,24 @@ export async function sendMeetingInvite({
     },
     attendee: recipient
   });
-
   // Format date and time for display
   const dateOptions: Intl.DateTimeFormatOptions = { 
     weekday: 'long', 
     year: 'numeric', 
     month: 'long', 
-    day: 'numeric' 
+    day: 'numeric',
+    timeZone: 'Asia/Kolkata' // Set timezone to IST
   };
   const timeOptions: Intl.DateTimeFormatOptions = { 
     hour: '2-digit', 
     minute: '2-digit', 
-    hour12: true 
+    hour12: true,
+    timeZone: 'Asia/Kolkata' // Set timezone to IST
   };
   
-  const formattedDate = startTime.toLocaleDateString('en-US', dateOptions);
-  const formattedStartTime = startTime.toLocaleTimeString('en-US', timeOptions);
-  const formattedEndTime = endTime.toLocaleTimeString('en-US', timeOptions);
+  const formattedDate = startTime.toLocaleDateString('en-IN', dateOptions);
+  const formattedStartTime = startTime.toLocaleTimeString('en-IN', timeOptions);
+  const formattedEndTime = endTime.toLocaleTimeString('en-IN', timeOptions);
 
   // Prepare email content with responsive design
   const htmlContent = `
@@ -192,10 +204,9 @@ export async function sendMeetingInvite({
       <p>Hello ${recipient.name},</p>
       
       <p>${meetingDescription}</p>
-      
-      <div class="meeting-details">
+        <div class="meeting-details">
         <p><strong>Date:</strong> ${formattedDate}</p>
-        <p class="meeting-time"><strong>Time:</strong> ${formattedStartTime} - ${formattedEndTime}</p>
+        <p class="meeting-time"><strong>Time (IST):</strong> ${formattedStartTime} - ${formattedEndTime}</p>
         <p><strong>Platform:</strong> ${platform}</p>
       </div>
       
@@ -241,7 +252,8 @@ export async function sendWelcomeEmail({
   planType,
   startDate,
   endDate,
-  amount
+  amount,
+  paymentId
 }: {
   recipient: {
     name: string;
@@ -251,16 +263,17 @@ export async function sendWelcomeEmail({
   startDate: Date;
   endDate: Date;
   amount: number; // This should now be the price in rupees, not paise
-}): Promise<boolean> {
-  // Format dates for display
+  paymentId?: string; // Payment reference ID, optional
+}): Promise<boolean> {// Format dates for display
   const dateOptions: Intl.DateTimeFormatOptions = { 
     year: 'numeric', 
     month: 'long', 
-    day: 'numeric' 
+    day: 'numeric',
+    timeZone: 'Asia/Kolkata' // Set timezone to IST
   };
   
-  const formattedStartDate = startDate.toLocaleDateString('en-US', dateOptions);
-  const formattedEndDate = endDate.toLocaleDateString('en-US', dateOptions);
+  const formattedStartDate = startDate.toLocaleDateString('en-IN', dateOptions);
+  const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);
   
   // Display amount in INR
   const formattedAmount = `₹${amount.toFixed(2)}`;
@@ -287,29 +300,26 @@ export async function sendWelcomeEmail({
         .footer { margin-top: 40px; font-size: 14px; color: #7f8c8d; text-align: center; }
       </style>
     </head>
-    <body>
-      <div class="header">
-        <img src="https://i.imgur.com/YourLogoURL.png" alt="GOALETE Club" class="logo">
+    <body>      <div class="header">
+        <img src="https://goaletemeet.vercel.app/goalete_logo.jpeg" alt="GOALETE Club" class="logo">
         <h1>Welcome to GOALETE Club!</h1>
         <p>Your journey to achieving your goals starts now</p>
       </div>
       
       <p>Hello ${recipient.name},</p>
       
-      <p>Thank you for joining GOALETE Club! Your payment has been successfully processed, and your subscription is now active.</p>
-      
-      <div class="plan-details">
+      <p>Thank you for joining GOALETE Club! Your payment has been successfully processed, and your subscription is now active.</p>      <div class="plan-details">
         <p><strong>Plan:</strong> ${planDisplay}</p>
         <p><strong>Amount Paid:</strong> ${formattedAmount}</p>
+        ${paymentId ? `<p><strong>Payment ID:</strong> ${paymentId}</p>` : ''}
         <p><strong>Start Date:</strong> ${formattedStartDate}</p>
         <p><strong>End Date:</strong> ${formattedEndDate}</p>
       </div>
-      
-      <div class="instructions">
+        <div class="instructions">
         <p><strong>Important Instructions:</strong></p>
-        <p>1. You will receive a meeting invitation email <span class="highlight">every day at 8:00 AM</span> during your subscription period.</p>
+        <p>1. You will receive a meeting invitation email <span class="highlight">every day at 8:00 AM (IST)</span> during your subscription period.</p>
         <p>2. The invitation will contain the meeting link and details for that day's session.</p>
-        <p>3. Sessions are held daily at <span class="highlight">8:00 PM (IST)</span>.</p>
+        <p>3. Sessions are held daily at <span class="highlight">9:00 PM (IST)</span>.</p>
         <p>4. Please ensure you join the session on time for the best experience.</p>
       </div>
       

@@ -1,11 +1,17 @@
 import prisma from './prisma';
 
-// Format date helper function for DD:MM:YY format
+// Format date helper function for DD:MM:YY format in IST timezone
 const formatDateDDMMYY = (date: Date): string => {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear().toString().slice(2);
-  return `${day}/${month}/${year}`;
+  // Convert to IST timezone (UTC+5:30)
+  const options: Intl.DateTimeFormatOptions = { 
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit'
+  };
+  
+  const formatter = new Intl.DateTimeFormat('en-IN', options);
+  return formatter.format(date).replace(/\-/g, '/');
 };
 
 /**

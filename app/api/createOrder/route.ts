@@ -208,7 +208,8 @@ export async function PATCH(request: NextRequest) {
         planType: subscription.planType,
         startDate: subscription.startDate,
         endDate: subscription.endDate,
-        amount: parseFloat(subscription.price.toString())
+        amount: parseFloat(subscription.price.toString()),
+        paymentId: subscription.paymentRef || undefined
       });
       
       // Check if the subscription starts today
