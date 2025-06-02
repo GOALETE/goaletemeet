@@ -166,13 +166,13 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       setError('Error fetching statistics');
     }
   };
-
   const fetchUpcomingMeetings = async () => {
     try {
       const adminPasscode = sessionStorage.getItem('adminPasscode');
       if (!adminPasscode) return;
       
-      const today = new Date();
+      // Get today's date in IST
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
       const startDate = format(today, 'yyyy-MM-dd');
       
       const response = await fetch(`/api/admin/meetings?startDate=${startDate}`, {
@@ -191,11 +191,10 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       console.error('Error fetching upcoming meetings:', error);
     }
   };
-  
-  const fetchUpcomingRegistrations = async () => {
+    const fetchUpcomingRegistrations = async () => {
     try {
-      // Get active subscriptions for upcoming dates
-      const today = new Date();
+      // Get active subscriptions for upcoming dates (in IST)
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
       const startDateStr = format(today, 'yyyy-MM-dd');
       
       // Use the existing API to get upcoming registrations
@@ -508,8 +507,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {upcomingMeetings.slice(0, 3).map(meeting => (
                     <div key={meeting.id} className="bg-gray-50 p-3 rounded border">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="font-semibold">{format(new Date(meeting.meetingDate), 'MMM dd, yyyy')}</span>
+                      <div className="flex justify-between items-start mb-2">                        <span className="font-semibold">{format(new Date(meeting.meetingDate), 'MMM dd, yyyy')} (IST)</span>
                         <span className={`text-xs px-2 py-1 rounded ${meeting.platform === 'google-meet' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
                           {meeting.platform === 'google-meet' ? 'Google Meet' : 'Zoom'}
                         </span>
@@ -578,11 +576,10 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-500">{user.plan}</div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.start ? format(new Date(user.start), 'yyyy-MM-dd') : 'N/A'}</div>
+                        <td className="px-4 py-3 whitespace-nowrap">                          <div className="text-sm text-gray-500">{user.start ? format(new Date(user.start), 'yyyy-MM-dd') + ' (IST)' : 'N/A'}</div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.end ? format(new Date(user.end), 'yyyy-MM-dd') : 'N/A'}</div>
+                          <div className="text-sm text-gray-500">{user.end ? format(new Date(user.end), 'yyyy-MM-dd') + ' (IST)' : 'N/A'}</div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                           <button 

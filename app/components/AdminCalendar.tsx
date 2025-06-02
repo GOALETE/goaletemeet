@@ -20,7 +20,7 @@ type Meeting = {
 };
 
 export default function AdminCalendar() {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })));
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(false);

@@ -51,8 +51,15 @@ export async function POST(request: NextRequest) {
     }    
     const { amount, currency, planType, duration, startDate, userId } = parsed.data;
     
-    // Determine start and end dates based on duration
-    let subscriptionStartDate: Date = startDate ? new Date(startDate) : new Date();
+    // Determine start and end dates based on duration using IST
+    let subscriptionStartDate: Date;
+    if (startDate) {
+      subscriptionStartDate = new Date(startDate);
+    } else {
+      // Use current date in IST
+      subscriptionStartDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    }
+    
     let subscriptionEndDate: Date = new Date(subscriptionStartDate);
     
     // Calculate end date by adding the duration in days
@@ -212,8 +219,8 @@ export async function PATCH(request: NextRequest) {
         paymentId: subscription.paymentRef || undefined
       });
       
-      // Check if the subscription starts today
-      const today = new Date();
+      // Check if the subscription starts today (using IST)
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
       today.setHours(0, 0, 0, 0);
       
       const subscriptionStartDate = new Date(subscription.startDate);

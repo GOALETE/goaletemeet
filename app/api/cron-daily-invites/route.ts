@@ -5,13 +5,12 @@ import { getOrCreateDailyMeetingLink } from "@/lib/subscription";
 
 // This function will be triggered by a CRON job (e.g., using Vercel Cron)
 export async function GET(request: NextRequest) {
-  try {
-    // Get current date
-    const today = new Date();
+  try {    // Get current date in IST
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     today.setHours(0, 0, 0, 0); // Set to start of day
     
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);    // Get or create today's meeting
+    tomorrow.setDate(tomorrow.getDate() + 1);// Get or create today's meeting
     const todayMeeting = await getOrCreateDailyMeetingLink();
 
     if (!todayMeeting) {

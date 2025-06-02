@@ -45,10 +45,11 @@ export default function RegistrationForm() {
     lastName: '',
     email: '',
     phone: ''
-  });
-  // Set today's date as the default start date when component mounts
+  });  // Set today's date as the default start date when component mounts (using IST timezone)
   useEffect(() => {
-    setStartDate(new Date().toISOString().split('T')[0]);
+    // Use IST timezone for date calculations
+    const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    setStartDate(istDate.toISOString().split('T')[0]);
   }, []);
 
   // Check for subscription conflicts when user changes plan or date
@@ -58,13 +59,14 @@ export default function RegistrationForm() {
       checkSubscriptionConflict();
     }
   }, [email, plan, startDate]);
-
-  // Helper function to check if a date is today
+  // Helper function to check if a date is today in IST timezone
   const isToday = (dateString: string): boolean => {
     if (!dateString) return false;
-    const today = new Date().toISOString().split('T')[0];
+    // Use IST timezone for the comparison
+    const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const today = istDate.toISOString().split('T')[0];
     return dateString === today;
-  };  // Update duration when plan changes
+  };// Update duration when plan changes
   const handlePlanChange = (newPlan: "single" | "monthly") => {
     setPlan(newPlan);
     setDuration(PLAN_PRICING[newPlan].duration);
@@ -91,9 +93,9 @@ export default function RegistrationForm() {
       ...fieldErrors,
       email: ''
     });
-    
-    try {
-      // Calculate end date based on plan duration
+      try {
+      // Calculate end date based on plan duration (ensure we're working in IST context)
+      // Since startDate already comes from an input with IST date, we just need to create proper Date objects
       const start = new Date(startDate);
       const end = new Date(startDate);
       end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
@@ -114,14 +116,20 @@ export default function RegistrationForm() {
       if (!data.canSubscribe) {
         setErrorMessage(data.message);
         setSuccessMessage(null);
-      } else {
-        // Set success message when user can subscribe
+      } else {        // Set success message when user can subscribe
         const planText = plan === 'single' ? 'single session' : 'monthly plan';
-        const dateText = plan === 'single' ? 
-          `on ${new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}` : 
-          `starting ${new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`;
+        const dateOptions: Intl.DateTimeFormatOptions = { 
+          weekday: 'long', 
+          month: 'short', 
+          day: 'numeric',
+          timeZone: 'Asia/Kolkata' // Set timezone to IST
+        };
         
-        setSuccessMessage(`You can subscribe to the ${planText} ${dateText}!`);
+        const dateText = plan === 'single' ? 
+          `on ${new Date(startDate).toLocaleDateString('en-IN', dateOptions)}` : 
+          `starting ${new Date(startDate).toLocaleDateString('en-IN', dateOptions)}`;
+        
+        setSuccessMessage(`You can subscribe to the ${planText} ${dateText} (IST)!`);
         setErrorMessage(null);
       }
     } catch (error) {
@@ -173,12 +181,11 @@ export default function RegistrationForm() {
       source,
       reference,
     });    
-    
-    try {
+      try {
       const price = PLAN_PRICING[plan].amount;
       
-      // Double-check subscription availability
-      const start = new Date(startDate);
+      // Double-check subscription availability (using IST dates)
+      const start = new Date(startDate); // startDate from form input is already in IST
       const end = new Date(startDate);
       end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
       
@@ -488,8 +495,7 @@ export default function RegistrationForm() {
           {fieldErrors.phone && (
             <p className="text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
           )}
-        </div>        
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+        </div>          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <p className="font-semibold text-gray-700 mb-2">Subscription Plan</p>
           <div className="flex flex-col sm:flex-row gap-4 w-full">
             <label className="flex flex-col items-start w-full sm:w-1/2 cursor-pointer gap-1">
@@ -529,22 +535,20 @@ export default function RegistrationForm() {
               <span className="text-xs text-gray-400 font-medium pr-6">({PLAN_PRICING.monthly.display})</span>
             </label>
           </div>
-        </div>        
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+        </div>          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <label className="block mb-1 font-medium text-gray-700">
-            {plan === "single" ? "Session Date" : "Start Date"}
+            {plan === "single" ? "Session Date" : "Start Date"} <span className="text-xs text-gray-500">(IST)</span>
           </label>          <input            type="date"
             value={startDate}
             onChange={(e) => {
               setStartDate(e.target.value);
               setErrorMessage(null);
               setSuccessMessage(null);
-              if (email && email.includes('@')) {
-                // Set timeout to avoid too many API calls while user is selecting
+              if (email && email.includes('@')) {                // Set timeout to avoid too many API calls while user is selecting
                 setTimeout(() => checkSubscriptionConflict(), 500);
               }
             }}
-            min={new Date().toISOString().split('T')[0]} // Prevent selecting dates before today
+            min={new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).toISOString().split('T')[0]} // Prevent selecting dates before today (in IST)
             className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-white text-gray-900"
             required
           />
@@ -584,22 +588,21 @@ export default function RegistrationForm() {
               )}
             </>
           )}
-          </div>        
-          {errorMessage && (
+          </div>          {errorMessage && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
             <p className="font-medium text-sm">{errorMessage}</p>
+            <p className="text-xs text-gray-500 mt-1">All dates are in Indian Standard Time (IST).</p>
             {isCheckingSubscription && (
               <div className="mt-2 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-700"></div>
               </div>
             )}
           </div>
-        )}
-
-        {successMessage && !errorMessage && !isCheckingSubscription && (
+        )}{successMessage && !errorMessage && !isCheckingSubscription && (
           <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
             <p className="font-medium text-sm">{successMessage}</p>
             <p className="text-xs text-green-600 mt-1">You're good to go! Click "Subscribe Now" to continue.</p>
+            <p className="text-xs text-gray-500 mt-1">All dates and times are in Indian Standard Time (IST).</p>
           </div>
         )}
 
@@ -608,15 +611,17 @@ export default function RegistrationForm() {
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
             <p className="font-medium text-sm">Checking subscription availability...</p>
           </div>
-        )}
-
-        <button
+        )}        <button
           type="submit"
           className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl shadow text-lg transition-all duration-200 tracking-wide mt-2 border border-gray-700"
           disabled={isLoading}
         >
-          {isLoading ? "Processing..." : "Suscribe Now"}
+          {isLoading ? "Processing..." : "Subscribe Now"}
         </button>
+        
+        <div className="text-center text-xs text-gray-500 mt-4">
+          All dates and times are in Indian Standard Time (IST / UTC+5:30).
+        </div>
       </form>
     </div>
   );

@@ -104,8 +104,7 @@ export function createCalendarEvent(options: {
     'TZOFFSETTO:+0530',
     'END:STANDARD',
     'END:VTIMEZONE',
-    `ORGANIZER;CN=${options.organizer.name}:mailto:${options.organizer.email}`,
-    `UID:${Math.random().toString(36).substring(2)}@goalete.com`,
+    `ORGANIZER;CN=${options.organizer.name}:mailto:${options.organizer.email}`,    `UID:${Math.random().toString(36).substring(2)}@goalete.com`,
     `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${options.attendee.name}:mailto:${options.attendee.email}`,
     `SUMMARY:${options.summary} (IST)`,
     `DESCRIPTION:${options.description}\\n\\nNote: All times are in Indian Standard Time (IST).`,
@@ -193,10 +192,9 @@ export async function sendMeetingInvite({
         .meeting-link:hover { background-color: #2980b9; }
         .footer { margin-top: 40px; font-size: 14px; color: #7f8c8d; text-align: center; }
       </style>
-    </head>
-    <body>
+    </head>    <body>
       <div class="header">
-        <img src="https://i.imgur.com/YourLogoURL.png" alt="GOALETE Club" class="logo">
+        <img src="https://goaletemeet.vercel.app/goalete_logo.jpeg" alt="GOALETE Club" class="logo">
         <h1>${meetingTitle}</h1>
         <p>How to Achieve Any Goal in Life</p>
       </div>

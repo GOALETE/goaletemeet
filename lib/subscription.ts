@@ -21,8 +21,8 @@ const formatDateDDMMYY = (date: Date): string => {
  */
 export async function checkActiveSubscription(email: string) {
   try {
-    // Get current date
-    const today = new Date();
+    // Get current date in IST
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     
     // Find user by email
     const user = await prisma.user.findUnique({
@@ -271,7 +271,8 @@ export async function canUserSubscribe(email: string, planType?: string, startDa
  */
 export async function getTodayActiveSubscriptions() {
   try {
-    const today = new Date();
+    // Get today's date in IST
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     today.setHours(0, 0, 0, 0);
     
     const activeSubscriptions = await prisma.subscription.findMany({
@@ -301,15 +302,16 @@ export async function getTodayActiveSubscriptions() {
  */
 export async function getOrCreateDailyMeetingLink() {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Get today's date in IST
+    const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    istDate.setHours(0, 0, 0, 0);
     
-    // Check if we already have a meeting for today
+    // Check if we already have a meeting for today (in IST)
     const existingMeeting = await prisma.meeting.findFirst({
       where: {
         meetingDate: {
-          gte: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0),
-          lt: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 0, 0, 0)
+          gte: new Date(istDate.getFullYear(), istDate.getMonth(), istDate.getDate(), 0, 0, 0),
+          lt: new Date(istDate.getFullYear(), istDate.getMonth(), istDate.getDate() + 1, 0, 0, 0)
         }
       }
     });
@@ -327,23 +329,25 @@ export async function getOrCreateDailyMeetingLink() {
     const platform = defaultPlatform;
     const meetingLink = platform === "zoom" 
       ? `https://zoom.us/j/goalete-${Date.now().toString(36)}`
-      : `https://meet.google.com/goalete-${Date.now().toString(36)}`;
-    
-    // Parse default time from HH:MM format
+      : `https://meet.google.com/goalete-${Date.now().toString(36)}`;    // Parse default time from HH:MM format
     const [hours, minutes] = defaultTime.split(':').map(Number);
     
-    // Create start time using default time
-    const startTime = new Date(today);
-    startTime.setHours(hours || 21, minutes || 0, 0, 0);
+    // Create start time using default time in IST timezone
+    // First create a date string in ISO format with IST offset (+05:30)
+    const todayStr = istDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+    const istDateStr = `${todayStr}T${timeStr}+05:30`; // Format: YYYY-MM-DDThh:mm:ss+05:30
+    
+    // Parse the IST date string to create a Date object
+    const startTime = new Date(istDateStr);
     
     // Create end time based on duration
     const endTime = new Date(startTime);
     endTime.setMinutes(startTime.getMinutes() + defaultDuration);
-    
-    // Create the meeting record
+      // Create the meeting record
     const meeting = await prisma.meeting.create({
       data: {
-        meetingDate: today,
+        meetingDate: istDate,
         meetingLink,
         platform,
         startTime,
