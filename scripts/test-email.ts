@@ -5,6 +5,7 @@
  * Run with: npx tsx scripts/test-email.ts
  */
 import { sendWelcomeEmail, sendMeetingInvite } from '../lib/email';
+import { PLAN_PRICING, toPaise } from '../lib/pricing';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -28,7 +29,7 @@ const testPlan = 'monthly';
 const testStartDate = new Date();
 const testEndDate = new Date();
 testEndDate.setDate(testEndDate.getDate() + 30); // 30 days from now
-const testAmount = 499900; // ₹4999 in paise
+const testAmount = toPaise(PLAN_PRICING.monthly.amount); // Convert INR to paise
 
 // Test meeting parameters
 const meetingStartTime = new Date();

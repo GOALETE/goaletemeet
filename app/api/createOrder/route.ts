@@ -3,6 +3,7 @@ import Razorpay from "razorpay";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { canUserSubscribeForDates, getOrCreateDailyMeetingLink } from "@/lib/subscription";
+import { toPaise, fromPaise } from "@/lib/pricing";
 
 // Get Razorpay keys from environment variables
 const key_id = process.env.RAZORPAY_KEY_ID;
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
         paymentStatus: "pending",
         status: "inactive",
         duration: duration,
-        price: Math.round(amount / 100), // Convert to rupees
+        price: fromPaise(amount), // Convert paise to rupees using helper function
     };
     
     // create subscription `in DB

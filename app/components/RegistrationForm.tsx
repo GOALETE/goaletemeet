@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Script from "next/script";
+import { PLAN_PRICING, toPaise } from "@/lib/pricing";
 
 // Declare the Razorpay interface
 declare global {
@@ -8,20 +9,6 @@ declare global {
     Razorpay: any;
   }
 }
-
-// Centralized pricing configuration
-const PLAN_PRICING = {
-  single: {
-    amount: 499,
-    display: "Rs. 499",
-    duration: 1 // 1 day for single session
-  },
-  monthly: {
-    amount: 4999,
-    display: "Rs. 4999",
-    duration: 30 // 30 days for monthly plan
-  }
-};
 
 export default function RegistrationForm() {  
   const [plan, setPlan] = useState<"single" | "monthly">("single");
@@ -180,8 +167,7 @@ export default function RegistrationForm() {
       duration,
       source,
       reference,
-    });    
-      try {
+    });        try {
       const price = PLAN_PRICING[plan].amount;
       
       // Double-check subscription availability (using IST dates)
@@ -227,12 +213,12 @@ export default function RegistrationForm() {
       
       const userId = userData.userId;
       
-      // 2. Create order/subscription (pending)
+      // 2. Create order/subscription (pending)      
       const orderRes = await fetch("/api/createOrder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: price * 100,
+          amount: toPaise(price), // Convert INR to paise (smallest currency unit)
           currency: "INR",
           planType: plan,
           duration: PLAN_PRICING[plan].duration,
@@ -265,11 +251,9 @@ export default function RegistrationForm() {
         alert("Payment gateway is still loading. Please wait a moment and try again.");
         setIsLoading(false);
         return;
-      }
-
-      const options = {
+      }      const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: price * 100,
+        amount: toPaise(price),
         currency: "INR",
         name: "GOALETE CLUB",
         description: `Payment for ${plan} plan`,
