@@ -67,15 +67,23 @@ function useToast() {
 }
 
 export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'sessionUsers'>('users');
+  const [subscriptionView, setSubscriptionView] = useState<'all' | 'thisWeek' | 'upcoming'>('all');
   const [users, setUsers] = useState<UserData[]>(initialUsers);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>(initialUsers);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [selectedUser, setSelectedUser] = useState<UserWithSubscriptions | null>(null);
+  const [error, setError] = useState('');  const [selectedUser, setSelectedUser] = useState<UserWithSubscriptions | null>(null);
   const [showUserDetail, setShowUserDetail] = useState(false);
   const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
   const [upcomingRegistrations, setUpcomingRegistrations] = useState<any[]>([]);
+  const [subscriptionUsers, setSubscriptionUsers] = useState<UserData[]>([]);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  const [sessionDate, setSessionDate] = useState(() => {
+    const today = new Date();
+    return format(today, 'yyyy-MM-dd');
+  });
+  const [sessionUsers, setSessionUsers] = useState<any[]>([]);
+  const [sessionUsersLoading, setSessionUsersLoading] = useState(false);
   
   // Filter states - simplified
   const [filterState, setFilterState] = useState({
@@ -109,7 +117,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   const [planStats, setPlanStats] = useState<any[]>([]);
 
   const { toast, showToast } = useToast();
-
   useEffect(() => {
     fetchUsers();
     fetchStatistics();
@@ -129,6 +136,10 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       fetchUsers();
     } else if (activeTab === 'upcoming') {
       fetchUpcomingRegistrations();
+    } else if (activeTab === 'subscriptions') {
+      fetchSubscriptionData(subscriptionView);
+    } else if (activeTab === 'sessionUsers') {
+      fetchSessionUsers(sessionDate);
     }
   }, [
     activeTab,
@@ -143,7 +154,9 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     sortBy, 
     sortOrder, 
     page, 
-    pageSize
+    pageSize,
+    subscriptionView,
+    sessionDate
   ]);
 
   const fetchStatistics = async () => {
@@ -306,7 +319,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     setShowUserDetail(false);
     setSelectedUser(null);
   };
-
   // Export options
   const downloadCSV = (all: boolean = false) => {
     // Build query parameters based on current filters
@@ -346,6 +358,67 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     }
     window.location.href = `/api/admin/export?${queryParams.toString()}`;
   };
+    // Download entire database export filtered by active and paid
+  const downloadFullDBExport = () => {
+    const queryParams = new URLSearchParams();
+    queryParams.set('status', 'active');
+    queryParams.set('paymentStatus', 'completed');
+    queryParams.set('fullExport', 'true');
+    window.location.href = `/api/admin/export?${queryParams.toString()}`;
+  };
+  
+  // Export current subscription view
+  const exportSubscriptionView = () => {
+    const queryParams = new URLSearchParams();
+    queryParams.set('viewType', subscriptionView);
+    
+    if (subscriptionView === 'thisWeek') {
+      const today = new Date();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      queryParams.set('startDate', format(startOfWeek, 'yyyy-MM-dd'));
+      queryParams.set('endDate', format(endOfWeek, 'yyyy-MM-dd'));
+    } else if (subscriptionView === 'upcoming') {
+      const today = new Date();
+      queryParams.set('startDate', format(today, 'yyyy-MM-dd'));
+    }
+    
+    window.location.href = `/api/admin/export?${queryParams.toString()}&status=active&paymentStatus=completed`;
+  };
+    // Fetch subscription data based on view type
+  const fetchSubscriptionData = async (viewType: 'all' | 'thisWeek' | 'upcoming') => {
+    setSubscriptionsLoading(true);
+    try {
+      const queryParams = new URLSearchParams();
+      queryParams.set('viewType', viewType);
+      
+      if (viewType === 'thisWeek') {
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        queryParams.set('startDate', format(startOfWeek, 'yyyy-MM-dd'));
+        queryParams.set('endDate', format(endOfWeek, 'yyyy-MM-dd'));
+      } else if (viewType === 'upcoming') {
+        const today = new Date();
+        queryParams.set('startDate', format(today, 'yyyy-MM-dd'));
+      }
+      
+      const response = await fetch(`/api/admin/subscriptions?${queryParams.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch subscription data');
+      
+      const data = await response.json();
+      setSubscriptionUsers(data.users);
+      setRevenue(data.revenue); // Update revenue based on the current view
+      setSubscriptionsLoading(false);
+    } catch (error) {
+      console.error('Error fetching subscription data:', error);
+      setSubscriptionsLoading(false);
+    }
+  };
 
   // Clear all filters
   const clearFilters = () => {
@@ -379,6 +452,27 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     setPage(1);
   };
 
+  // Fetch users for a given session date
+  const fetchSessionUsers = async (date: string) => {
+    setSessionUsersLoading(true);
+    try {
+      const response = await fetch(`/api/admin/session-users?date=${date}`);
+      if (!response.ok) throw new Error('Failed to fetch session users');
+      const data = await response.json();
+      setSessionUsers(data.users);
+    } catch (error) {
+      setSessionUsers([]);
+    }
+    setSessionUsersLoading(false);
+  };
+
+  // Fetch users for today on mount or when sessionDate changes
+  useEffect(() => {
+    if (activeTab === 'sessionUsers') {
+      fetchSessionUsers(sessionDate);
+    }
+  }, [activeTab, sessionDate]);
+
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Toast notification */}
@@ -408,8 +502,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
           </div>
         </div>
       </div>
-      
-      {/* Tab Navigation */}
+        {/* Tab Navigation */}
       <div className="bg-white border-b border-gray-200">
         <div className="flex">
           <button
@@ -434,6 +527,16 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
           </button>
           <button
             className={`px-4 py-2 font-medium ${
+              activeTab === 'subscriptions'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveTab('subscriptions')}
+          >
+            Subscriptions Dashboard
+          </button>
+          <button
+            className={`px-4 py-2 font-medium ${
               activeTab === 'calendar'
                 ? 'border-b-2 border-blue-500 text-blue-600'
                 : 'text-gray-500 hover:text-gray-700'
@@ -441,6 +544,16 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             onClick={() => setActiveTab('calendar')}
           >
             Meeting Calendar
+          </button>
+          <button
+            className={`px-4 py-2 font-medium ${
+              activeTab === 'sessionUsers'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveTab('sessionUsers')}
+          >
+            Session Users
           </button>
         </div>
       </div>
@@ -490,9 +603,172 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
           </div>
         </>
       )}
-      
-      {activeTab === 'calendar' && (
+        {activeTab === 'calendar' && (
         <AdminCalendar />
+      )}
+      
+      {activeTab === 'subscriptions' && (
+        <div className="p-4">
+          <div className="bg-white p-4 rounded shadow mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Subscriptions Dashboard</h2>              <div className="flex space-x-2">
+                <button
+                  onClick={() => downloadFullDBExport()}
+                  className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+                >
+                  Export All Active Paid Data
+                </button>
+                <button
+                  onClick={() => exportSubscriptionView()}
+                  className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                >
+                  Export Current View
+                </button>
+              </div>
+            </div>
+            
+            {/* View Options */}
+            <div className="flex mb-4 border-b border-gray-200 pb-2">
+              <button
+                className={`px-4 py-2 font-medium ${
+                  subscriptionView === 'all'
+                    ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-500'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+                onClick={() => setSubscriptionView('all')}
+              >
+                All Subscriptions
+              </button>
+              <button
+                className={`px-4 py-2 font-medium ${
+                  subscriptionView === 'thisWeek'
+                    ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-500'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+                onClick={() => setSubscriptionView('thisWeek')}
+              >
+                This Week
+              </button>
+              <button
+                className={`px-4 py-2 font-medium ${
+                  subscriptionView === 'upcoming'
+                    ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-500'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+                onClick={() => setSubscriptionView('upcoming')}
+              >
+                Upcoming
+              </button>
+            </div>
+              {/* Revenue Display */}
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-4 rounded border border-gray-200 shadow-sm">
+                <h3 className="text-lg font-medium mb-2">Revenue Summary</h3>
+                <div className="text-3xl font-bold text-green-600 mb-1">₹{revenue.toLocaleString('en-IN')}</div>
+                <p className="text-sm text-gray-500">
+                  {subscriptionView === 'all' && 'Total revenue from all completed payments'}
+                  {subscriptionView === 'thisWeek' && 'Revenue from this week\'s subscriptions'}
+                  {subscriptionView === 'upcoming' && 'Revenue from upcoming subscriptions'}
+                </p>
+              </div>
+              <div className="bg-white p-4 rounded border border-gray-200 shadow-sm">
+                <h3 className="text-lg font-medium mb-2">Subscription Count</h3>
+                <div className="text-3xl font-bold text-blue-600 mb-1">{subscriptionUsers.length}</div>
+                <p className="text-sm text-gray-500">
+                  {subscriptionView === 'all' && 'Total active subscriptions'}
+                  {subscriptionView === 'thisWeek' && 'Subscriptions this week'}
+                  {subscriptionView === 'upcoming' && 'Upcoming subscriptions'}
+                </p>
+              </div>
+              <div className="bg-white p-4 rounded border border-gray-200 shadow-sm">
+                <h3 className="text-lg font-medium mb-2">Average Value</h3>
+                <div className="text-3xl font-bold text-purple-600 mb-1">
+                  ₹{subscriptionUsers.length > 0 
+                    ? Math.round(revenue / subscriptionUsers.length).toLocaleString('en-IN') 
+                    : 0}
+                </div>
+                <p className="text-sm text-gray-500">Average revenue per subscription</p>
+              </div>
+            </div>
+            
+            {/* Subscriptions Table */}
+            <div className="overflow-x-auto">
+              <h3 className="text-lg font-medium mb-2">
+                {subscriptionView === 'all' && 'All Active Subscriptions'}
+                {subscriptionView === 'thisWeek' && 'This Week\'s Subscriptions'}
+                {subscriptionView === 'upcoming' && 'Upcoming Subscriptions'}
+              </h3>
+              {subscriptionsLoading ? (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                </div>
+              ) : subscriptionUsers.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {subscriptionUsers.map((user) => (
+                      <tr key={user.id} className="hover:bg-gray-50">                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{user.email}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{user.phone || 'N/A'}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            user.plan?.includes('monthly') ? 'bg-blue-100 text-blue-800' : 
+                            user.plan?.includes('single') ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {user.plan}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{user.start ? format(new Date(user.start), 'yyyy-MM-dd') : 'N/A'}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{user.end ? format(new Date(user.end), 'yyyy-MM-dd') : 'N/A'}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {user.start && user.end 
+                              ? Math.ceil((new Date(user.end).getTime() - new Date(user.start).getTime()) / (1000 * 60 * 60 * 24)) 
+                              : 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">₹{user.price || 'N/A'}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                          <button 
+                            onClick={() => handleRowClick(user.id)} 
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-gray-500">No subscription data found.</p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
       
       {activeTab === 'upcoming' && (
@@ -597,6 +873,62 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
                 <p className="text-sm text-gray-500">No upcoming registrations found.</p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      
+      {activeTab === 'sessionUsers' && (
+        <div className="p-4">
+          <div className="bg-white p-4 rounded shadow mb-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-2">
+              <h2 className="text-xl font-semibold">Subscribed Users for Session</h2>
+              <div>
+                <label className="mr-2 font-medium">Select Date:</label>
+                <input
+                  type="date"
+                  value={sessionDate}
+                  onChange={e => setSessionDate(e.target.value)}
+                  className="border rounded px-2 py-1"
+                  max={format(new Date(), 'yyyy-MM-dd')}
+                />
+              </div>
+            </div>
+            {sessionUsersLoading ? (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              </div>
+            ) : sessionUsers.length > 0 ? (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sessionUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{user.phone || 'N/A'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{user.plan || 'N/A'}</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-sm text-gray-500">No users found for this session.</p>
+            )}
           </div>
         </div>
       )}

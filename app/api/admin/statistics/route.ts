@@ -18,9 +18,7 @@ export async function GET(req: NextRequest) {
     // Format users for admin
     const formattedUsers = users.map(user => formatUserForAdmin(user as any));
     // Calculate statistics
-    const stats = calculateSubscriptionStats(formattedUsers);
-
-    // Revenue and payment status breakdown
+    const stats = calculateSubscriptionStats(formattedUsers);    // Revenue and payment status breakdown
     const allSubscriptions = await prisma.subscription.findMany();
     const paymentStats = allSubscriptions.reduce((acc, sub) => {
       const status = sub.paymentStatus;
@@ -32,8 +30,9 @@ export async function GET(req: NextRequest) {
       acc[status].totalDuration += sub.duration || 0;
       return acc;
     }, {} as Record<string, { count: number; totalPrice: number; totalDuration: number }>);
+    // Calculate revenue from all successful paid statuses only
     const revenue = allSubscriptions
-      .filter(sub => sub.paymentStatus === 'completed')
+      .filter(sub => sub.paymentStatus === 'completed' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'success')
       .reduce((sum, sub) => sum + ((sub as any).price || 0), 0);
     // Plan type breakdown
     const planStats = await prisma.subscription.groupBy({

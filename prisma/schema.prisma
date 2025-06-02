@@ -20,6 +20,7 @@ model User {
   createdAt     DateTime       @default(now())
   role          String         @default("user")
   subscriptions Subscription[]
+  meetings      Meeting[]      @relation("MeetingUsers")
 }
 
 model Subscription {
@@ -52,4 +53,5 @@ model Meeting {
   isDefault    Boolean  @default(false)
   meetingDesc  String?  @default("Join us for a GOALETE Club session to learn how to achieve any goal in life.")
   meetingTitle String   @default("GOALETE Club Session")
+  users        User[]   @relation("MeetingUsers")
 }

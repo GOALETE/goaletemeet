@@ -1,4 +1,5 @@
 import prisma from './prisma';
+import { createMeetingWithUsers } from './meetingLink';
 
 // Format date helper function for DD:MM:YY format in IST timezone
 const formatDateDDMMYY = (date: Date): string => {
@@ -305,7 +306,7 @@ export async function getOrCreateDailyMeetingLink() {
     // Get today's date in IST
     const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     istDate.setHours(0, 0, 0, 0);
-    
+
     // Check if we already have a meeting for today (in IST)
     const existingMeeting = await prisma.meeting.findFirst({
       where: {
@@ -315,53 +316,40 @@ export async function getOrCreateDailyMeetingLink() {
         }
       }
     });
-
     if (existingMeeting) {
       return existingMeeting;
     }
-    
-    // Get default meeting settings from environment variables
-    const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || "google-meet";
-    const defaultTime = process.env.DEFAULT_MEETING_TIME || "21:00"; // 8:00 PM format: "HH:MM"
-    const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || "60"); // minutes
-    
-    // Create a default meeting for today with the platform from env vars
-    const platform = defaultPlatform;
-    const meetingLink = platform === "zoom" 
-      ? `https://zoom.us/j/goalete-${Date.now().toString(36)}`
-      : `https://meet.google.com/goalete-${Date.now().toString(36)}`;    // Parse default time from HH:MM format
-    const [hours, minutes] = defaultTime.split(':').map(Number);
-    
-    // Create start time using default time in IST timezone
-    // First create a date string in ISO format with IST offset (+05:30)
-    const todayStr = istDate.toISOString().split('T')[0]; // YYYY-MM-DD
-    const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-    const istDateStr = `${todayStr}T${timeStr}+05:30`; // Format: YYYY-MM-DDThh:mm:ss+05:30
-    
-    // Parse the IST date string to create a Date object
-    const startTime = new Date(istDateStr);
-    
-    // Create end time based on duration
-    const endTime = new Date(startTime);
-    endTime.setMinutes(startTime.getMinutes() + defaultDuration);
-      // Create the meeting record
-    const meeting = await prisma.meeting.create({
-      data: {
-        meetingDate: istDate,
-        meetingLink,
-        platform,
-        startTime,
-        endTime,
-        createdBy: "system",
-        isDefault: true,
-        meetingDesc: "Join us for a GOALETE Club session to learn how to achieve any goal in life.",
-        meetingTitle: "GOALETE Club Daily Session"
-      }
+
+    // Get all users with active subscriptions for today
+    const activeSubscriptions = await prisma.subscription.findMany({
+      where: {
+        status: 'active',
+        startDate: { lte: istDate },
+        endDate: { gte: istDate }
+      },
+      select: { userId: true }
     });
-    
+    const userIds = activeSubscriptions.map(sub => sub.userId);
+
+    // Get default meeting settings from environment variables
+    const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || 'google-meet';
+    const defaultTime = process.env.DEFAULT_MEETING_TIME || '21:00';
+    const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || '60');
+    const todayStr = istDate.toISOString().split('T')[0];
+
+    // Create the meeting with all users for today
+    const meeting = await createMeetingWithUsers({
+      platform: defaultPlatform as 'google-meet' | 'zoom',
+      date: todayStr,
+      startTime: defaultTime,
+      duration: defaultDuration,
+      userIds,
+      meetingTitle: 'GOALETE Club Daily Session',
+      meetingDesc: 'Join us for a GOALETE Club session to learn how to achieve any goal in life.'
+    });
     return meeting;
   } catch (error) {
-    console.error("Error creating daily meeting link:", error);
+    console.error('Error creating daily meeting link:', error);
     throw error;
   }
 }

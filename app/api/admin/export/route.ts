@@ -10,6 +10,8 @@ export async function GET(req: NextRequest) {
     const status = url.searchParams.get('status');
     const startDate = url.searchParams.get('startDate');
     const endDate = url.searchParams.get('endDate');
+    const paymentStatus = url.searchParams.get('paymentStatus');
+    const isFullExport = url.searchParams.get('fullExport') === 'true';
     
     // Base query conditions
     let whereConditionUser: any = {};
@@ -33,6 +35,11 @@ export async function GET(req: NextRequest) {
       whereConditionSubscription.status = status;
     }
     
+    // Add payment status filter if provided
+    if (paymentStatus && paymentStatus !== 'all') {
+      whereConditionSubscription.paymentStatus = paymentStatus;
+    }
+    
     // Get users with filters
     const users = await prisma.user.findMany({
       where: whereConditionUser,
@@ -47,6 +54,7 @@ export async function GET(req: NextRequest) {
         }
       }
     });
+    
     // Format user data for export, including price from the most recent subscription
     const formattedUsers = users
       .filter(user => Object.keys(whereConditionSubscription).length === 0 || user.subscriptions.length > 0)
@@ -56,10 +64,14 @@ export async function GET(req: NextRequest) {
     const csvContent = generateCSV(formattedUsers);
     
     // Set response headers for file download
+    const filename = isFullExport 
+      ? "goalete-full-export.csv" 
+      : "goalete-users-export.csv";
+      
     return new NextResponse(csvContent, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="goalete-users-export.csv"`
+        'Content-Disposition': `attachment; filename="${filename}"`
       }
     });
   } catch (error) {
