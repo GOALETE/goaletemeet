@@ -38,14 +38,15 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       canSubscribe: subscriptionStatus.canSubscribe,
-      message: subscriptionStatus.reason || "User can subscribe",
-      subscriptionDetails: subscriptionStatus.subscriptionDetails 
-        ? {
+      message: subscriptionStatus.reason || "Available for Subscription",
+      subscriptionDetails: subscriptionStatus.subscriptionDetails ? 
+          {
             planType: subscriptionStatus.subscriptionDetails.planType,
             startDate: subscriptionStatus.subscriptionDetails.startDate,
             endDate: subscriptionStatus.subscriptionDetails.endDate
           } 
-        : null
+        : 
+        null
     }, { status: 200 });
   } catch (error) {
     console.error("Error checking subscription status:", error);

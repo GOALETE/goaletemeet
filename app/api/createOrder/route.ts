@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
-import { canUserSubscribeForDates } from "@/lib/subscription";
+import { canUserSubscribeForDates, getOrCreateDailyMeetingLink } from "@/lib/subscription";
 
 const key_id = process.env.RAZORPAY_KEY_ID as string;
 const key_secret = process.env.RAZORPAY_KEY_SECRET as string;
@@ -113,14 +113,12 @@ export async function POST(request: NextRequest) {
         orderId: order.id,
         paymentRef: "",
         paymentStatus: "pending",
-        status: "inactive"
+        status: "inactive",
+        duration: "duration",
+        price: Math.round(amount / 100), // Convert to rupees
     };
     
-    // Add duration field - using "as any" to bypass TypeScript errors until Prisma client is properly updated
-    data.duration = duration;
-    // Add price field (in rupees)
-    data.price = Math.round(amount / 100);
-    
+    // create subscription `in DB
     const subscription = await prisma.subscription.create({
       data,
     });
@@ -188,7 +186,7 @@ export async function PATCH(request: NextRequest) {
         planType: subscription.planType,
         startDate: subscription.startDate,
         endDate: subscription.endDate,
-        amount: parseFloat(orderId.split("_")[1]) || 499900 // Use default amount if extraction fails
+        amount: parseFloat(subscription.price.toString())
       });
       
       // Check if the subscription starts today
@@ -202,20 +200,10 @@ export async function PATCH(request: NextRequest) {
       
       // If subscription starts today, send meeting invite immediately
       if (isToday) {
-        // Get today"s meeting from the Meeting model
-        const todayMeeting = await prisma.meeting.findFirst({
-          where: {
-            meetingDate: {
-              gte: new Date(new Date().setHours(0, 0, 0, 0)),
-              lt: new Date(new Date().setHours(23, 59, 59, 999))
-            }
-          },
-          orderBy: {
-            createdAt: "desc"
-          }
-        });
+        // Use the getOrCreateDailyMeetingLink function from subscription.ts
+        const todayMeeting = await getOrCreateDailyMeetingLink();
         
-        // If no meeting exists for today, create one
+        // If meeting exists, use its details for the invite
         let meetingLink, platform, meetingStartTime, meetingEndTime;
         
         if (todayMeeting) {
@@ -223,40 +211,10 @@ export async function PATCH(request: NextRequest) {
           platform = todayMeeting.platform;
           meetingStartTime = todayMeeting.startTime;
           meetingEndTime = todayMeeting.endTime;
-        } else {
-          // Get default meeting settings from environment variables
-          const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || "google-meet";
-          const defaultTime = process.env.DEFAULT_MEETING_TIME || "21:00"; // format: "HH:MM"
-          const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || "60"); // minutes
-          
-          // Parse default time from HH:MM format
-          const [hours, minutes] = defaultTime.split(':').map(Number);
-          
-          // Create a default meeting for today
-          const newMeeting = await prisma.meeting.create({
-            data: {
-              meetingDate: today,
-              platform: defaultPlatform,
-              meetingLink: defaultPlatform === "zoom" 
-                ? `https://zoom.us/j/goalete-${Date.now().toString(36)}`
-                : `https://meet.google.com/goalete-${Date.now().toString(36)}`,
-              startTime: new Date(new Date().setHours(hours || 21, minutes || 0, 0, 0)),
-              endTime: new Date(new Date().setHours(hours || 21, minutes || 0, 0, 0).valueOf() + defaultDuration * 60000),
-              createdBy: "system",
-              isDefault: true,
-              meetingDesc: "Join us for a GOALETE Club session to learn how to achieve any goal in life.",
-              meetingTitle: "GOALETE Club Daily Session"
-            }
-          });
-          
-          meetingLink = newMeeting.meetingLink;
-          platform = newMeeting.platform;
-          meetingStartTime = newMeeting.startTime;
-          meetingEndTime = newMeeting.endTime;
         }
         
         // Send meeting invite if we have meeting details
-        if (meetingLink) {
+        if (meetingLink && meetingStartTime && meetingEndTime) {
           await sendMeetingInvite({
             recipient: {
               name: `${subscription.user.firstName} ${subscription.user.lastName}`,

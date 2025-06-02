@@ -5,7 +5,7 @@ const formatDateDDMMYY = (date: Date): string => {
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const year = date.getFullYear().toString().slice(2);
-  return `${day}:${month}:${year}`;
+  return `${day}/${month}/${year}`;
 };
 
 /**
@@ -89,7 +89,9 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
         reason: "User not found in database, can create new subscription",
         subscriptionDetails: null
       };
-    }    // Check for any overlapping subscriptions
+    }    
+    
+    // Check for any overlapping subscriptions
     const overlappingSubscriptions = allSubsUser.subscriptions.filter((sub: any) => {
       // Get dates for comparison
       const subStartDate = new Date(sub.startDate);
@@ -104,9 +106,10 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
       newEndDate.setHours(0, 0, 0, 0);
 
       // Treat endDate as exclusive: allow booking if newStartDate >= subEndDate or newEndDate <= subStartDate
-      if (newStartDate >= subEndDate || newEndDate <= subStartDate) {
+      if (newStartDate >= subEndDate || newEndDate < subStartDate) {
         return false;
       }
+      /*
       // Allow adjacent daily plans (no overlap if one ends the day before the other starts)
       if (
         (sub.planType === 'daily' || planType === 'daily') &&
@@ -119,6 +122,7 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
       ) {
         return false;
       }
+      */
       // Only consider actual overlaps, not adjacent dates
       return true;
     });

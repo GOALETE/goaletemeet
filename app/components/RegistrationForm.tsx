@@ -36,10 +36,16 @@ export default function RegistrationForm() {
   const [phone, setPhone] = useState("");
   const [duration, setDuration] = useState(PLAN_PRICING.single.duration)  
   const [showPayment, setShowPayment] = useState(false);
-  const [formData, setFormData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState<any>(null);  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: ''
+  });
   // Set today's date as the default start date when component mounts
   useEffect(() => {
     setStartDate(new Date().toISOString().split('T')[0]);
@@ -58,20 +64,33 @@ export default function RegistrationForm() {
     if (!dateString) return false;
     const today = new Date().toISOString().split('T')[0];
     return dateString === today;
-  };
-
-  // Update duration when plan changes
+  };  // Update duration when plan changes
   const handlePlanChange = (newPlan: "single" | "monthly") => {
     setPlan(newPlan);
     setDuration(PLAN_PRICING[newPlan].duration);
-  };
-
-  // Check for existing subscription conflicts
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    
+    // Clear field errors on plan change
+    setFieldErrors({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: ''
+    });
+  };  // Check for existing subscription conflicts
   const checkSubscriptionConflict = async () => {
     if (!email || !email.includes('@') || !startDate) return;
     
     setIsCheckingSubscription(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
+    
+    // Clear field-specific errors related to subscription
+    setFieldErrors({
+      ...fieldErrors,
+      email: ''
+    });
     
     try {
       // Calculate end date based on plan duration
@@ -94,18 +113,55 @@ export default function RegistrationForm() {
       
       if (!data.canSubscribe) {
         setErrorMessage(data.message);
+        setSuccessMessage(null);
+      } else {
+        // Set success message when user can subscribe
+        const planText = plan === 'single' ? 'single session' : 'monthly plan';
+        const dateText = plan === 'single' ? 
+          `on ${new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}` : 
+          `starting ${new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`;
+        
+        setSuccessMessage(`You can subscribe to the ${planText} ${dateText}!`);
+        setErrorMessage(null);
       }
     } catch (error) {
       console.error("Error checking subscription:", error);
+      setSuccessMessage(null);
     } finally {
       setIsCheckingSubscription(false);
     }
-  };
-  // handle form submission
+  };  // handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check for field validation errors before proceeding
+    const newFieldErrors = {
+      firstName: firstName.trim() === '' ? 'First name is required' : 
+                 firstName.trim().length < 2 ? 'First name must be at least 2 characters' : '',
+      lastName: lastName.trim() === '' ? 'Last name is required' : 
+                lastName.trim().length < 2 ? 'Last name must be at least 2 characters' : '',
+      email: email.trim() === '' ? 'Email is required' : 
+             !email.includes('@') || !email.includes('.') ? 'Please enter a valid email address' : '',
+      phone: phone === '' ? 'Phone number is required' : 
+             phone.length < 10 ? 'Phone number must be at least 10 digits' : 
+             phone.length > 12 ? 'Phone number is too long' : ''
+    };
+    
+    // Check if Reference is required but empty
+    if (source === "Reference" && reference.trim() === '') {
+      setErrorMessage("Please provide a reference name");
+      return;
+    }
+    
+    // Check if there are any validation errors
+    if (Object.values(newFieldErrors).some(error => error !== '')) {
+      setFieldErrors(newFieldErrors);
+      return;
+    }
+    
     setIsLoading(true);
     setErrorMessage(null); // Reset error message on new submission
+    setSuccessMessage(null); // Reset success message on new submission
     console.log("Form submitted with data:", {
       firstName,
       lastName,
@@ -116,7 +172,9 @@ export default function RegistrationForm() {
       duration,
       source,
       reference,
-    });    try {
+    });    
+    
+    try {
       const price = PLAN_PRICING[plan].amount;
       
       // Double-check subscription availability
@@ -214,10 +272,11 @@ export default function RegistrationForm() {
                 await fetch(`/api/createOrder?orderId=${orderId}`, { method: "DELETE" });
                 console.log("deleted the order")
             }
-        },        handler: async function (response: any) {
+        },        
+        handler: async function (response: any) {
           try {
             // 4. On payment success, update subscription and user
-            const updateResponse = await fetch("/api/createOrder", {
+            await fetch("/api/createOrder", {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -229,7 +288,7 @@ export default function RegistrationForm() {
                 status: "active",
               }),
             });
-            
+            /*            // Uncomment if you want to send a meeting invite immediately
             // If subscription starts today, trigger immediate meeting invite
             if (isToday(startDate)) {
               await fetch("/api/send-meeting-invite", {
@@ -242,6 +301,7 @@ export default function RegistrationForm() {
                 }),
               });
             }
+            */
             
             alert("Payment Successful! Registration complete.");
           } catch (error) {
@@ -326,47 +386,110 @@ export default function RegistrationForm() {
           <p className="text-gray-500 text-base font-medium">How to Achieve Any Goal in Life</p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4">          
           <input
             type="text"
             placeholder="First Name"
             value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
+            onChange={(e) => {
+              setFirstName(e.target.value);
+              if (e.target.value.trim() !== '') {
+                setFieldErrors({...fieldErrors, firstName: ''});
+              }
+            }}
+            onBlur={() => {
+              if (firstName.trim() === '') {
+                setFieldErrors({...fieldErrors, firstName: 'First name is required'});
+              } else if (firstName.trim().length < 2) {
+                setFieldErrors({...fieldErrors, firstName: 'First name must be at least 2 characters'});
+              }
+            }}
+            className={`w-full p-3 border ${fieldErrors.firstName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
             required
           />
+          {fieldErrors.firstName && (
+            <p className="text-red-500 text-xs mt-1">{fieldErrors.firstName}</p>
+          )}          
           <input
             type="text"
             placeholder="Last Name"
             value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
+            onChange={(e) => {
+              setLastName(e.target.value);
+              if (e.target.value.trim() !== '') {
+                setFieldErrors({...fieldErrors, lastName: ''});
+              }
+            }}
+            onBlur={() => {
+              if (lastName.trim() === '') {
+                setFieldErrors({...fieldErrors, lastName: 'Last name is required'});
+              } else if (lastName.trim().length < 2) {
+                setFieldErrors({...fieldErrors, lastName: 'Last name must be at least 2 characters'});
+              }
+            }}
+            className={`w-full p-3 border ${fieldErrors.lastName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
             required
-          />          <input
+          />
+          {fieldErrors.lastName && (
+            <p className="text-red-500 text-xs mt-1">{fieldErrors.lastName}</p>
+          )}          
+          <input
             type="email"
             placeholder="Email"
             value={email}
             onChange={(e) => {
               setEmail(e.target.value);
               setErrorMessage(null);
+              setSuccessMessage(null);
+              if (e.target.value.trim() !== '') {
+                setFieldErrors({...fieldErrors, email: ''});
+              }
             }}
             onBlur={() => {
-              if (email && email.includes('@')) {
+              if (email.trim() === '') {
+                setFieldErrors({...fieldErrors, email: 'Email is required'});
+              } else if (!email.includes('@') || !email.includes('.')) {
+                setFieldErrors({...fieldErrors, email: 'Please enter a valid email address'});
+              } else {
+                setFieldErrors({...fieldErrors, email: ''});
                 checkSubscriptionConflict();
               }
             }}
-            className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
+            className={`w-full p-3 border ${fieldErrors.email ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
             required
           />
+          {fieldErrors.email && (
+            <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
+          )}          
           <input
             type="tel"
             placeholder="Phone No."
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
+            onChange={(e) => {
+              // Only allow digits in phone number
+              const value = e.target.value.replace(/\D/g, '');
+              setPhone(value);
+              if (value !== '') {
+                setFieldErrors({...fieldErrors, phone: ''});
+              }
+            }}
+            onBlur={() => {
+              if (phone === '') {
+                setFieldErrors({...fieldErrors, phone: 'Phone number is required'});
+              } else if (phone.length < 10) {
+                setFieldErrors({...fieldErrors, phone: 'Phone number must be at least 10 digits'});
+              } else if (phone.length > 12) {
+                setFieldErrors({...fieldErrors, phone: 'Phone number is too long'});
+              }
+            }}
+            className={`w-full p-3 border ${fieldErrors.phone ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
             required
           />
-        </div>        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+          {fieldErrors.phone && (
+            <p className="text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
+          )}
+        </div>        
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <p className="font-semibold text-gray-700 mb-2">Subscription Plan</p>
           <div className="flex flex-col sm:flex-row gap-4 w-full">
             <label className="flex flex-col items-start w-full sm:w-1/2 cursor-pointer gap-1">
@@ -406,14 +529,16 @@ export default function RegistrationForm() {
               <span className="text-xs text-gray-400 font-medium pr-6">({PLAN_PRICING.monthly.display})</span>
             </label>
           </div>
-        </div>        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+        </div>        
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <label className="block mb-1 font-medium text-gray-700">
             {plan === "single" ? "Session Date" : "Start Date"}
-          </label>          <input
-            type="date"
+          </label>          <input            type="date"
             value={startDate}
             onChange={(e) => {
               setStartDate(e.target.value);
+              setErrorMessage(null);
+              setSuccessMessage(null);
               if (email && email.includes('@')) {
                 // Set timeout to avoid too many API calls while user is selecting
                 setTimeout(() => checkSubscriptionConflict(), 500);
@@ -437,16 +562,30 @@ export default function RegistrationForm() {
             <option>WhatsApp</option>
             <option>Word of Mouth</option>
             <option>Reference</option>
-          </select>
-          {source === "Reference" && (
-            <input
-              type="text"
-              placeholder="Reference Name"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              className="w-full p-3 mt-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-white text-gray-900"
-            />
-          )}        </div>        {errorMessage && (
+          </select>          {source === "Reference" && (
+            <>
+              <input
+                type="text"
+                placeholder="Reference Name"
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+                onBlur={() => {
+                  if (source === "Reference" && reference.trim() === '') {
+                    setErrorMessage("Please provide a reference name");
+                  } else {
+                    setErrorMessage(null);
+                  }
+                }}
+                className="w-full p-3 mt-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-white text-gray-900"
+                required={source === "Reference"}
+              />
+              {source === "Reference" && reference.trim() === '' && (
+                <p className="text-red-500 text-xs mt-1">Reference name is required</p>
+              )}
+            </>
+          )}
+          </div>        
+          {errorMessage && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
             <p className="font-medium text-sm">{errorMessage}</p>
             {isCheckingSubscription && (
@@ -454,6 +593,13 @@ export default function RegistrationForm() {
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-700"></div>
               </div>
             )}
+          </div>
+        )}
+
+        {successMessage && !errorMessage && !isCheckingSubscription && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
+            <p className="font-medium text-sm">{successMessage}</p>
+            <p className="text-xs text-green-600 mt-1">You're good to go! Click "Subscribe Now" to continue.</p>
           </div>
         )}
 
@@ -469,7 +615,7 @@ export default function RegistrationForm() {
           className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl shadow text-lg transition-all duration-200 tracking-wide mt-2 border border-gray-700"
           disabled={isLoading}
         >
-          {isLoading ? "Processing..." : "Buy Now"}
+          {isLoading ? "Processing..." : "Suscribe Now"}
         </button>
       </form>
     </div>
