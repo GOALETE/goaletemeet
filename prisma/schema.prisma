@@ -54,4 +54,7 @@ model Meeting {
   meetingDesc  String?  @default("Join us for a GOALETE Club session to learn how to achieve any goal in life.")
   meetingTitle String   @default("GOALETE Club Session")
   users        User[]   @relation("MeetingUsers")
+  googleEventId String? // Google Calendar event ID
+  zoomMeetingId String? // Zoom meeting ID
+  zoomStartUrl  String? // Zoom start URL (for host)
 }

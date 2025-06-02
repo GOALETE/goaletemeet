@@ -129,7 +129,8 @@ export async function sendMeetingInvite({
   meetingLink,
   startTime,
   endTime,
-  platform = 'Google Meet'
+  platform = 'Google Meet',
+  hostLink
 }: {
   recipient: {
     name: string;
@@ -141,6 +142,7 @@ export async function sendMeetingInvite({
   startTime: Date;
   endTime: Date;
   platform?: string;
+  hostLink?: string;
 }): Promise<boolean> {
   // Create calendar event
   const calendarEvent = createCalendarEvent({
@@ -191,6 +193,7 @@ export async function sendMeetingInvite({
         .meeting-link { display: inline-block; background-color: #3498db; color: white; text-decoration: none; padding: 12px 25px; border-radius: 4px; font-weight: bold; margin: 20px 0; }
         .meeting-link:hover { background-color: #2980b9; }
         .footer { margin-top: 40px; font-size: 14px; color: #7f8c8d; text-align: center; }
+        .host-link { margin-top: 10px; font-size: 15px; color: #e67e22; }
       </style>
     </head>    <body>
       <div class="header">
@@ -211,7 +214,7 @@ export async function sendMeetingInvite({
       <center>
         <a href="${meetingLink}" class="meeting-link">Join Meeting</a>
       </center>
-      
+      ${hostLink ? `<div class="host-link"><strong>Host Link (for admins):</strong> <a href="${hostLink}">${hostLink}</a></div>` : ''}
       <p>Please make sure to join the session on time. The calendar invitation is attached to this email for your convenience.</p>
       
       <p>If you have any questions or need assistance, please reply to this email.</p>

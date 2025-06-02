@@ -75,7 +75,10 @@ export async function POST(request: NextRequest) {
     const meetingStartTime = meeting?.startTime;
     const meetingEndTime = meeting?.endTime;
     const meetingTitle = meeting?.meetingTitle;
-    const meetingDesc = meeting?.meetingDesc || "Join us for a GOALETE Club session to learn how to achieve any goal in life.";    if (!meetingLink) {
+    const meetingDesc = meeting?.meetingDesc || "Join us for a GOALETE Club session to learn how to achieve any goal in life.";
+    const zoomStartUrl = meeting?.zoomStartUrl;
+    const hostLink = platform === 'zoom' ? (zoomStartUrl || undefined) : undefined;
+    if (!meetingLink) {
       return NextResponse.json({ message: "Meeting link not available" }, { status: 400 });
     }
 
@@ -90,7 +93,8 @@ export async function POST(request: NextRequest) {
       meetingLink,
       startTime: meetingStartTime || new Date(),
       endTime: meetingEndTime || new Date(),
-      platform: platform === "zoom" ? "Zoom" : "Google Meet"
+      platform: platform === "zoom" ? "Zoom" : "Google Meet",
+      hostLink
     });
 
     // Return success response

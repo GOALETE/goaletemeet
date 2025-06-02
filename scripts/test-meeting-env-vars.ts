@@ -9,13 +9,22 @@ const prisma = new PrismaClient();
 
 async function testMeetingDefaults() {
   try {
-    console.log('Testing environment variable defaults for meeting settings');
+    console.log('===== Testing environment variable defaults for meeting settings =====');
 
-    // Log the environment variables
-    console.log('Environment variables:');
+    // Log all relevant environment variables
+    console.log('\nMeeting Configuration Variables:');
     console.log(`DEFAULT_MEETING_PLATFORM: ${process.env.DEFAULT_MEETING_PLATFORM || 'not set'}`);
     console.log(`DEFAULT_MEETING_TIME: ${process.env.DEFAULT_MEETING_TIME || 'not set'}`);
     console.log(`DEFAULT_MEETING_DURATION: ${process.env.DEFAULT_MEETING_DURATION || 'not set'}`);
+    
+    console.log('\nGoogle Meet API Credentials:');
+    console.log(`GOOGLE_CLIENT_EMAIL: ${process.env.GOOGLE_CLIENT_EMAIL ? 'Set ✓' : 'Not set ✗'}`);
+    console.log(`GOOGLE_PRIVATE_KEY: ${process.env.GOOGLE_PRIVATE_KEY ? 'Set ✓ (length: ' + process.env.GOOGLE_PRIVATE_KEY.length + ')' : 'Not set ✗'}`);
+    console.log(`GOOGLE_CALENDAR_ID: ${process.env.GOOGLE_CALENDAR_ID || 'not set'}`);
+    
+    console.log('\nZoom API Credentials:');
+    console.log(`ZOOM_JWT_TOKEN: ${process.env.ZOOM_JWT_TOKEN ? 'Set ✓ (length: ' + process.env.ZOOM_JWT_TOKEN.length + ')' : 'Not set ✗'}`);
+    console.log(`ZOOM_USER_ID: ${process.env.ZOOM_USER_ID || 'not set'}`);
 
     // Get default meeting settings from environment variables with fallbacks
     const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || "google-meet";
@@ -36,12 +45,28 @@ async function testMeetingDefaults() {
     // Calculate end time
     const endTime = new Date(startTime);
     endTime.setMinutes(startTime.getMinutes() + defaultDuration);
-    
-    console.log('\nCalculated meeting parameters:');
+      console.log('\nCalculated meeting parameters:');
     console.log(`Platform: ${defaultPlatform}`);
     console.log(`Start time: ${startTime.toLocaleTimeString()}`);
     console.log(`End time: ${endTime.toLocaleTimeString()}`);
     console.log(`Duration: ${defaultDuration} minutes`);
+    
+    // Verify platform settings based on environment
+    if (defaultPlatform === "google-meet") {
+      console.log('\nTesting Google Meet configuration:');
+      if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+        console.log('❌ WARNING: Google Meet is the default platform but API credentials are missing!');
+      } else {
+        console.log('✅ Google Meet API credentials are properly configured');
+      }
+    } else if (defaultPlatform === "zoom") {
+      console.log('\nTesting Zoom configuration:');
+      if (!process.env.ZOOM_JWT_TOKEN || !process.env.ZOOM_USER_ID) {
+        console.log('❌ WARNING: Zoom is the default platform but API credentials are missing!');
+      } else {
+        console.log('✅ Zoom API credentials are properly configured');
+      }
+    }
     
     // Test creating a meeting
     const meetingLink = defaultPlatform === "zoom" 

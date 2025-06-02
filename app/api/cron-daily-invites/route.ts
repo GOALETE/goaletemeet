@@ -10,11 +10,16 @@ export async function GET(request: NextRequest) {
     today.setHours(0, 0, 0, 0); // Set to start of day
     
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);// Get or create today's meeting
-    const todayMeeting = await getOrCreateDailyMeetingLink();
+    tomorrow.setDate(tomorrow.getDate() + 1);// Get or create today's meeting    const todayMeeting = await getOrCreateDailyMeetingLink();
 
     if (!todayMeeting) {
+      console.error("Failed to get or create meeting for today");
       return NextResponse.json({ message: "Failed to get or create meeting for today" }, { status: 500 });
+    }
+    
+    if (!todayMeeting.meetingLink) {
+      console.error("Today's meeting has no valid meeting link");
+      return NextResponse.json({ message: "Today's meeting has no valid meeting link" }, { status: 500 });
     }
     
     console.log(`Using meeting for today: ${todayMeeting.meetingLink}`);

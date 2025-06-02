@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { createMeetingWithUsers } from '@/lib/meetingLink';
 
 // Schema for creating meetings
 const createMeetingSchema = z.object({
@@ -44,47 +45,19 @@ export async function POST(request: NextRequest) {
 
     const { dates, platform, startTime, duration, meetingTitle, meetingDesc } = parsed.data;
     
-    // Convert time string to hours and minutes
-    const [hours, minutes] = startTime.split(":").map(Number);
-    
     // Create meetings for each date
     const createdMeetings = [];
-    
     for (const dateStr of dates) {
-      // Create start time (in UTC)
-      const startDateTime = new Date(dateStr);
-      startDateTime.setUTCHours(hours - 5, minutes - 30, 0, 0); // Convert IST to UTC (IST is UTC+5:30)
-      
-      // Create end time
-      const endDateTime = new Date(startDateTime);
-      endDateTime.setUTCMinutes(endDateTime.getUTCMinutes() + duration);
-      
-      // Generate meeting link based on platform
-      let meetingLink;
-      if (platform === "google-meet") {
-        // Generate a Google Meet link with a unique ID
-        const meetId = Math.random().toString(36).substring(2, 10);
-        meetingLink = `https://meet.google.com/${meetId}`;
-      } else {
-        // For Zoom, we could either use a static link or generate one via API
-        // For now, using a placeholder
-        meetingLink = `https://zoom.us/j/123456789`;
-      }
-      
-      // Create the meeting in the database
-      const meeting = await prisma.meeting.create({
-        data: {
-          meetingDate: new Date(dateStr),
-          platform,
-          meetingLink,
-          startTime: startDateTime,
-          endTime: endDateTime,
-          createdBy: "admin",
-          meetingTitle: meetingTitle || "GOALETE Club Session",
-          meetingDesc: meetingDesc || "Join us for a GOALETE Club session to learn how to achieve any goal in life."
-        }
+      // Use the new robust meeting creation logic
+      const meeting = await createMeetingWithUsers({
+        platform,
+        date: dateStr,
+        startTime,
+        duration,
+        userIds: [], // No users for admin-created meetings by default
+        meetingTitle,
+        meetingDesc
       });
-      
       createdMeetings.push(meeting);
     }
     
