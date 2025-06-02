@@ -92,7 +92,7 @@ export default function RegistrationForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          planType: plan,
+          planType: plan === 'single' ? 'daily' : plan,
           startDate: start.toISOString(),
           endDate: end.toISOString()
         }),
@@ -103,7 +103,8 @@ export default function RegistrationForm() {
       if (!data.canSubscribe) {
         setErrorMessage(data.message);
         setSuccessMessage(null);
-      } else {        // Set success message when user can subscribe
+      } else {        
+        // Set success message when user can subscribe
         const planText = plan === 'single' ? 'single session' : 'monthly plan';
         const dateOptions: Intl.DateTimeFormatOptions = { 
           weekday: 'long', 
@@ -167,7 +168,8 @@ export default function RegistrationForm() {
       duration,
       source,
       reference,
-    });        try {
+    });        
+    try {
       const price = PLAN_PRICING[plan].amount;
       
       // Double-check subscription availability (using IST dates)
@@ -180,7 +182,7 @@ export default function RegistrationForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          planType: plan,
+          planType: plan === 'single' ? 'daily' : plan,
           startDate: start.toISOString(),
           endDate: end.toISOString()
         }),
@@ -220,7 +222,7 @@ export default function RegistrationForm() {
         body: JSON.stringify({
           amount: toPaise(price), // Convert INR to paise (smallest currency unit)
           currency: "INR",
-          planType: plan,
+          planType: plan === 'single' ? 'daily' : plan,
           duration: PLAN_PRICING[plan].duration,
           startDate,
           userId,

@@ -12,6 +12,7 @@
     "test:admin": "tsx scripts/test-admin-auth.ts"
   },
   "dependencies": {
+    "@google-apps/meet": "^0.6.0",
     "@hookform/resolvers": "^5.0.1",
     "@prisma/client": "^6.8.2",
     "@prisma/extension-accelerate": "^2.0.1",

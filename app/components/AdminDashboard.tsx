@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import AdminCalendar from './AdminCalendar';
+import UsersView from './adminviews/UsersView';
+import UserDetailModal from './adminviews/UserDetailModal';
+import SessionUsersView from './adminviews/SessionUsersView';
+import SubscriptionsView from './adminviews/SubscriptionsView';
+import UpcomingRegistrationsView from './adminviews/UpcomingRegistrationsView';
 
 type UserData = {
   id: string;
@@ -473,6 +478,60 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     }
   }, [activeTab, sessionDate]);
 
+  // --- Modal subscription table state and logic ---
+  // Place these hooks and functions inside AdminDashboard, before the return statement
+  const [modalSortBy, setModalSortBy] = useState<keyof Subscription>('startDate');
+  const [modalSortOrder, setModalSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [modalFilterStatus, setModalFilterStatus] = useState<string>('all');
+  const [modalFilterPayment, setModalFilterPayment] = useState<string>('all');
+
+  const handleModalSort = (field: keyof Subscription) => {
+    if (modalSortBy === field) {
+      setModalSortOrder(modalSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setModalSortBy(field);
+      setModalSortOrder('asc');
+    }
+  };
+
+  const filteredAndSortedSubscriptions = selectedUser?.subscriptions
+    ? selectedUser.subscriptions
+        .filter(sub =>
+          (modalFilterStatus === 'all' || sub.status === modalFilterStatus) &&
+          (modalFilterPayment === 'all' || sub.paymentStatus === modalFilterPayment)
+        )
+        .slice()
+        .sort((a, b) => {
+          let aValue: any;
+          let bValue: any;
+          switch (modalSortBy) {
+            case 'planType':
+            case 'orderId':
+            case 'status':
+            case 'paymentStatus':
+              aValue = a[modalSortBy] || '';
+              bValue = b[modalSortBy] || '';
+              break;
+            case 'startDate':
+            case 'endDate':
+              aValue = a[modalSortBy] ? new Date(a[modalSortBy] as string).getTime() : 0;
+              bValue = b[modalSortBy] ? new Date(b[modalSortBy] as string).getTime() : 0;
+              break;
+            case 'duration':
+            case 'price':
+              aValue = a[modalSortBy] ?? 0;
+              bValue = b[modalSortBy] ?? 0;
+              break;
+            default:
+              aValue = '';
+              bValue = '';
+          }
+          if (aValue < bValue) return modalSortOrder === 'asc' ? -1 : 1;
+          if (aValue > bValue) return modalSortOrder === 'asc' ? 1 : -1;
+          return 0;
+        })
+    : [];
+  
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Toast notification */}
@@ -560,390 +619,77 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
 
       {/* Conditional rendering based on active tab */}
       {activeTab === 'users' && (
-        <>
-          {/* Stats Cards */}
-          <div className="p-4 grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div 
-              className="bg-white p-4 rounded shadow hover:shadow-md transition cursor-pointer" 
-              onClick={() => updateFilter('status', 'all')}
-            > 
-              <h3 className="text-lg font-semibold">Total Users</h3>
-              <p className="text-3xl font-bold">{userStats.total}</p>
-            </div>
-            <div 
-              className="bg-white p-4 rounded shadow hover:shadow-md transition cursor-pointer border-l-4 border-emerald-500" 
-              onClick={() => updateFilter('status', 'active')}
-            >
-              <h3 className="text-lg font-semibold">Active</h3>
-              <p className="text-3xl font-bold text-emerald-600">{userStats.active}</p>
-            </div>
-            <div 
-              className="bg-white p-4 rounded shadow hover:shadow-md transition cursor-pointer border-l-4 border-rose-500" 
-              onClick={() => updateFilter('status', 'expired')}
-            >
-              <h3 className="text-lg font-semibold">Expired</h3>
-              <p className="text-3xl font-bold text-rose-600">{userStats.expired}</p>
-            </div>
-            <div 
-              className="bg-white p-4 rounded shadow hover:shadow-md transition cursor-pointer border-l-4 border-blue-500" 
-              onClick={() => updateFilter('status', 'upcoming')}
-            >
-              <h3 className="text-lg font-semibold">Upcoming</h3>
-              <p className="text-3xl font-bold text-blue-600">{userStats.upcoming}</p>
-            </div>
-            <div className="bg-white p-4 rounded shadow hover:shadow-md transition border-l-4 border-yellow-500">
-              <h3 className="text-lg font-semibold">Revenue</h3>
-              <p className="text-3xl font-bold text-yellow-600">₹{revenue}</p>
-            </div>
-          </div>
-          
-          {/* Main content area with filters and table */}
-          <div className="p-4">
-            {/* ... Your existing users view code ... */}
-          </div>
-        </>
+        <UsersView
+          users={users}
+          filteredUsers={filteredUsers}
+          loading={loading}
+          error={error}
+          userStats={userStats}
+          revenue={revenue}
+          filterState={filterState}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          updateFilter={updateFilter}
+          setSortBy={setSortBy}
+          setSortOrder={setSortOrder}
+          setPage={setPage}
+          setPageSize={setPageSize}
+          handleRowClick={handleRowClick}
+          downloadCSV={downloadCSV}
+          downloadFullDBExport={downloadFullDBExport}
+        />
       )}
         {activeTab === 'calendar' && (
         <AdminCalendar />
       )}
       
       {activeTab === 'subscriptions' && (
-        <div className="p-4">
-          <div className="bg-white p-4 rounded shadow mb-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Subscriptions Dashboard</h2>              <div className="flex space-x-2">
-                <button
-                  onClick={() => downloadFullDBExport()}
-                  className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
-                >
-                  Export All Active Paid Data
-                </button>
-                <button
-                  onClick={() => exportSubscriptionView()}
-                  className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                >
-                  Export Current View
-                </button>
-              </div>
-            </div>
-            
-            {/* View Options */}
-            <div className="flex mb-4 border-b border-gray-200 pb-2">
-              <button
-                className={`px-4 py-2 font-medium ${
-                  subscriptionView === 'all'
-                    ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-500'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-                onClick={() => setSubscriptionView('all')}
-              >
-                All Subscriptions
-              </button>
-              <button
-                className={`px-4 py-2 font-medium ${
-                  subscriptionView === 'thisWeek'
-                    ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-500'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-                onClick={() => setSubscriptionView('thisWeek')}
-              >
-                This Week
-              </button>
-              <button
-                className={`px-4 py-2 font-medium ${
-                  subscriptionView === 'upcoming'
-                    ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-500'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-                onClick={() => setSubscriptionView('upcoming')}
-              >
-                Upcoming
-              </button>
-            </div>
-              {/* Revenue Display */}
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-4 rounded border border-gray-200 shadow-sm">
-                <h3 className="text-lg font-medium mb-2">Revenue Summary</h3>
-                <div className="text-3xl font-bold text-green-600 mb-1">₹{revenue.toLocaleString('en-IN')}</div>
-                <p className="text-sm text-gray-500">
-                  {subscriptionView === 'all' && 'Total revenue from all completed payments'}
-                  {subscriptionView === 'thisWeek' && 'Revenue from this week\'s subscriptions'}
-                  {subscriptionView === 'upcoming' && 'Revenue from upcoming subscriptions'}
-                </p>
-              </div>
-              <div className="bg-white p-4 rounded border border-gray-200 shadow-sm">
-                <h3 className="text-lg font-medium mb-2">Subscription Count</h3>
-                <div className="text-3xl font-bold text-blue-600 mb-1">{subscriptionUsers.length}</div>
-                <p className="text-sm text-gray-500">
-                  {subscriptionView === 'all' && 'Total active subscriptions'}
-                  {subscriptionView === 'thisWeek' && 'Subscriptions this week'}
-                  {subscriptionView === 'upcoming' && 'Upcoming subscriptions'}
-                </p>
-              </div>
-              <div className="bg-white p-4 rounded border border-gray-200 shadow-sm">
-                <h3 className="text-lg font-medium mb-2">Average Value</h3>
-                <div className="text-3xl font-bold text-purple-600 mb-1">
-                  ₹{subscriptionUsers.length > 0 
-                    ? Math.round(revenue / subscriptionUsers.length).toLocaleString('en-IN') 
-                    : 0}
-                </div>
-                <p className="text-sm text-gray-500">Average revenue per subscription</p>
-              </div>
-            </div>
-            
-            {/* Subscriptions Table */}
-            <div className="overflow-x-auto">
-              <h3 className="text-lg font-medium mb-2">
-                {subscriptionView === 'all' && 'All Active Subscriptions'}
-                {subscriptionView === 'thisWeek' && 'This Week\'s Subscriptions'}
-                {subscriptionView === 'upcoming' && 'Upcoming Subscriptions'}
-              </h3>
-              {subscriptionsLoading ? (
-                <div className="flex justify-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                </div>
-              ) : subscriptionUsers.length > 0 ? (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {subscriptionUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.phone || 'N/A'}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            user.plan?.includes('monthly') ? 'bg-blue-100 text-blue-800' : 
-                            user.plan?.includes('single') ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {user.plan}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.start ? format(new Date(user.start), 'yyyy-MM-dd') : 'N/A'}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.end ? format(new Date(user.end), 'yyyy-MM-dd') : 'N/A'}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {user.start && user.end 
-                              ? Math.ceil((new Date(user.end).getTime() - new Date(user.start).getTime()) / (1000 * 60 * 60 * 24)) 
-                              : 'N/A'}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">₹{user.price || 'N/A'}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                          <button 
-                            onClick={() => handleRowClick(user.id)} 
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Details
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="text-sm text-gray-500">No subscription data found.</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <SubscriptionsView
+          subscriptionView={subscriptionView}
+          setSubscriptionView={setSubscriptionView}
+          subscriptionUsers={subscriptionUsers}
+          subscriptionsLoading={subscriptionsLoading}
+          revenue={revenue}
+          handleRowClick={handleRowClick}
+        />
       )}
       
       {activeTab === 'upcoming' && (
-        <div className="p-4">
-          <div className="bg-white p-4 rounded shadow mb-4">
-            <h2 className="text-xl font-semibold mb-4">Upcoming Registrations</h2>
-            
-            {/* Upcoming meetings summary */}
-            <div className="mb-6">
-              <h3 className="text-lg font-medium mb-2">Scheduled Meetings</h3>
-              {upcomingMeetings.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {upcomingMeetings.slice(0, 3).map(meeting => (
-                    <div key={meeting.id} className="bg-gray-50 p-3 rounded border">
-                      <div className="flex justify-between items-start mb-2">                        <span className="font-semibold">{format(new Date(meeting.meetingDate), 'MMM dd, yyyy')} (IST)</span>
-                        <span className={`text-xs px-2 py-1 rounded ${meeting.platform === 'google-meet' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                          {meeting.platform === 'google-meet' ? 'Google Meet' : 'Zoom'}
-                        </span>
-                      </div>
-                      <p className="text-sm mb-1">{meeting.meetingTitle}</p>
-                      <p className="text-xs text-gray-600">Time: {format(new Date(meeting.startTimeIST), 'h:mm a')} IST</p>
-                      <div className="mt-2">
-                        <a 
-                          href={meeting.meetingLink} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="text-xs text-blue-600 hover:text-blue-800"
-                        >
-                          Meeting Link
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">No upcoming meetings scheduled.</p>
-              )}
-              
-              {upcomingMeetings.length > 3 && (
-                <button 
-                  className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-                  onClick={() => setActiveTab('calendar')}
-                >
-                  View all {upcomingMeetings.length} meetings
-                </button>
-              )}
-            </div>
-            
-            {/* Registrations Table */}
-            <div className="overflow-x-auto">
-              <h3 className="text-lg font-medium mb-2">Registered Users</h3>
-              {loading ? (
-                <div className="flex justify-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                </div>
-              ) : upcomingRegistrations.length > 0 ? (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {upcomingRegistrations.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.phone}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.plan}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">                          <div className="text-sm text-gray-500">{user.start ? format(new Date(user.start), 'yyyy-MM-dd') + ' (IST)' : 'N/A'}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.end ? format(new Date(user.end), 'yyyy-MM-dd') + ' (IST)' : 'N/A'}</div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                          <button 
-                            onClick={() => handleRowClick(user.id)} 
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Details
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="text-sm text-gray-500">No upcoming registrations found.</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <UpcomingRegistrationsView
+          loading={loading}
+          upcomingMeetings={upcomingMeetings}
+          upcomingRegistrations={upcomingRegistrations}
+          handleRowClick={handleRowClick}
+          setActiveTab={(tab) => setActiveTab(tab as typeof activeTab)}
+        />
       )}
       
       {activeTab === 'sessionUsers' && (
-        <div className="p-4">
-          <div className="bg-white p-4 rounded shadow mb-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-2">
-              <h2 className="text-xl font-semibold">Subscribed Users for Session</h2>
-              <div>
-                <label className="mr-2 font-medium">Select Date:</label>
-                <input
-                  type="date"
-                  value={sessionDate}
-                  onChange={e => setSessionDate(e.target.value)}
-                  className="border rounded px-2 py-1"
-                  max={format(new Date(), 'yyyy-MM-dd')}
-                />
-              </div>
-            </div>
-            {sessionUsersLoading ? (
-              <div className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              </div>
-            ) : sessionUsers.length > 0 ? (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {sessionUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{user.phone || 'N/A'}</div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{user.plan || 'N/A'}</div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="text-sm text-gray-500">No users found for this session.</p>
-            )}
-          </div>
-        </div>
+        <SessionUsersView
+          sessionDate={sessionDate}
+          setSessionDate={setSessionDate}
+          sessionUsers={sessionUsers}
+          sessionUsersLoading={sessionUsersLoading}
+        />
       )}
       
       {/* User detail modal */}
       {showUserDetail && selectedUser && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={handleCloseDetail}></div>
-            
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
-              {/* ... Your existing user detail modal code ... */}
-            </div>
-          </div>
-        </div>
+        <UserDetailModal
+          user={selectedUser}
+          show={true}
+          onClose={handleCloseDetail}
+          modalSortBy={modalSortBy}
+          modalSortOrder={modalSortOrder}
+          modalFilterStatus={modalFilterStatus}
+          modalFilterPayment={modalFilterPayment}
+          setModalFilterStatus={setModalFilterStatus}
+          setModalFilterPayment={setModalFilterPayment}
+          handleModalSort={handleModalSort}
+        />
       )}
     </div>
   );
