@@ -4,17 +4,29 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { canUserSubscribeForDates, getOrCreateDailyMeetingLink } from "@/lib/subscription";
 
-const key_id = process.env.RAZORPAY_KEY_ID as string;
-const key_secret = process.env.RAZORPAY_KEY_SECRET as string;
+// Get Razorpay keys from environment variables
+const key_id = process.env.RAZORPAY_KEY_ID;
+const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
+// Validate Razorpay keys are present
 if (!key_id || !key_secret) {
-    throw new Error("Razorpay keys are missing");
+    console.error("Razorpay keys are missing! Please check your environment variables.");
+    // We'll continue and handle the error in the API handler
 }
 
-const razorpay = new Razorpay({
-  key_id: key_id,
-  key_secret: key_secret,
-});
+// Initialize Razorpay client if keys are available
+let razorpay: Razorpay | null = null;
+try {
+  if (key_id && key_secret) {
+    razorpay = new Razorpay({
+      key_id: key_id,
+      key_secret: key_secret,
+    });
+  }
+} catch (error) {
+  console.error("Failed to initialize Razorpay client:", error);
+  // We'll handle this in the API handler
+}
 
 // Define the schema for order body validation
 const orderBodySchema = z.object({
@@ -92,14 +104,24 @@ export async function POST(request: NextRequest) {
 
     let order;
     try {
+      // Check if Razorpay client is initialized
+      if (!razorpay) {
+        throw new Error("Razorpay client is not initialized. Please check your environment variables.");
+      }
+      
+      // Create order with Razorpay
       order = await razorpay.orders.create(options);
+      
       if (!order || !order.id) {
         console.error('Razorpay order creation failed:', order);
         return NextResponse.json({ message: 'Failed to create order with Razorpay', details: order }, { status: 502 });
       }
     } catch (razorpayError) {
       console.error('Error from Razorpay:', razorpayError);
-      return NextResponse.json({ message: 'Razorpay order creation error', error: String(razorpayError) }, { status: 502 });
+      return NextResponse.json({ 
+        message: 'Razorpay order creation error', 
+        error: razorpayError instanceof Error ? razorpayError.message : String(razorpayError) 
+      }, { status: 502 });
     }
     console.log("order:", order)
     
@@ -114,7 +136,7 @@ export async function POST(request: NextRequest) {
         paymentRef: "",
         paymentStatus: "pending",
         status: "inactive",
-        duration: "duration",
+        duration: duration,
         price: Math.round(amount / 100), // Convert to rupees
     };
     
