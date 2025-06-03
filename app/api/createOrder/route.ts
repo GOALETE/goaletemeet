@@ -205,13 +205,31 @@ export async function PATCH(request: NextRequest) {
       });
       
       // Import the email utility
-      const { sendWelcomeEmail, sendMeetingInvite } = await import("@/lib/email");
+      const { sendWelcomeEmail, sendMeetingInvite, sendAdminNotificationEmail } = await import("@/lib/email");
       
       // Send welcome email with subscription details
       await sendWelcomeEmail({
         recipient: {
           name: `${subscription.user.firstName} ${subscription.user.lastName}`,
           email: subscription.user.email
+        },
+        planType: subscription.planType,
+        startDate: subscription.startDate,
+        endDate: subscription.endDate,
+        amount: parseFloat(subscription.price.toString()),
+        paymentId: subscription.paymentRef || undefined
+      });
+      
+      // Send notification email to admin
+      await sendAdminNotificationEmail({
+        user: {
+          id: subscription.user.id,
+          firstName: subscription.user.firstName,
+          lastName: subscription.user.lastName,
+          email: subscription.user.email,
+          phone: subscription.user.phone,
+          source: subscription.user.source,
+          referenceName: subscription.user.referenceName || undefined
         },
         planType: subscription.planType,
         startDate: subscription.startDate,

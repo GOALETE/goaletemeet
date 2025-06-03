@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Email service utility for sending meeting invites
  * Using nodemailer with Gmail SMTP
  */
@@ -224,7 +224,7 @@ export async function sendMeetingInvite({
       <p>Best regards,<br>GOALETE Club Team</p>
       
       <div class="footer">
-        <p>© 2025 GOALETE Club. All rights reserved.</p>
+        <p>Â© 2025 GOALETE Club. All rights reserved.</p>
       </div>
     </body>
     </html>
@@ -277,7 +277,7 @@ export async function sendWelcomeEmail({
   const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);
   
   // Display amount in INR
-  const formattedAmount = `₹${amount.toFixed(2)}`;
+  const formattedAmount = `â‚¹${amount.toFixed(2)}`;
   
   // Plan type display name
   const planDisplay = planType === 'single' ? 'Single Session' : 'Monthly Plan';
@@ -330,7 +330,7 @@ export async function sendWelcomeEmail({
       <p>Best regards,<br>GOALETE Club Team</p>
       
       <div class="footer">
-        <p>© 2025 GOALETE Club. All rights reserved.</p>
+        <p>Â© 2025 GOALETE Club. All rights reserved.</p>
       </div>
     </body>
     </html>
@@ -340,8 +340,7 @@ export async function sendWelcomeEmail({
   return await sendEmail({
     to: recipient.email,
     subject: 'Welcome to GOALETE Club - Your Subscription is Active!',
-    html: htmlContent
-  });
+    html: htmlContent  });
 }
 
 /**
@@ -390,7 +389,7 @@ export async function sendAdminNotificationEmail({
     const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);
     
     // Display amount in INR
-    const formattedAmount = `₹${amount.toFixed(2)}`;
+    const formattedAmount = `â‚¹${amount.toFixed(2)}`;
     
     // Plan type display name
     const planDisplay = planType === 'single' ? 'Single Session' : 'Monthly Plan';
@@ -428,7 +427,7 @@ export async function sendAdminNotificationEmail({
       </head>
       <body>
         <div class="header">
-          <h1>🔔 New Registration Alert</h1>
+          <h1>ðŸ”” New Registration Alert</h1>
         </div>
         
         <p>A new user has successfully registered and completed payment on GOALETE Club.</p>
@@ -504,7 +503,7 @@ export async function sendAdminNotificationEmail({
         <p>You can view and manage this user in the <a href="https://goaletemeet.vercel.app/admin">admin dashboard</a>.</p>
         
         <div class="footer">
-          <p>© 2025 GOALETE Club. This is an automated notification from the system.</p>
+          <p>Â© 2025 GOALETE Club. This is an automated notification from the system.</p>
         </div>
       </body>
       </html>

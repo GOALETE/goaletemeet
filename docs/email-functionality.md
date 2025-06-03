@@ -6,6 +6,7 @@ GoaleteMeet implements email functionality using Nodemailer with Gmail SMTP for 
 1. Welcome emails after successful payment
 2. Daily meeting invites with calendar attachments
 3. Immediate meeting invites for same-day subscriptions
+4. Admin notifications for new registrations
 
 ## Configuration
 
@@ -17,6 +18,7 @@ Create a `.env` file in the root directory with the following variables:
 # Email settings (Gmail SMTP)
 EMAIL_USER="your-email@gmail.com"
 EMAIL_PASSWORD="your-app-password"
+ADMIN_EMAIL="admin@example.com"
 ```
 
 **Important**: For Gmail, you need to use an "App Password" not your regular password.
@@ -27,6 +29,7 @@ Generate one at: https://myaccount.google.com/apppasswords
 Email templates are defined in `lib/email.ts` with responsive HTML designs for:
 - Welcome emails
 - Meeting invite emails
+- Admin notification emails
 
 ## Email Types
 
@@ -45,6 +48,14 @@ Contains:
 - Calendar attachment (.ics file)
 - Date and time information
 - Platform-specific details
+
+### Admin Notification Email
+
+Sent when a new user registers and makes a payment:
+- User details (name, email, phone, source, reference)
+- Subscription details (plan type, start/end dates)
+- Payment details (amount, payment ID)
+- Link to admin dashboard
 
 ## CRON Job for Daily Invites
 

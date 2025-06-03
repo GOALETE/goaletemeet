@@ -19,7 +19,7 @@ async function verifyAdmin(req: NextRequest) {
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
-) {
+): Promise<NextResponse> {
   try {
     // Verify admin authentication
     if (!await verifyAdmin(req)) {
@@ -50,7 +50,7 @@ export async function GET(
     }
 
     // Format user data with subscription details
-    const formattedUser = formatUserWithSubscriptions(user as any);
+    const formattedUser = formatUserWithSubscriptions(user);
 
     return NextResponse.json({ user: formattedUser });
   } catch (error) {
@@ -65,7 +65,7 @@ export async function GET(
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
-) {
+): Promise<NextResponse> {
   try {
     // Verify admin authentication
     if (!await verifyAdmin(req)) {
@@ -107,9 +107,7 @@ export async function PATCH(
             price: 0 // Free infinite subscription
           }
         });
-      }
-
-      // Fetch updated user with subscriptions
+      }      // Fetch updated user with subscriptions
       const updatedUser = await prisma.user.findUnique({
         where: { id: userId },
         include: {
@@ -118,11 +116,17 @@ export async function PATCH(
           }
         }
       });
-
+      
       // Return success response
+      if (!updatedUser) {
+        return NextResponse.json({
+          message: "Successfully granted superuser status, but user data could not be retrieved",
+        }, { status: 200 });
+      }
+      
       return NextResponse.json({
         message: "Successfully granted superuser status",
-        user: formatUserWithSubscriptions(updatedUser as any)
+        user: formatUserWithSubscriptions(updatedUser)
       });
     }
 
@@ -142,10 +146,8 @@ export async function PATCH(
           orderBy: { startDate: 'desc' }
         }
       }
-    });
-
-    // Format user data with subscription details
-    const formattedUser = formatUserWithSubscriptions(updatedUser as any);
+    });    // Format user data with subscription details
+    const formattedUser = formatUserWithSubscriptions(updatedUser);
 
     return NextResponse.json({ 
       message: "User updated successfully",
@@ -163,7 +165,7 @@ export async function PATCH(
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
-) {
+): Promise<NextResponse> {
   try {
     // Verify admin authentication
     if (!await verifyAdmin(req)) {
