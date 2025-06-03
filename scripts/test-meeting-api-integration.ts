@@ -2,6 +2,7 @@
 import { createMeetingWithUsers, addUserToMeeting, google_create_meet, zoom_create_meet } from '../lib/meetingLink';
 import { PrismaClient } from '@prisma/client';
 import * as dotenv from 'dotenv';
+import { MeetingWithUsers } from '../types/meeting';
 
 // Load environment variables
 dotenv.config();
@@ -9,14 +10,14 @@ dotenv.config();
 const prisma = new PrismaClient();
 
 // Helper function to log test results
-function logTest(name: string, success: boolean, result: any = null, error: any = null) {
+function logTest(name: string, success: boolean, result: any = null, error: Error | unknown = null) {
   console.log(`\n----- Test: ${name} -----`);
   console.log(`Status: ${success ? '✅ PASSED' : '❌ FAILED'}`);
   if (result) {
     console.log('Result:', typeof result === 'object' ? JSON.stringify(result, null, 2) : result);
   }
   if (error) {
-    console.error('Error:', error);
+    console.error('Error:', error instanceof Error ? error.message : String(error));
   }
 }
 

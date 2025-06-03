@@ -3,26 +3,14 @@
 
 import fetch from 'node-fetch';
 import * as dotenv from 'dotenv';
+import { MeetingWithUsers } from '../types/meeting';
 
 // Load environment variables from .env file
 dotenv.config();
 
 // Define types for API responses
-interface Meeting {
-  id: string;
-  meetingDate: string;
-  platform: string;
-  meetingLink: string;
-  startTime: string;
-  endTime: string;
-  meetingTitle: string;
-  meetingDesc?: string;
-  googleEventId?: string;
-  zoomMeetingId?: string;
-  zoomStartUrl?: string;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
+interface Meeting extends MeetingWithUsers {
+  // Already inherits all fields from MeetingWithUsers
 }
 
 interface CreateMeetingResponse {
@@ -53,12 +41,12 @@ async function createMeetings() {
     },
     body: JSON.stringify({
       dates: [tomorrowStr],
-      platform: process.env.DEFAULT_MEETING_PLATFORM || 'google-meet',
-      startTime: process.env.DEFAULT_MEETING_TIME || '21:00',
+      platform: process.env.DEFAULT_MEETING_PLATFORM || 'google-meet',      startTime: process.env.DEFAULT_MEETING_TIME || '21:00',
       duration: parseInt(process.env.DEFAULT_MEETING_DURATION || '60'),
       meetingTitle: 'Test Meeting API',
       meetingDesc: 'This is a test meeting.'
-    })  });
+    })
+  });
   
   if (!res.ok) {
     console.error(`Failed to create meeting: ${res.status} ${res.statusText}`);
@@ -95,10 +83,10 @@ async function getMeetings() {
   
   const url = `${API_URL}?${queryParams.toString()}`;
   const res = await fetch(url, {
-    method: 'GET',
-    headers: {
+    method: 'GET',    headers: {
       'Authorization': `Bearer ${ADMIN_PASSCODE}`
-    }  });
+    }
+  });
   const data = await res.json();
   
   if (data.meetings && data.meetings.length > 0) {

@@ -66,13 +66,13 @@ function checkEnvVars() {
   return true;
 }
 
-function runTest(scriptName, description) {
+function runTest(scriptName: string, description: string): boolean {
   console.log(`\n====== Running: ${description} ======\n`);
   try {
     execSync(`npm run ${scriptName}`, { stdio: 'inherit' });
     console.log(`\n✅ ${description} completed successfully\n`);
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`\n❌ ${description} failed\n`);
     console.error(error.message);
     return false;

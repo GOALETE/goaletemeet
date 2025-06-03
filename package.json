@@ -1,13 +1,17 @@
 {
   "name": "goaletemeet",
   "version": "0.1.0",
-  "private": true,  "scripts": {
+  "private": true,
+  "scripts": {
+    "preinstall": "prisma migrate dev",
     "dev": "next dev --turbopack",
     "build": "prisma generate --no-engine && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate --no-engine",
-    "test:email": "tsx scripts/test-email.ts",    "test:admin": "tsx scripts/test-admin-auth.ts",    "test:meeting-env": "tsx scripts/test-meeting-env-vars.ts",
+    "test:email": "tsx scripts/test-email.ts",
+    "test:admin": "tsx scripts/test-admin-auth.ts",
+    "test:meeting-env": "tsx scripts/test-meeting-env-vars.ts",
     "test:meeting-api": "tsx scripts/test-meeting-api-integration.ts",
     "test:admin-meetings": "tsx tester/adminMeetingsTest.ts",
     "test:cron-invites": "tsx scripts/test-cron-daily-invites.ts",
@@ -40,10 +44,12 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.8",
     "@types/node": "^20",
+    "@types/node-fetch": "^2.6.12",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.21",
+    "node-fetch": "^2.7.0",
     "postcss": "^8.5.4",
     "prisma": "^6.8.2",
     "tailwindcss": "^4.1.8",

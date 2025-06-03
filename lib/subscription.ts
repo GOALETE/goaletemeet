@@ -1,5 +1,7 @@
 import prisma from './prisma';
 import { createMeetingWithUsers } from './meetingLink';
+import { Meeting } from '@prisma/client';
+import { MeetingWithUsers } from '../types/meeting';
 
 // Format date helper function for DD:MM:YY format in IST timezone
 const formatDateDDMMYY = (date: Date): string => {
@@ -298,10 +300,11 @@ export async function getTodayActiveSubscriptions() {
 }
 
 /**
+ /**
  * Gets or creates a meeting link for today
  * @returns The meeting object for today
  */
-export async function getOrCreateDailyMeetingLink() {
+export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | null> {
   try {
     // Get today's date in IST
     const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));

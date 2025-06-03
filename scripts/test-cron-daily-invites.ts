@@ -3,6 +3,7 @@ import fetch from 'node-fetch';
 import * as dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { getOrCreateDailyMeetingLink } from '../lib/subscription';
+import { MeetingWithUsers, CronJobResponse } from '../types/meeting';
 
 // Load environment variables
 dotenv.config();
@@ -29,12 +30,15 @@ async function testDailyMeetingCreation() {
     }
     
     console.log('✅ Successfully created/retrieved daily meeting:');
-    console.log(`- Date: ${new Date(meeting.meetingDate).toLocaleDateString()}`);
-    console.log(`- Platform: ${meeting.platform}`);
+    console.log(`- Date: ${new Date(meeting.meetingDate).toLocaleDateString()}`);    console.log(`- Platform: ${meeting.platform}`);
     console.log(`- Link: ${meeting.meetingLink}`);
     console.log(`- Title: ${meeting.meetingTitle}`);
     console.log(`- Start Time: ${new Date(meeting.startTime).toLocaleTimeString()}`);
-    console.log(`- User Count: ${meeting.users?.length || 0}`);
+    
+    // Check if users are included in the response
+    if ('users' in meeting && Array.isArray(meeting.users)) {
+      console.log(`- User Count: ${meeting.users.length}`);
+    }
     
     if (meeting.platform === 'google-meet' && meeting.googleEventId) {
       console.log(`- Google Event ID: ${meeting.googleEventId}`);
@@ -59,15 +63,21 @@ async function testCronEndpoint() {
     const cronUrl = 'http://localhost:3000/api/cron-daily-invites';
     
     console.log(`Calling cron endpoint: ${cronUrl}`);
-    const response = await fetch(cronUrl, {
-      method: 'GET',
-    });
+    let response;    try {
+      response = await fetch(cronUrl, {
+        method: 'GET',
+      });
+    } catch (error) {
+      console.error(`❌ Could not connect to cron endpoint: ${(error as Error).message}`);
+      console.error('Make sure your local development server is running (npm run dev)');
+      return null;
+    }
     
     if (!response.ok) {
       console.error(`❌ Cron endpoint failed with status: ${response.status}`);
       const errorText = await response.text();
       console.error('Error details:', errorText);
-      return;
+      return null;
     }
     
     const data = await response.json();
