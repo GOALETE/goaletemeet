@@ -18,8 +18,7 @@ export async function GET(request: NextRequest) {
     // Get query parameters
     const url = new URL(request.url);
     const date = url.searchParams.get('date');
-    
-    // Use the existing function to get or create today's meeting
+      // Use the existing function to get or create today's meeting
     const todayMeeting = await getOrCreateDailyMeetingLink();
     
     if (!todayMeeting) {
@@ -38,9 +37,9 @@ export async function GET(request: NextRequest) {
       endTimeIST: todayMeeting.endTime.toISOString(),
       meetingTitle: todayMeeting.meetingTitle,
       meetingDesc: todayMeeting.meetingDesc,
-      googleEventId: todayMeeting.googleEventId,
-      zoomMeetingId: todayMeeting.zoomMeetingId,
-      zoomStartUrl: todayMeeting.zoomStartUrl
+      googleEventId: todayMeeting.googleEventId || null,
+      zoomMeetingId: todayMeeting.zoomMeetingId || null,
+      zoomStartUrl: todayMeeting.zoomStartUrl || null
     };
 
     // Count active users for today
