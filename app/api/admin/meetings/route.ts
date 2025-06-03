@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "../../../../lib/prisma";
 import { z } from "zod";
-import { createMeeting } from '@/lib/meetingLink';
+import { createMeeting } from '../../../../lib/meetingLink';
 import { addDays, format, parseISO } from 'date-fns';
 
 // Schema for creating meetings

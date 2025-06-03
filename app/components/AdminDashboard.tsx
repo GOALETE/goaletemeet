@@ -6,6 +6,7 @@ import UserDetailModal from './adminviews/UserDetailModal';
 import SessionUsersView from './adminviews/SessionUsersView';
 import SubscriptionsView from './adminviews/SubscriptionsView';
 import UpcomingRegistrationsView from './adminviews/UpcomingRegistrationsView';
+import TodayMeetingCard from './adminviews/TodayMeetingCard';
 
 type UserData = {
   id: string;
@@ -88,8 +89,8 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     const today = new Date();
     return format(today, 'yyyy-MM-dd');
   });
-  const [sessionUsers, setSessionUsers] = useState<any[]>([]);
-  const [sessionUsersLoading, setSessionUsersLoading] = useState(false);
+  const [sessionUsers, setSessionUsers] = useState<any[]>([]);  const [sessionUsersLoading, setSessionUsersLoading] = useState(false);
+  const [refreshMeetingTrigger, setRefreshMeetingTrigger] = useState(0);
   
   // Filter states - simplified
   const [filterState, setFilterState] = useState({
@@ -644,6 +645,11 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             Session Users
           </button>
         </div>
+      </div>
+      
+      {/* Today's Meeting Card - Always visible at the top */}
+      <div className="mt-4 px-4">
+        <TodayMeetingCard refreshTrigger={refreshMeetingTrigger} />
       </div>
 
       {/* Conditional rendering based on active tab */}
