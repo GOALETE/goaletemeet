@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addDays } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
 type Meeting = {
@@ -26,13 +26,17 @@ export default function AdminCalendar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  
-  // Form state
+    // Form state
   const [platform, setPlatform] = useState('google-meet');
   const [startTime, setStartTime] = useState('20:00');
   const [duration, setDuration] = useState(60);
   const [meetingTitle, setMeetingTitle] = useState('GOALETE Club Session');
   const [meetingDesc, setMeetingDesc] = useState('Join us for a GOALETE Club session to learn how to achieve any goal in life.');
+  const [isDateRange, setIsDateRange] = useState(false);
+  const [dateRange, setDateRange] = useState({
+    startDate: format(new Date(), 'yyyy-MM-dd'),
+    endDate: format(addDays(new Date(), 7), 'yyyy-MM-dd')
+  });
 
   // Calendar navigation
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
@@ -79,18 +83,19 @@ export default function AdminCalendar() {
       setLoading(false);
     }
   };
-
   const createMeetings = async () => {
     try {
-      if (selectedDates.length === 0) {
-        showToast('Please select at least one date', 'error');
+      if (!isDateRange && selectedDates.length === 0) {
+        showToast('Please select at least one date or use date range', 'error');
+        return;
+      }
+
+      if (isDateRange && (!dateRange.startDate || !dateRange.endDate)) {
+        showToast('Please provide both start and end dates for the range', 'error');
         return;
       }
       
       setLoading(true);
-      
-      // Format dates for API
-      const dates = selectedDates.map(date => format(date, 'yyyy-MM-dd'));
       
       // Get admin token from session storage
       const adminPasscode = sessionStorage.getItem('adminPasscode');
@@ -100,20 +105,38 @@ export default function AdminCalendar() {
         return;
       }
       
+      // Prepare request payload based on selection mode
+      const requestBody = {
+        platform,
+        startTime,
+        duration: Number(duration),
+        meetingTitle,
+        meetingDesc
+      };
+
+      // Add either dates array or date range
+      if (isDateRange) {
+        Object.assign(requestBody, {
+          dateRange: {
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate
+          }
+        });
+      } else {
+        // Format dates for API
+        const dates = selectedDates.map(date => format(date, 'yyyy-MM-dd'));
+        Object.assign(requestBody, { dates });
+      }
+      
+      console.log("Creating meetings with:", requestBody);
+      
       const response = await fetch('/api/admin/meetings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminPasscode}`
         },
-        body: JSON.stringify({
-          dates,
-          platform,
-          startTime,
-          duration: Number(duration),
-          meetingTitle,
-          meetingDesc
-        })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {
@@ -128,7 +151,7 @@ export default function AdminCalendar() {
       setLoading(false);
     } catch (error) {
       console.error('Error creating meetings:', error);
-      showToast('Failed to create meetings', 'error');
+      showToast('Failed to create meetings: ' + (error instanceof Error ? error.message : String(error)), 'error');
       setLoading(false);
     }
   };
@@ -328,8 +351,7 @@ export default function AdminCalendar() {
           {renderCells()}
           {renderSelectedDates()}
         </div>
-        
-        {/* Meeting creation form */}
+          {/* Meeting creation form */}
         <div className="lg:col-span-2 bg-white rounded-lg shadow p-4">
           <h3 className="text-xl font-semibold mb-4">Create Meetings</h3>
           
@@ -347,6 +369,67 @@ export default function AdminCalendar() {
                 <option value="zoom">Zoom</option>
               </select>
             </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Selection Mode
+              </label>
+              <div className="flex gap-4">
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    className="form-radio"
+                    name="dateSelectionMode"
+                    checked={!isDateRange}
+                    onChange={() => setIsDateRange(false)}
+                  />
+                  <span className="ml-2">Individual Dates</span>
+                </label>
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    className="form-radio"
+                    name="dateSelectionMode"
+                    checked={isDateRange}
+                    onChange={() => setIsDateRange(true)}
+                  />
+                  <span className="ml-2">Date Range</span>
+                </label>
+              </div>
+            </div>
+            
+            {isDateRange && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full p-2 border border-gray-300 rounded"
+                    value={dateRange.startDate}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full p-2 border border-gray-300 rounded"
+                    value={dateRange.endDate}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+            
+            {!isDateRange && selectedDates.length > 0 && (
+              <div className="p-3 bg-blue-50 rounded text-sm">
+                Selected {selectedDates.length} date(s). Click on dates in the calendar to select/deselect.
+              </div>
+            )}
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -402,9 +485,9 @@ export default function AdminCalendar() {
             <button
               className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
               onClick={createMeetings}
-              disabled={loading || selectedDates.length === 0}
+              disabled={loading || (!isDateRange && selectedDates.length === 0)}
             >
-              {loading ? 'Creating...' : `Create Meeting${selectedDates.length !== 1 ? 's' : ''}`}
+              {loading ? 'Creating...' : 'Create Meetings'}
             </button>
             
             {error && (

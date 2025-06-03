@@ -1,5 +1,5 @@
 import prisma from './prisma';
-import { createMeetingWithUsers } from './meetingLink';
+import { createCompleteMeeting } from './meetingLink';
 import { Meeting } from '@prisma/client';
 import { MeetingWithUsers } from '../types/meeting';
 
@@ -337,18 +337,17 @@ export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | 
     // Get default meeting settings from environment variables
     const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || 'google-meet';
     const defaultTime = process.env.DEFAULT_MEETING_TIME || '21:00';
-    const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || '60');
-    const todayStr = istDate.toISOString().split('T')[0];
+    const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || '60');    const todayStr = istDate.toISOString().split('T')[0];
 
     // Create the meeting with all users for today
-    const meeting = await createMeetingWithUsers({
+    const meeting = await createCompleteMeeting({
       platform: defaultPlatform as 'google-meet' | 'zoom',
       date: todayStr,
       startTime: defaultTime,
       duration: defaultDuration,
-      userIds,
       meetingTitle: 'GOALETE Club Daily Session',
-      meetingDesc: 'Join us for a GOALETE Club session to learn how to achieve any goal in life.'
+      meetingDesc: 'Join us for a GOALETE Club session to learn how to achieve any goal in life.',
+      userIds
     });
     return meeting;
   } catch (error) {

@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
-import { createMeetingWithUsers } from '@/lib/meetingLink';
+import { createMeeting } from '@/lib/meetingLink';
+import { addDays, format, parseISO } from 'date-fns';
 
 // Schema for creating meetings
 const createMeetingSchema = z.object({
-  dates: z.array(z.string()),
+  dates: z.array(z.string()).optional(),
+  dateRange: z.object({
+    startDate: z.string(),
+    endDate: z.string()
+  }).optional(),
   platform: z.enum(["google-meet", "zoom"]),
   startTime: z.string(), // Format: "HH:MM" in 24-hour format
   duration: z.number().min(15).max(240), // Duration in minutes
   meetingTitle: z.string().optional(),
   meetingDesc: z.string().optional(),
+}).refine(data => data.dates !== undefined || data.dateRange !== undefined, {
+  message: "Either specific dates or a date range must be provided"
 });
 
 // Schema for getting meetings
@@ -34,6 +41,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log("Meeting creation request:", body);
+    
     const parsed = createMeetingSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -43,18 +52,40 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const { dates, platform, startTime, duration, meetingTitle, meetingDesc } = parsed.data;
-    
+    const { platform, startTime, duration, meetingTitle, meetingDesc } = parsed.data;
+    let dates: string[] = [];
+
+    // Handle either individual dates or date range
+    if (parsed.data.dates && parsed.data.dates.length > 0) {
+      dates = parsed.data.dates;
+    } else if (parsed.data.dateRange) {
+      const { startDate, endDate } = parsed.data.dateRange;
+      const start = parseISO(startDate);
+      const end = parseISO(endDate);
+      
+      // Generate dates array for the range
+      let currentDate = start;
+      while (currentDate <= end) {
+        dates.push(format(currentDate, 'yyyy-MM-dd'));
+        currentDate = addDays(currentDate, 1);
+      }
+    }
+
+    if (dates.length === 0) {
+      return NextResponse.json({ 
+        message: "No valid dates provided" 
+      }, { status: 400 });
+    }
+
     // Create meetings for each date
     const createdMeetings = [];
     for (const dateStr of dates) {
-      // Use the new robust meeting creation logic
-      const meeting = await createMeetingWithUsers({
+      // Use the meeting creation logic
+      const meeting = await createMeeting({
         platform,
         date: dateStr,
         startTime,
         duration,
-        userIds: [], // No users for admin-created meetings by default
         meetingTitle,
         meetingDesc
       });

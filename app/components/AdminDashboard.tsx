@@ -20,6 +20,7 @@ type UserData = {
   status?: string;
   price?: number;
   paymentStatus?: string;
+  role?: string;
 };
 
 type Subscription = {
@@ -229,7 +230,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       console.error('Error fetching upcoming registrations:', error);
     }
   };
-
   const fetchUsers = async () => {
     setLoading(true);
     // Build query parameters based on current filters
@@ -269,14 +269,23 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     queryParams.set('pageSize', String(pageSize));
     
     try {
+      // Log query parameters for debugging
+      console.log('Fetching users with query params:', Object.fromEntries(queryParams.entries()));
+      
       const response = await fetch(`/api/admin/users?${queryParams.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch users');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response from API:', errorData);
+        throw new Error(errorData.message || 'Failed to fetch users');
+      }
       const data = await response.json();
+      console.log('User data received:', data);
       setUsers(data.users);
       setFilteredUsers(data.users);
       setTotal(data.total);
       setLoading(false);
     } catch (error) {
+      console.error('Error fetching users data:', error);
       setError('Error fetching users data');
       setLoading(false);
     }
@@ -493,6 +502,26 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       setModalSortOrder('asc');
     }
   };
+  // Handle user updates from the modal
+  const handleUserUpdated = (updatedUser: any) => {
+    // Update the selected user
+    setSelectedUser(updatedUser);
+
+    // Update user in the main list
+    const updatedUsers = users.map(user => 
+      user.id === updatedUser.id 
+        ? { ...user, role: updatedUser.role } 
+        : user
+    );
+    setUsers(updatedUsers);
+    setFilteredUsers(updatedUsers);
+
+    // Show success toast
+    showToast(`User ${updatedUser.name || updatedUser.email} updated successfully`);
+    
+    // Refresh data
+    fetchUsers();
+  };
 
   const filteredAndSortedSubscriptions = selectedUser?.subscriptions
     ? selectedUser.subscriptions
@@ -689,6 +718,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
           setModalFilterStatus={setModalFilterStatus}
           setModalFilterPayment={setModalFilterPayment}
           handleModalSort={handleModalSort}
+          onUserUpdated={handleUserUpdated}
         />
       )}
     </div>

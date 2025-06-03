@@ -1,5 +1,5 @@
 // Test script to verify Google Meet and Zoom API integration
-import { createMeetingWithUsers, addUserToMeeting, google_create_meet, zoom_create_meet } from '../lib/meetingLink';
+import { createCompleteMeeting, updateMeetingWithUsers, google_create_meet, zoom_create_meet } from '../lib/meetingLink';
 import { PrismaClient } from '@prisma/client';
 import * as dotenv from 'dotenv';
 import { MeetingWithUsers } from '../types/meeting';
@@ -89,25 +89,23 @@ async function testMeetingCreation() {
         });
         console.log('Created test user:', testUser.id);
       }
-      
-      // Create a meeting with the test user
+        // Create a meeting with the test user
       const today = new Date();
       const dateStr = today.toISOString().split('T')[0];
-      const result = await createMeetingWithUsers({
+      const result = await createCompleteMeeting({
         platform: 'google-meet',
         date: dateStr,
         startTime: '16:00',
         duration: 60,
-        userIds: [testUser.id],
         meetingTitle: 'Test Meeting with Users',
-        meetingDesc: 'This is a test meeting created by the test script'
+        meetingDesc: 'This is a test meeting created by the test script',
+        userIds: [testUser.id]
       });
-      
-      logTest('Create Meeting with Users', true, {
+        logTest('Create Meeting with Users', true, {
         meetingId: result.id,
         link: result.meetingLink,
         platform: result.platform,
-        userCount: result.users.length,
+        userCount: result.users ? result.users.length : 0,
         googleEventId: result.googleEventId
       });
       
@@ -146,13 +144,12 @@ async function testAddUserToMeeting(meetingId: string | null) {
       });
       console.log('Created second test user:', secondUser.id);
     }
-    
-    // Add the second user to the meeting
-    const result = await addUserToMeeting(meetingId, secondUser.id);
+      // Add the second user to the meeting
+    const result = await updateMeetingWithUsers(meetingId, [secondUser.id]);
     
     logTest('Add User to Meeting', true, {
       meetingId: result.id,
-      userCount: result.users.length,
+      userCount: result.users ? result.users.length : 0,
       updatedAt: result.updatedAt
     });
   } catch (error) {

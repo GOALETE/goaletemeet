@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { sendMeetingInvite } from "@/lib/email";
-import { addUserToMeeting, createMeetingWithUsers } from '@/lib/meetingLink';
+import { getOrCreateMeetingForDate } from '@/lib/meetingLink';
 
 // Define schema for request validation
 const inviteSchema = z.object({
@@ -31,42 +31,13 @@ export async function POST(request: NextRequest) {
 
     if (!subscription) {
       return NextResponse.json({ message: "Subscription not found" }, { status: 404 });
-    }
-
-    // Get today's meeting from the Meeting model
+    }    // Get today's meeting from the Meeting model
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split('T')[0];
-    let todayMeeting = await prisma.meeting.findFirst({
-      where: {
-        meetingDate: {
-          gte: new Date(today.setHours(0, 0, 0, 0)),
-          lt: new Date(today.setHours(23, 59, 59, 999))
-        }
-      },
-      orderBy: {
-        createdAt: "desc"
-      }
-    });
-
-    // If no meeting exists for today, create one and attach this user
-    if (!todayMeeting) {
-      const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || "google-meet";
-      const defaultTime = process.env.DEFAULT_MEETING_TIME || "21:00";
-      const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || "60");
-      todayMeeting = await createMeetingWithUsers({
-        platform: defaultPlatform as 'google-meet' | 'zoom',
-        date: todayStr,
-        startTime: defaultTime,
-        duration: defaultDuration,
-        userIds: [userId],
-        meetingTitle: "GOALETE Club Daily Session",
-        meetingDesc: "Join us for a GOALETE Club session to learn how to achieve any goal in life."
-      });
-    } else {
-      // Attach this user to the meeting if not already attached
-      await addUserToMeeting(todayMeeting.id, userId);
-    }
+    
+    // Get or create today's meeting and add the user to it
+    let todayMeeting = await getOrCreateMeetingForDate(todayStr, userId);
 
     // Refresh meeting details
     const meeting = await prisma.meeting.findUnique({ where: { id: todayMeeting.id } });

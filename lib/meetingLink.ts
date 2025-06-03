@@ -1,9 +1,12 @@
 import prisma from './prisma';
 import axios from 'axios';
 import { google } from 'googleapis';
+import { MeetingWithUsers } from '../types/meeting';
 
 /**
  * Create a meeting link for the given platform, date, and timeslot.
+ * This is a simple function that only returns the URL string.
+ * For more functionality use createMeeting or other higher-level functions.
  * @param platform 'google-meet' | 'zoom'
  * @param date ISO date string (YYYY-MM-DD)
  * @param startTime string (HH:MM, 24-hour format)
@@ -120,13 +123,44 @@ export async function google_add_user_to_meeting(eventId: string, email: string,
   });
 }
 
+
+async function get_zoom_token(): Promise<string> {
+  const clientId = process.env.ZOOM_CLIENT_ID;
+  const clientSecret = process.env.ZOOM_CLIENT_SECRET;
+  const accountId = process.env.ZOOM_ACCOUNT_ID;
+
+  if (!clientId || !clientSecret || !accountId) {
+    throw new Error('Zoom API credentials are not set (CLIENT_ID, CLIENT_SECRET, ACCOUNT_ID)');
+  }
+
+  const base64String = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  const url = `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${accountId}`;
+
+  try {
+    const response = await axios.post(url, null, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": "Basic " + base64String
+      }
+    });
+
+    return response.data.access_token;
+  } catch (error: any) {
+    console.error('Error getting Zoom token:', error.response?.data || error.message);
+    throw new Error('Failed to get Zoom access token');
+  }
+}
+
 export async function zoom_create_meet({ date, startTime, duration }: { date: string, startTime: string, duration: number }): Promise<{ join_url: string, id: string, start_url: string }> {
-  const ZOOM_JWT_TOKEN = process.env.ZOOM_JWT_TOKEN;
   const ZOOM_USER_ID = process.env.ZOOM_USER_ID;
   
-  if (!ZOOM_JWT_TOKEN || !ZOOM_USER_ID) {
-    throw new Error('Zoom API credentials are not set');
+  if (!ZOOM_USER_ID) {
+    throw new Error('Zoom User ID is not set');
   }
+  
+  // Get access token
+  const accessToken = await get_zoom_token();
+  
   // Construct start time in ISO format (Zoom expects UTC)
   const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
   
@@ -158,7 +192,7 @@ export async function zoom_create_meet({ date, startTime, duration }: { date: st
       meetingConfig,
       {
         headers: {
-          'Authorization': `Bearer ${ZOOM_JWT_TOKEN}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         }
       }
@@ -175,20 +209,20 @@ export async function zoom_create_meet({ date, startTime, duration }: { date: st
 }
 
 /**
- * Create a meeting and attach invited users.
+ * Core function 1: Create a meeting on the specified platform and store in database
  * @param args.platform 'google-meet' | 'zoom'
  * @param args.date ISO date string (YYYY-MM-DD)
  * @param args.startTime string (HH:MM, 24-hour format)
  * @param args.duration number (minutes)
- * @param args.userIds string[] (user IDs to invite)
+ * @param args.meetingTitle optional title for the meeting
+ * @param args.meetingDesc optional description for the meeting
  * @returns Meeting record
  */
-export async function createMeetingWithUsers({
+export async function createMeeting({
   platform,
   date,
   startTime,
   duration,
-  userIds,
   meetingTitle,
   meetingDesc
 }: {
@@ -196,10 +230,9 @@ export async function createMeetingWithUsers({
   date: string,
   startTime: string,
   duration: number,
-  userIds: string[],
   meetingTitle?: string,
   meetingDesc?: string
-}) {
+}): Promise<MeetingWithUsers> {
   let meetingLink = '';
   let googleEventId: string | undefined = undefined;
   let zoomMeetingId: string | undefined = undefined;
@@ -208,7 +241,9 @@ export async function createMeetingWithUsers({
   if (platform === 'google-meet') {
     const { join_url, id } = await google_create_meet({ date, startTime, duration });
     meetingLink = join_url;
-    googleEventId = id;  } else if (platform === 'zoom') {
+    googleEventId = id;  
+  } 
+  else if (platform === 'zoom') {
     const response = await zoom_create_meet({ date, startTime, duration });
     meetingLink = response.join_url;
     zoomMeetingId = response.id?.toString();
@@ -233,9 +268,6 @@ export async function createMeetingWithUsers({
       createdBy: 'admin',
       meetingTitle: meetingTitle || 'GOALETE Club Session',
       meetingDesc: meetingDesc || 'Join us for a GOALETE Club session to learn how to achieve any goal in life.',
-      users: {
-        connect: userIds.map(id => ({ id }))
-      },
       googleEventId,
       zoomMeetingId,
       zoomStartUrl
@@ -246,45 +278,61 @@ export async function createMeetingWithUsers({
 }
 
 /**
- * Add a user to an existing meeting's invited list.
- * @param meetingId string
- * @param userId string
- * @returns Updated meeting
+ * Core function 2: Update meeting with users
+ * This function updates a meeting by adding users both in the platform and in the database
+ * @param meetingId database ID of the meeting
+ * @param userIds array of user IDs to add to the meeting
+ * @returns Updated meeting record
  */
-export async function addUserToMeeting(meetingId: string, userId: string) {
-  // Update the meeting in the database
+export async function updateMeetingWithUsers(
+  meetingId: string, 
+  userIds: string[]
+): Promise<MeetingWithUsers> {
+  // Fetch the meeting to check platform
+  const meeting = await prisma.meeting.findUnique({
+    where: { id: meetingId },
+    include: { users: true }
+  });
+  
+  if (!meeting) {
+    throw new Error(`Meeting with ID ${meetingId} not found`);
+  }
+  
+  // Add users to the platform's meeting
+  for (const userId of userIds) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, firstName: true, lastName: true }
+    });
+    
+    if (!user?.email) continue;
+    
+    const name = user.firstName 
+      ? (user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName) 
+      : user.email.split('@')[0];
+    
+    if (meeting.platform === 'google-meet' && meeting.googleEventId) {
+      await google_add_user_to_meeting(meeting.googleEventId, user.email, name);
+    } else if (meeting.platform === 'zoom' && meeting.zoomMeetingId) {
+      await zoom_add_user_to_meeting(meeting.zoomMeetingId, user.email, name);
+    }
+  }
+  
+  // Update the meeting in the database with the users
   const updatedMeeting = await prisma.meeting.update({
     where: { id: meetingId },
     data: {
       users: {
-        connect: { id: userId }
+        connect: userIds.map(id => ({ id }))
       }
     },
     include: { users: true }
   });
-
-  // If the meeting is a Zoom meeting, add the user as a registrant
-  if (updatedMeeting.platform === 'zoom' && updatedMeeting.zoomMeetingId) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, firstName: true, lastName: true }
-    });
-    if (user?.email) {
-      const name = user.firstName ? (user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName) : user.email.split('@')[0];
-      await zoom_add_user_to_meeting(updatedMeeting.zoomMeetingId, user.email, name);
-    }
-  } else if (updatedMeeting.platform === 'google-meet' && updatedMeeting.googleEventId) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, firstName: true, lastName: true }
-    });
-    if (user?.email) {
-      const name = user.firstName ? (user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName) : user.email.split('@')[0];
-      await google_add_user_to_meeting(updatedMeeting.googleEventId, user.email, name);
-    }
-  }
+  
   return updatedMeeting;
 }
+
+// Platform-specific API operations
 
 /**
  * Add a user (by email) as a registrant to a Zoom meeting.
@@ -294,12 +342,10 @@ export async function addUserToMeeting(meetingId: string, userId: string) {
  * @returns Zoom API response
  */
 export async function zoom_add_user_to_meeting(meetingId: string, email: string, name?: string) {
-  const ZOOM_JWT_TOKEN = process.env.ZOOM_JWT_TOKEN;
-  
-  if (!ZOOM_JWT_TOKEN) {
-    throw new Error('Zoom API credentials are not set');
-  }
   try {
+    // Get access token
+    const accessToken = await get_zoom_token();
+    
     const response = await axios.post(
       `https://api.zoom.us/v2/meetings/${meetingId}/registrants`,
       {
@@ -308,7 +354,7 @@ export async function zoom_add_user_to_meeting(meetingId: string, email: string,
       },
       {
         headers: {
-          'Authorization': `Bearer ${ZOOM_JWT_TOKEN}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         }
       }
@@ -318,4 +364,116 @@ export async function zoom_add_user_to_meeting(meetingId: string, email: string,
     console.error('Zoom add registrant error:', error.response?.data || error.message);
     throw new Error('Failed to add user to Zoom meeting');
   }
+}
+
+/**
+ * Get a meeting for a specific date, or create one if it doesn't exist
+ * This is particularly useful for cron jobs and handling immediate meeting invites
+ * @param date ISO date string (YYYY-MM-DD)
+ * @param userId Optional user ID to add to the meeting
+ * @returns Meeting record
+ */
+export async function getOrCreateMeetingForDate(
+  date: string,
+  userId?: string
+): Promise<MeetingWithUsers> {
+  const dateObj = new Date(date);
+  
+  // Check if there's already a meeting for this date
+  const existingMeeting = await prisma.meeting.findFirst({
+    where: {
+      meetingDate: {
+        gte: new Date(dateObj.setHours(0, 0, 0, 0)),
+        lt: new Date(dateObj.setHours(23, 59, 59, 999))
+      }
+    },
+    include: { users: true },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+  
+  // If a meeting exists
+  if (existingMeeting) {
+    // If userId is provided, add the user to the meeting
+    if (userId) {
+      // Check if user is already added to avoid duplicates
+      const isUserAlreadyAdded = existingMeeting.users?.some(user => user.id === userId);
+      
+      if (!isUserAlreadyAdded) {
+        return await updateMeetingWithUsers(existingMeeting.id, [userId]);
+      }
+    }
+    return existingMeeting;
+  }
+  
+  // No meeting exists, create a new one
+  const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || "google-meet";
+  const defaultTime = process.env.DEFAULT_MEETING_TIME || "21:00";
+  const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || "60");
+    // Create meeting with or without the user
+  if (userId) {
+    return await createCompleteMeeting({
+      platform: defaultPlatform as 'google-meet' | 'zoom',
+      date,
+      startTime: defaultTime,
+      duration: defaultDuration,
+      userIds: [userId],
+      meetingTitle: "GOALETE Club Daily Session",
+      meetingDesc: "Join us for a GOALETE Club session to learn how to achieve any goal in life."
+    });
+  } else {
+    return await createMeeting({
+      platform: defaultPlatform as 'google-meet' | 'zoom',
+      date,
+      startTime: defaultTime,
+      duration: defaultDuration,
+      meetingTitle: "GOALETE Club Daily Session",
+      meetingDesc: "Join us for a GOALETE Club session to learn how to achieve any goal in life."
+    });
+  }
+}
+
+/**
+ * Create a new meeting from scratch with multiple users (if provided)
+ * This is a convenience function that combines createMeeting and updateMeetingWithUsers
+ * @param platform 'google-meet' | 'zoom'
+ * @param date ISO date string (YYYY-MM-DD)
+ * @param meetingDetails Optional meeting details (title, description, etc.)
+ * @param userIds Optional array of user IDs to add to the meeting
+ * @returns Meeting record
+ */
+export async function createCompleteMeeting({
+  platform,
+  date,
+  startTime,
+  duration,
+  meetingTitle,
+  meetingDesc,
+  userIds = []
+}: {
+  platform: 'google-meet' | 'zoom',
+  date: string,
+  startTime: string,
+  duration: number,
+  meetingTitle?: string,
+  meetingDesc?: string,
+  userIds?: string[]
+}): Promise<MeetingWithUsers> {
+  // Create the meeting
+  const meeting = await createMeeting({
+    platform,
+    date,
+    startTime,
+    duration,
+    meetingTitle,
+    meetingDesc
+  });
+  
+  // If there are users to add, update the meeting with users
+  if (userIds.length > 0) {
+    return await updateMeetingWithUsers(meeting.id, userIds);
+  }
+  
+  return meeting;
 }

@@ -22,7 +22,6 @@ export type UserWithSubscriptions = {
   phone: string;
   source: string;
   createdAt: string;
-  role?: string;
   subscriptions: Subscription[];
 };
 
@@ -37,7 +36,6 @@ interface UserDetailModalProps {
   setModalFilterStatus: (status: string) => void;
   setModalFilterPayment: (status: string) => void;
   handleModalSort: (field: keyof Subscription) => void;
-  onUserUpdated?: (updatedUser: UserWithSubscriptions) => void;
 }
 
 const UserDetailModal: React.FC<UserDetailModalProps> = ({
@@ -51,78 +49,20 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
   setModalFilterStatus,
   setModalFilterPayment,
   handleModalSort,
-  onUserUpdated,
 }) => {
-  const [loading, setLoading] = React.useState(false);
-  const [errorMessage, setErrorMessage] = React.useState('');
-  const [successMessage, setSuccessMessage] = React.useState('');
-
   if (!show || !user) return null;
 
   // Determine user name based on available properties
   const userName = user.name || 
                   (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 
                   user.firstName || user.email.split('@')[0]);
+
   // Format subscription date
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM dd, yyyy');
     } catch (e) {
       return dateString;
-    }
-  };
-
-  // Function to grant superuser status
-  const handleGrantSuperuser = async () => {
-    if (window.confirm('Are you sure you want to grant superuser status to this user? This will give them unlimited access without requiring payment.')) {
-      setLoading(true);
-      setErrorMessage('');
-      setSuccessMessage('');
-      
-      try {
-        const adminPasscode = sessionStorage.getItem('adminPasscode');
-        if (!adminPasscode) {
-          throw new Error('Admin authentication required');
-        }
-
-        const response = await fetch(`/api/admin/users/${user.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminPasscode}`
-          },
-          body: JSON.stringify({
-            grantSuperUser: true,
-            createInfiniteSubscription: true
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to update user');
-        }
-
-        const data = await response.json();
-        setSuccessMessage('Successfully granted superuser status');
-        
-        // If a callback was provided, call it with the updated user
-        if (onUserUpdated) {
-          onUserUpdated({
-            ...user,
-            role: 'superuser'
-          });
-        }
-      } catch (error) {
-        console.error('Error granting superuser status:', error);
-        setErrorMessage(error instanceof Error ? error.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-        // Clear messages after 3 seconds
-        setTimeout(() => {
-          setSuccessMessage('');
-          setErrorMessage('');
-        }, 3000);
-      }
     }
   };
 
@@ -160,7 +100,8 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
             <div>
               <p className="text-sm text-gray-600">Source</p>
               <p className="font-medium">{user.source || 'N/A'}</p>
-            </div>            <div>
+            </div>
+            <div>
               <p className="text-sm text-gray-600">Joined Date</p>
               <p className="font-medium">{formatDate(user.createdAt)}</p>
             </div>
@@ -168,39 +109,6 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
               <p className="text-sm text-gray-600">Subscription Count</p>
               <p className="font-medium">{user.subscriptions?.length || 0}</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Role</p>
-              <p className="font-medium">{user.role === 'superuser' 
-                ? <span className="text-blue-600 font-bold">Superuser</span> 
-                : (user.role || 'regular')}</p>
-            </div>
-          </div>
-        </div>
-        
-        {/* Action Buttons */}
-        <div className="px-6 py-3 bg-gray-50 border-b flex justify-between items-center">
-          <div>
-            {user.role !== 'superuser' && (
-              <button 
-                onClick={handleGrantSuperuser}
-                disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Processing...' : 'Grant Superuser Status'}
-              </button>
-            )}
-          </div>
-          <div>
-            {successMessage && (
-              <div className="px-4 py-2 bg-green-100 text-green-800 rounded">
-                {successMessage}
-              </div>
-            )}
-            {errorMessage && (
-              <div className="px-4 py-2 bg-red-100 text-red-800 rounded">
-                {errorMessage}
-              </div>
-            )}
           </div>
         </div>
         
