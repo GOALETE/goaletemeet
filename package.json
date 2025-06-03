@@ -5,7 +5,7 @@
   "scripts": {
     "preinstall": "prisma migrate dev",
     "dev": "next dev --turbopack",
-    "build": "prisma generate --no-engine && next build",
+    "build": "prisma migrate dev && prisma generate --no-engine && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate --no-engine",
