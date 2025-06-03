@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "../../../../lib/prisma";
-import { formatUserWithSubscriptions } from "../../../../lib/admin";
+import { formatUserForAdmin, generateCSV } from "../../../../lib/admin";
 
 // Verify admin authentication
 async function verifyAdmin(req: NextRequest) {
@@ -27,22 +27,16 @@ export async function GET(req: NextRequest) {
     }
 
     const url = new URL(req.url);
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const pageSize = parseInt(url.searchParams.get('pageSize') || '50');
+    const all = url.searchParams.get('all') === 'true';
     const search = url.searchParams.get('search') || '';
     const plan = url.searchParams.get('plan') || 'all';
     const status = url.searchParams.get('status') || 'all';
     const source = url.searchParams.get('source') || 'all';
     const paymentStatus = url.searchParams.get('paymentStatus') || 'all';
-    const sortBy = url.searchParams.get('sortBy') || 'createdAt';
-    const sortOrder = url.searchParams.get('sortOrder') || 'desc';
     const dateRange = url.searchParams.get('dateRange') || 'all';
     const startDate = url.searchParams.get('startDate') || '';
     const endDate = url.searchParams.get('endDate') || '';
     const showExpiringSoon = url.searchParams.get('showExpiringSoon') === 'true';
-
-    // Calculate skip value for pagination
-    const skip = (page - 1) * pageSize;
 
     // Build user query
     let userWhereCondition: any = {};
@@ -121,73 +115,35 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Determine sorting
-    let orderBy: any = {};
-    
-    // Map sortBy to appropriate field
-    if (sortBy === 'name') {
-      orderBy.firstName = sortOrder;
-    } else if (sortBy === 'createdAt') {
-      orderBy.createdAt = sortOrder;
-    } else {
-      orderBy[sortBy] = sortOrder;
-    }
-
-    // First, count total users for pagination
-    const totalUsers = await prisma.user.count({
-      where: userWhereCondition
-    });
-
-    // Then fetch the users with their subscriptions
+    // Fetch users (all or filtered)
     const users = await prisma.user.findMany({
-      where: userWhereCondition,
+      where: all ? {} : userWhereCondition,
       include: {
         subscriptions: {
-          where: Object.keys(subscriptionWhereCondition).length > 0 ? subscriptionWhereCondition : undefined,
+          where: all ? {} : (Object.keys(subscriptionWhereCondition).length > 0 ? subscriptionWhereCondition : undefined),
           orderBy: { startDate: 'desc' }
         }
       },
-      orderBy,
-      skip,
-      take: pageSize
+      orderBy: { createdAt: 'desc' }
     });
 
-    // Format users for admin
-    const formattedUsers = users.map(user => formatUserWithSubscriptions(user as any));
-
-    // Calculate stats
-    const activeSubscriptionsCount = await prisma.subscription.count({
-      where: { status: 'active' }
-    });
-
-    const expiredSubscriptionsCount = await prisma.subscription.count({
-      where: { status: 'expired' }
-    });
-
-    const totalRevenue = await prisma.subscription.aggregate({
-      _sum: {
-        price: true
-      },
-      where: { paymentStatus: 'completed' }
-    });
-
-    // Return response
-    return NextResponse.json({
-      users: formattedUsers,
-      total: totalUsers,
-      page,
-      pageSize,
-      stats: {
-        activeSubscriptions: activeSubscriptionsCount,
-        expiredSubscriptions: expiredSubscriptionsCount,
-        totalUsers: totalUsers
-      },
-      revenue: totalRevenue._sum.price || 0
+    // Format users for admin and CSV
+    const formattedUsers = users.map(user => formatUserForAdmin(user as any));
+    
+    // Generate CSV content
+    const csvContent = generateCSV(formattedUsers);
+    
+    // Return CSV data
+    return new NextResponse(csvContent, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="users-export-${new Date().toISOString().split('T')[0]}.csv"`
+      }
     });
   } catch (error) {
-    console.error("Error fetching users:", error);
+    console.error("Error exporting users:", error);
     return NextResponse.json(
-      { message: "Failed to fetch users" },
+      { message: "Failed to export users" },
       { status: 500 }
     );
   }
