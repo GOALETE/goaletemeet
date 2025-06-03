@@ -323,8 +323,7 @@ export async function sendWelcomeEmail({
         <p>3. Sessions are held daily at <span class="highlight">9:00 PM (IST)</span>.</p>
         <p>4. Please ensure you join the session on time for the best experience.</p>
       </div>
-      
-      <p>If you have any questions or need assistance, please don't hesitate to contact us.</p>
+        <p>If you have any questions or need assistance, please don't hesitate to contact us.</p>
       
       <p>We're excited to have you with us and look forward to helping you achieve your goals!</p>
       
@@ -343,4 +342,182 @@ export async function sendWelcomeEmail({
     subject: 'Welcome to GOALETE Club - Your Subscription is Active!',
     html: htmlContent
   });
+}
+
+/**
+ * Sends a notification email to admin when a new user registers
+ */
+export async function sendAdminNotificationEmail({
+  user,
+  planType,
+  startDate,
+  endDate,
+  amount,
+  paymentId
+}: {
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    source: string;
+    referenceName?: string;
+  };
+  planType: string;
+  startDate: Date;
+  endDate: Date;
+  amount: number;
+  paymentId?: string;
+}): Promise<boolean> {
+  try {
+    // Get admin email from environment variable
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (!adminEmail) {
+      console.error('ADMIN_EMAIL environment variable is not set');
+      return false;
+    }
+
+    // Format dates for display
+    const dateOptions: Intl.DateTimeFormatOptions = { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      timeZone: 'Asia/Kolkata' // Set timezone to IST
+    };
+    
+    const formattedStartDate = startDate.toLocaleDateString('en-IN', dateOptions);
+    const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);
+    
+    // Display amount in INR
+    const formattedAmount = `₹${amount.toFixed(2)}`;
+    
+    // Plan type display name
+    const planDisplay = planType === 'single' ? 'Single Session' : 'Monthly Plan';
+    
+    // Current date and time in IST
+    const currentDateTime = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    // HTML content for admin notification email
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Registration Notification</title>
+        <style>
+          body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { text-align: center; margin-bottom: 20px; background-color: #2c3e50; color: white; padding: 10px; border-radius: 5px; }
+          h1 { margin-bottom: 5px; font-size: 24px; }
+          .user-details, .subscription-details { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0; border-left: 4px solid #3498db; }
+          .payment-details { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0; border-left: 4px solid #27ae60; }
+          table { width: 100%; border-collapse: collapse; }
+          table td { padding: 8px; border-bottom: 1px solid #eee; }
+          table td:first-child { font-weight: bold; width: 35%; }
+          .footer { margin-top: 30px; font-size: 14px; color: #7f8c8d; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>🔔 New Registration Alert</h1>
+        </div>
+        
+        <p>A new user has successfully registered and completed payment on GOALETE Club.</p>
+        
+        <div class="user-details">
+          <h2>User Details</h2>
+          <table>
+            <tr>
+              <td>User ID:</td>
+              <td>${user.id}</td>
+            </tr>
+            <tr>
+              <td>Name:</td>
+              <td>${user.firstName} ${user.lastName}</td>
+            </tr>
+            <tr>
+              <td>Email:</td>
+              <td>${user.email}</td>
+            </tr>
+            <tr>
+              <td>Phone:</td>
+              <td>${user.phone}</td>
+            </tr>
+            <tr>
+              <td>Source:</td>
+              <td>${user.source}</td>
+            </tr>
+            ${user.referenceName ? `
+            <tr>
+              <td>Reference:</td>
+              <td>${user.referenceName}</td>
+            </tr>` : ''}
+          </table>
+        </div>
+        
+        <div class="subscription-details">
+          <h2>Subscription Details</h2>
+          <table>
+            <tr>
+              <td>Plan Type:</td>
+              <td>${planDisplay}</td>
+            </tr>
+            <tr>
+              <td>Start Date:</td>
+              <td>${formattedStartDate}</td>
+            </tr>
+            <tr>
+              <td>End Date:</td>
+              <td>${formattedEndDate}</td>
+            </tr>
+          </table>
+        </div>
+        
+        <div class="payment-details">
+          <h2>Payment Details</h2>
+          <table>
+            <tr>
+              <td>Amount:</td>
+              <td>${formattedAmount}</td>
+            </tr>
+            ${paymentId ? `
+            <tr>
+              <td>Payment ID:</td>
+              <td>${paymentId}</td>
+            </tr>` : ''}
+            <tr>
+              <td>Timestamp:</td>
+              <td>${currentDateTime}</td>
+            </tr>
+          </table>
+        </div>
+        
+        <p>You can view and manage this user in the <a href="https://goaletemeet.vercel.app/admin">admin dashboard</a>.</p>
+        
+        <div class="footer">
+          <p>© 2025 GOALETE Club. This is an automated notification from the system.</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Send the notification email to admin
+    return await sendEmail({
+      to: adminEmail,
+      subject: `New Registration: ${user.firstName} ${user.lastName} (${planDisplay})`,
+      html: htmlContent
+    });
+  } catch (error) {
+    console.error('Error sending admin notification email:', error);
+    return false;
+  }
 }
