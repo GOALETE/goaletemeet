@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     // Format the meeting time for display
     const formattedMeeting = {
-      id: todayMeeting.id,
+      id: (todayMeeting as any).id,
       meetingDate: todayMeeting.meetingDate.toISOString(),
       platform: todayMeeting.platform,
       meetingLink: todayMeeting.meetingLink,
