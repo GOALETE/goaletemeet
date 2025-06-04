@@ -332,12 +332,11 @@ export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | 
       },
       select: { userId: true }
     });
-    const userIds = activeSubscriptions.map(sub => sub.userId);
-
-    // Get default meeting settings from environment variables
+    const userIds = activeSubscriptions.map(sub => sub.userId);    // Get default meeting settings from environment variables
     const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || 'google-meet';
     const defaultTime = process.env.DEFAULT_MEETING_TIME || '21:00';
-    const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || '60');    const todayStr = istDate.toISOString().split('T')[0];
+    const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || '60');
+    const todayStr = istDate.toISOString().split('T')[0];
 
     // Create the meeting with all users for today
     const meeting = await createCompleteMeeting({

@@ -71,12 +71,9 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
       return dateString;
     }
   };
-
   // Calculate summary info
   const totalSpent = user.subscriptions?.reduce((sum, sub) => sum + (sub.price || 0), 0);
   const activeSubs = user.subscriptions?.filter(sub => sub.status === 'active').length || 0;
-  // Placeholder for admin notes (could be made editable and persisted if backend supports it)
-  const [adminNotes, setAdminNotes] = React.useState('');
 
   // Function to grant superuser status
   const handleGrantSuperuser = async () => {
@@ -187,8 +184,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
         {/* --- User Summary Section --- */}
         <div className="px-6 py-4 border-b bg-gray-50">
-          <div className="mb-2 text-lg font-semibold text-gray-700">Summary</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mb-2 text-lg font-semibold text-gray-700">Summary</div>          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-600">Total Spent</p>
               <p className="font-medium">₹{totalSpent}</p>
@@ -196,16 +192,6 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
             <div>
               <p className="text-sm text-gray-600">Active Subscriptions</p>
               <p className="font-medium">{activeSubs}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Admin Notes</p>
-              <textarea
-                className="w-full border rounded p-1 text-sm"
-                rows={2}
-                placeholder="Add notes... (not saved)"
-                value={adminNotes}
-                onChange={e => setAdminNotes(e.target.value)}
-              />
             </div>
           </div>
         </div>

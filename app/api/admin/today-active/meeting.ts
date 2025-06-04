@@ -24,11 +24,9 @@ export async function GET(request: NextRequest) {
     
     if (!todayMeeting) {
       return NextResponse.json({ message: "No meeting available for today" }, { status: 404 });
-    }
-
-    // Format the meeting time for display
+    }    // Format the meeting time for display
     const formattedMeeting = {
-      id: (todayMeeting as any).id,
+      id: todayMeeting.id,
       meetingDate: todayMeeting.meetingDate.toISOString(),
       platform: todayMeeting.platform,
       meetingLink: todayMeeting.meetingLink,
@@ -38,9 +36,9 @@ export async function GET(request: NextRequest) {
       endTimeIST: todayMeeting.endTime.toISOString(),
       meetingTitle: todayMeeting.meetingTitle,
       meetingDesc: todayMeeting.meetingDesc,
-      googleEventId: todayMeeting.googleEventId,
-      zoomMeetingId: todayMeeting.zoomMeetingId,
-      zoomStartUrl: todayMeeting.zoomStartUrl
+      googleEventId: todayMeeting.googleEventId || null,
+      zoomMeetingId: todayMeeting.zoomMeetingId || null,
+      zoomStartUrl: todayMeeting.zoomStartUrl || null
     };
 
     // Count active users for today

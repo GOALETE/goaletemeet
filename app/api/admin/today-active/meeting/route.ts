@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
     // Get query parameters
     const url = new URL(request.url);
     const date = url.searchParams.get('date');
-      // Use the existing function to get or create today's meeting
+    
+    // Use the existing function to get or create today's meeting
     const todayMeeting = await getOrCreateDailyMeetingLink();
     
     if (!todayMeeting) {
