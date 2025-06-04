@@ -288,8 +288,6 @@ export default function RegistrationForm() {
           } catch (error) {
             alert("Payment verification or registration failed. Please contact support.");
             console.error(error);
-          } finally {
-            setIsLoading(false); // Re-enable button after alert is issued
           }
         },
         prefill: {
@@ -324,7 +322,6 @@ export default function RegistrationForm() {
           console.log("delete the subscription order")
         }
         console.error(response.error);
-        setIsLoading(false); // Re-enable button after alert is issued
       });
       razorpay.open();
     } catch (error) {
@@ -600,7 +597,7 @@ export default function RegistrationForm() {
         )}        <button
           type="submit"
           className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl shadow text-lg transition-all duration-200 tracking-wide mt-2 border border-gray-700"
-          disabled={isLoading || isCheckingSubscription || !!errorMessage || !successMessage}
+          disabled={isLoading}
         >
           {isLoading ? "Processing..." : "Subscribe Now"}
         </button>
