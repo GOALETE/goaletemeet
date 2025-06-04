@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import RegistrationForm from './components/RegistrationForm';
 
 export default function Home() {
-  redirect('https://forms.gle/Xv7rnk3wrpCzpahx7');
+  return <RegistrationForm />;
 }
