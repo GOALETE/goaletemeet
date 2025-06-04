@@ -159,7 +159,7 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
       
       return {
         canSubscribe: false,
-        reason: `Cannot book monthly plan from ${formattedNewStart} to ${formattedNewEnd} because you already have a daily plan on ${formattedSubStart}${formattedSubStart !== formattedSubEnd ? ` to ${formattedSubEnd}` : ''}. Please select non-overlapping dates.`,
+        reason: `Cannot purchase a monthly plan that overlaps with your existing daily plan from ${formattedSubStart}${formattedSubStart !== formattedSubEnd ? ` to ${formattedSubEnd}` : ''}. Please select non-overlapping dates.`,
         subscriptionDetails: dailySub
       };
     }
@@ -174,7 +174,7 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
       
       return {
         canSubscribe: false,
-        reason: `Cannot book daily plan for ${formattedNewStart} because you already have a monthly plan from ${formattedSubStart} to ${formattedSubEnd}. Please select a date outside your monthly plan.`,
+        reason: `Cannot purchase a daily plan that overlaps with your existing monthly plan from ${formattedSubStart} to ${formattedSubEnd}. Please select a date outside your monthly plan.`,
         subscriptionDetails: monthlySub
       };
     }
@@ -192,7 +192,7 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
         subscriptionDetails: dailySub
       };
     }
-    // Default case: Any other overlap is also not allowed
+    // Default case - Any other overlap is also not allowed
     const firstOverlapping = overlappingSubscriptions[0];
     // Format dates for clearer messaging (use DD:MM:YY)
     const formattedSubStart = formatDateDDMMYY(firstOverlapping.startDate);
