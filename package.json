@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "prisma generate --no-engine && next build",
-    "start": "next start",    "lint": "next lint",
+    "start": "next start",
+    "lint": "next lint",
     "postinstall": "prisma generate --no-engine",
     "test:email": "tsx scripts/test-email.ts",
     "test:admin": "tsx scripts/test-admin-auth.ts",
@@ -19,7 +20,7 @@
   "dependencies": {
     "@google-apps/meet": "^0.6.0",
     "@hookform/resolvers": "^5.0.1",
-    "@prisma/client": "^6.8.2",
+    "@prisma/client": "^6.9.0",
     "@prisma/extension-accelerate": "^2.0.1",
     "@radix-ui/react-radio-group": "^1.3.7",
     "@radix-ui/react-slot": "^1.2.3",
@@ -51,7 +52,7 @@
     "autoprefixer": "^10.4.21",
     "node-fetch": "^2.7.0",
     "postcss": "^8.5.4",
-    "prisma": "^6.8.2",
+    "prisma": "^6.9.0",
     "tailwindcss": "^4.1.8",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.4",

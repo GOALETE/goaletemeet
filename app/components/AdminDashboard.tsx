@@ -312,12 +312,11 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   const fetchUserDetails = async (userId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/users/${userId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch user details');
-      }
-      const data = await response.json();
-      setSelectedUser(data.user);
+      // Instead of fetching /api/admin/users/[id], filter from loaded users
+      const user = users.find(u => u.id === userId);
+      if (!user) throw new Error('User not found');
+      // Construct UserWithSubscriptions with empty subscriptions (or fetch if needed)
+      setSelectedUser({ ...user, subscriptions: [] });
       setShowUserDetail(true);
       setLoading(false);
     } catch (error) {

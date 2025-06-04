@@ -1,194 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "../../../../lib/prisma";
-import { formatUserWithSubscriptions } from "../../../../lib/admin";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 
-// Verify admin authentication
-async function verifyAdmin(req: NextRequest) {
-  const authHeader = req.headers.get("Authorization");
-  
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return false;
+// GET /api/admin/users
+export async function GET() {
+  try {
+    const users = await prisma.user.findMany();
+    return NextResponse.json(users);
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-  
-  const providedPasscode = authHeader.replace("Bearer ", "");
-  const adminPasscode = process.env.ADMIN_PASSCODE;
-  
-  return providedPasscode === adminPasscode;
 }
 
-export async function GET(req: NextRequest) {
+// POST /api/admin/users
+export async function POST(request: Request) {
+  const data = await request.json();
   try {
-    // Verify admin authentication
-    if (!await verifyAdmin(req)) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const url = new URL(req.url);
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const pageSize = parseInt(url.searchParams.get('pageSize') || '50');
-    const search = url.searchParams.get('search') || '';
-    const plan = url.searchParams.get('plan') || 'all';
-    const status = url.searchParams.get('status') || 'all';
-    const source = url.searchParams.get('source') || 'all';
-    const paymentStatus = url.searchParams.get('paymentStatus') || 'all';
-    const sortBy = url.searchParams.get('sortBy') || 'createdAt';
-    const sortOrder = url.searchParams.get('sortOrder') || 'desc';
-    const dateRange = url.searchParams.get('dateRange') || 'all';
-    const startDate = url.searchParams.get('startDate') || '';
-    const endDate = url.searchParams.get('endDate') || '';
-    const showExpiringSoon = url.searchParams.get('showExpiringSoon') === 'true';
-
-    // Calculate skip value for pagination
-    const skip = (page - 1) * pageSize;
-
-    // Build user query
-    let userWhereCondition: any = {};
-    let subscriptionWhereCondition: any = {};
-
-    // Add search filter
-    if (search) {
-      userWhereCondition.OR = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } }
-      ];
-    }
-
-    // Add source filter
-    if (source !== 'all') {
-      userWhereCondition.source = source;
-    }
-
-    // Add subscription plan filter
-    if (plan !== 'all') {
-      subscriptionWhereCondition.planType = plan;
-    }
-
-    // Add subscription status filter
-    if (status !== 'all') {
-      subscriptionWhereCondition.status = status;
-    }
-
-    // Add payment status filter
-    if (paymentStatus !== 'all') {
-      subscriptionWhereCondition.paymentStatus = paymentStatus;
-    }
-
-    // Add date filters
-    if (dateRange !== 'all') {
-      const today = new Date();
-      const dates: any = {};
-
-      if (dateRange === 'today') {
-        dates.startDate = new Date(today.setHours(0, 0, 0, 0));
-        dates.endDate = new Date(today.setHours(23, 59, 59, 999));
-      } else if (dateRange === 'thisWeek') {
-        const firstDay = new Date(today.setDate(today.getDate() - today.getDay()));
-        dates.startDate = new Date(firstDay.setHours(0, 0, 0, 0));
-        const lastDay = new Date(today.setDate(today.getDate() - today.getDay() + 6));
-        dates.endDate = new Date(lastDay.setHours(23, 59, 59, 999));
-      } else if (dateRange === 'thisMonth') {
-        dates.startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-        dates.endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-      } else if (dateRange === 'custom' && startDate && endDate) {
-        dates.startDate = new Date(startDate);
-        dates.endDate = new Date(endDate);
-        dates.endDate.setHours(23, 59, 59, 999);
-      }
-
-      if (dates.startDate && dates.endDate) {
-        subscriptionWhereCondition.OR = [
-          { startDate: { gte: dates.startDate, lte: dates.endDate } },
-          { endDate: { gte: dates.startDate, lte: dates.endDate } }
-        ];
-      }
-    }
-
-    // Add expiring soon filter
-    if (showExpiringSoon) {
-      const today = new Date();
-      const nextWeek = new Date(today);
-      nextWeek.setDate(today.getDate() + 7);
-      
-      subscriptionWhereCondition.status = 'active';
-      subscriptionWhereCondition.endDate = {
-        gte: today,
-        lte: nextWeek
-      };
-    }
-
-    // Determine sorting
-    let orderBy: any = {};
-    
-    // Map sortBy to appropriate field
-    if (sortBy === 'name') {
-      orderBy.firstName = sortOrder;
-    } else if (sortBy === 'createdAt') {
-      orderBy.createdAt = sortOrder;
-    } else {
-      orderBy[sortBy] = sortOrder;
-    }
-
-    // First, count total users for pagination
-    const totalUsers = await prisma.user.count({
-      where: userWhereCondition
+    const newUser = await prisma.user.create({
+      data,
     });
-
-    // Then fetch the users with their subscriptions
-    const users = await prisma.user.findMany({
-      where: userWhereCondition,
-      include: {
-        subscriptions: {
-          where: Object.keys(subscriptionWhereCondition).length > 0 ? subscriptionWhereCondition : undefined,
-          orderBy: { startDate: 'desc' }
-        }
-      },
-      orderBy,
-      skip,
-      take: pageSize
-    });
-
-    // Format users for admin
-    const formattedUsers = users.map(user => formatUserWithSubscriptions(user as any));
-
-    // Calculate stats
-    const activeSubscriptionsCount = await prisma.subscription.count({
-      where: { status: 'active' }
-    });
-
-    const expiredSubscriptionsCount = await prisma.subscription.count({
-      where: { status: 'expired' }
-    });
-
-    const totalRevenue = await prisma.subscription.aggregate({
-      _sum: {
-        price: true
-      },
-      where: { paymentStatus: 'completed' }
-    });
-
-    // Return response
-    return NextResponse.json({
-      users: formattedUsers,
-      total: totalUsers,
-      page,
-      pageSize,
-      stats: {
-        activeSubscriptions: activeSubscriptionsCount,
-        expiredSubscriptions: expiredSubscriptionsCount,
-        totalUsers: totalUsers
-      },
-      revenue: totalRevenue._sum.price || 0
-    });
+    return NextResponse.json(newUser);
   } catch (error) {
-    console.error("Error fetching users:", error);
-    return NextResponse.json(
-      { message: "Failed to fetch users" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
