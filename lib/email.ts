@@ -224,7 +224,7 @@ export async function sendMeetingInvite({
       <p>Best regards,<br>GOALETE Club Team</p>
       
       <div class="footer">
-        <p>Â© 2025 GOALETE Club. All rights reserved.</p>
+        <p>© 2025 GOALETE Club. All rights reserved.</p>
       </div>
     </body>
     </html>
@@ -272,15 +272,26 @@ export async function sendWelcomeEmail({
     day: 'numeric',
     timeZone: 'Asia/Kolkata' // Set timezone to IST
   };
-  
-  const formattedStartDate = startDate.toLocaleDateString('en-IN', dateOptions);
-  const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);
+    const formattedStartDate = startDate.toLocaleDateString('en-IN', dateOptions);  const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);
   
   // Display amount in INR
-  const formattedAmount = `â‚¹${amount.toFixed(2)}`;
+  const formattedAmount = `₹${amount.toFixed(2)}`;
   
   // Plan type display name
-  const planDisplay = planType === 'single' ? 'Single Session' : 'Monthly Plan';
+  let planDisplay;
+  switch(planType.toLowerCase()) {
+    case 'daily':
+      planDisplay = 'Daily Session';
+      break;
+    case 'monthly':
+      planDisplay = 'Monthly Plan';
+      break;
+    case 'unlimited':
+      planDisplay = 'Unlimited Plan';
+      break;
+    default:
+      planDisplay = planType; // Use the original value if no mapping exists
+  }
 
   // HTML content for welcome email
   const htmlContent = `
@@ -330,7 +341,7 @@ export async function sendWelcomeEmail({
       <p>Best regards,<br>GOALETE Club Team</p>
       
       <div class="footer">
-        <p>Â© 2025 GOALETE Club. All rights reserved.</p>
+        <p>© 2025 GOALETE Club. All rights reserved.</p>
       </div>
     </body>
     </html>
@@ -386,13 +397,24 @@ export async function sendAdminNotificationEmail({
     };
     
     const formattedStartDate = startDate.toLocaleDateString('en-IN', dateOptions);
-    const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);
-    
-    // Display amount in INR
-    const formattedAmount = `â‚¹${amount.toFixed(2)}`;
+    const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);    // Display amount in INR
+    const formattedAmount = `₹${amount.toFixed(2)}`;
     
     // Plan type display name
-    const planDisplay = planType === 'single' ? 'Single Session' : 'Monthly Plan';
+    let planDisplay;
+    switch(planType.toLowerCase()) {
+      case 'daily':
+        planDisplay = 'Daily Session';
+        break;
+      case 'monthly':
+        planDisplay = 'Monthly Plan';
+        break;
+      case 'unlimited':
+        planDisplay = 'Unlimited Plan';
+        break;
+      default:
+        planDisplay = planType; // Use the original value if no mapping exists
+    }
     
     // Current date and time in IST
     const currentDateTime = new Date().toLocaleString('en-IN', {
@@ -427,7 +449,7 @@ export async function sendAdminNotificationEmail({
       </head>
       <body>
         <div class="header">
-          <h1>ðŸ”” New Registration Alert</h1>
+          <h1>📔 New Registration Alert</h1>
         </div>
         
         <p>A new user has successfully registered and completed payment on GOALETE Club.</p>
@@ -503,7 +525,7 @@ export async function sendAdminNotificationEmail({
         <p>You can view and manage this user in the <a href="https://goaletemeet.vercel.app/admin">admin dashboard</a>.</p>
         
         <div class="footer">
-          <p>Â© 2025 GOALETE Club. This is an automated notification from the system.</p>
+          <p>© 2025 GOALETE Club. This is an automated notification from the system.</p>
         </div>
       </body>
       </html>

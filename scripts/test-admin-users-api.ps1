@@ -24,32 +24,33 @@ if ($statusCode -eq 200) {
         $firstUser = $response.users[0]
         
         # Test 2: Get user by ID
-        Write-Host "`nTesting GET /api/admin/users/$($firstUser.id)..." -ForegroundColor Cyan
-        $userResponse = Invoke-RestMethod -Uri "$BASE_URL/api/admin/users/$($firstUser.id)" -Headers @{
+        Write-Host "`nTesting GET /api/admin/user?id=$($firstUser.id)..." -ForegroundColor Cyan
+        $userResponse = Invoke-RestMethod -Uri "$BASE_URL/api/admin/user?id=$($firstUser.id)" -Headers @{
             "Authorization" = "Bearer $ADMIN_PASSCODE"
         } -Method GET -ErrorAction SilentlyContinue -StatusCodeVariable statusCode
         
         if ($statusCode -eq 200) {
-            Write-Host "✅ GET /api/admin/users/$($firstUser.id) returned user: $($userResponse.name)" -ForegroundColor Green
+            Write-Host "✅ GET /api/admin/user?id=$($firstUser.id) returned user: $($userResponse.name)" -ForegroundColor Green
             
             # Test 3: Update user to grant superuser status
-            Write-Host "`nTesting PATCH /api/admin/users/$($firstUser.id) to grant superuser status..." -ForegroundColor Cyan
+            Write-Host "`nTesting PATCH /api/admin/user to grant superuser status..." -ForegroundColor Cyan
             $updateBody = @{
+                userId = $firstUser.id
                 grantSuperUser = $true
                 createInfiniteSubscription = $true
             } | ConvertTo-Json
             
-            $updateResponse = Invoke-RestMethod -Uri "$BASE_URL/api/admin/users/$($firstUser.id)" -Headers @{
+            $updateResponse = Invoke-RestMethod -Uri "$BASE_URL/api/admin/user" -Headers @{
                 "Authorization" = "Bearer $ADMIN_PASSCODE"
                 "Content-Type" = "application/json"
             } -Method PATCH -Body $updateBody -ErrorAction SilentlyContinue -StatusCodeVariable statusCode
             
             if ($statusCode -eq 200) {
-                Write-Host "✅ PATCH /api/admin/users/$($firstUser.id) response: $($updateResponse.message)" -ForegroundColor Green
+                Write-Host "✅ PATCH /api/admin/user response: $($updateResponse.message)" -ForegroundColor Green
                 
                 # Test 4: Get updated user to verify superuser status
-                Write-Host "`nTesting GET /api/admin/users/$($firstUser.id) to verify superuser status..." -ForegroundColor Cyan
-                $updatedUserResponse = Invoke-RestMethod -Uri "$BASE_URL/api/admin/users/$($firstUser.id)" -Headers @{
+                Write-Host "`nTesting GET /api/admin/user?id=$($firstUser.id) to verify superuser status..." -ForegroundColor Cyan
+                $updatedUserResponse = Invoke-RestMethod -Uri "$BASE_URL/api/admin/user?id=$($firstUser.id)" -Headers @{
                     "Authorization" = "Bearer $ADMIN_PASSCODE"
                 } -Method GET -ErrorAction SilentlyContinue -StatusCodeVariable statusCode
                 
@@ -57,13 +58,13 @@ if ($statusCode -eq 200) {
                     Write-Host "✅ User role is now: $($updatedUserResponse.role)" -ForegroundColor Green
                     Write-Host "✅ User has $($updatedUserResponse.subscriptions.Count) subscriptions" -ForegroundColor Green
                 } else {
-                    Write-Host "❌ GET /api/admin/users/$($firstUser.id) failed with status: $statusCode" -ForegroundColor Red
+                    Write-Host "❌ GET /api/admin/user?id=$($firstUser.id) failed with status: $statusCode" -ForegroundColor Red
                 }
             } else {
-                Write-Host "❌ PATCH /api/admin/users/$($firstUser.id) failed with status: $statusCode" -ForegroundColor Red
+                Write-Host "❌ PATCH /api/admin/user failed with status: $statusCode" -ForegroundColor Red
             }
         } else {
-            Write-Host "❌ GET /api/admin/users/$($firstUser.id) failed with status: $statusCode" -ForegroundColor Red
+            Write-Host "❌ GET /api/admin/user?id=$($firstUser.id) failed with status: $statusCode" -ForegroundColor Red
         }
     } else {
         Write-Host "No users found, skipping user-specific tests" -ForegroundColor Yellow

@@ -10,15 +10,15 @@ The pricing configuration is stored in the `PLAN_PRICING` object which contains:
 
 ```typescript
 export const PLAN_PRICING = {
-  single: {
-    amount: 499,         // Price in INR
-    display: "Rs. 499",  // Formatted display price
+  daily: {
+    amount: 299,         // Price in INR
+    display: "Rs. 299",  // Formatted display price
     duration: 1,         // Duration in days
-    name: "Single Session"
+    name: "Daily Session"
   },
   monthly: {
-    amount: 4999,        // Price in INR
-    display: "Rs. 4999", // Formatted display price
+    amount: 2999,        // Price in INR
+    display: "Rs. 2999", // Formatted display price
     duration: 30,        // Duration in days
     name: "Monthly Plan"
   }
@@ -47,8 +47,8 @@ import { PLAN_PRICING, toPaise, fromPaise, formatPrice } from "@/lib/pricing";
 ```typescript
 // Get details for the monthly plan
 const monthlyPlan = PLAN_PRICING.monthly;
-console.log(monthlyPlan.amount); // 4999
-console.log(monthlyPlan.display); // "Rs. 4999"
+console.log(monthlyPlan.amount); // 2999
+console.log(monthlyPlan.display); // "Rs. 2999"
 console.log(monthlyPlan.duration); // 30 days
 ```
 
@@ -56,8 +56,8 @@ console.log(monthlyPlan.duration); // 30 days
 
 ```typescript
 // For Razorpay (requires amount in paise)
-const amountInPaise = toPaise(PLAN_PRICING.single.amount);
-console.log(amountInPaise); // 49900
+const amountInPaise = toPaise(PLAN_PRICING.daily.amount);
+console.log(amountInPaise); // 29900
 ```
 
 ### Formatting prices for display
@@ -74,15 +74,20 @@ When you need to change the pricing, simply update the values in `lib/pricing.ts
 
 Example:
 ```typescript
-// To change the single session price from Rs. 499 to Rs. 599:
+// To change the daily session price from Rs. 499 to Rs. 599:
 export const PLAN_PRICING = {
-  single: {
-    amount: 599,         // Updated price in INR
-    display: "Rs. 599",  // Updated display price
+  daily: {
+    amount: 599,
+    display: "Rs. 599",
     duration: 1,
-    name: "Single Session"
+    name: "Daily Session"
   },
-  // ... other plans remain the same
+  monthly: {
+    amount: 2999,
+    display: "Rs. 2999",
+    duration: 30,
+    name: "Monthly Plan"
+  }
 };
 ```
 

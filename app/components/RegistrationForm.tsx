@@ -11,17 +11,16 @@ declare global {
 }
 
 export default function RegistrationForm() {  
-  const [plan, setPlan] = useState<"single" | "monthly">("single");
+  const [plan, setPlan] = useState<"daily" | "monthly">("daily");
   const [startDate, setStartDate] = useState("");
   const [source, setSource] = useState("Instagram");
   const [reference, setReference] = useState("");
   const [isRazorpayLoaded, setIsRazorpayLoaded] = useState(false);
-
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [duration, setDuration] = useState(PLAN_PRICING.single.duration)  
+  const [duration, setDuration] = useState(PLAN_PRICING.daily.duration)  
   const [showPayment, setShowPayment] = useState(false);
   const [formData, setFormData] = useState<any>(null);  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -49,12 +48,11 @@ export default function RegistrationForm() {
   // Helper function to check if a date is today in IST timezone
   const isToday = (dateString: string): boolean => {
     if (!dateString) return false;
-    // Use IST timezone for the comparison
     const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     const today = istDate.toISOString().split('T')[0];
     return dateString === today;
   };// Update duration when plan changes
-  const handlePlanChange = (newPlan: "single" | "monthly") => {
+  const handlePlanChange = (newPlan: "daily" | "monthly") => {
     setPlan(newPlan);
     setDuration(PLAN_PRICING[newPlan].duration);
     setErrorMessage(null);
@@ -86,13 +84,12 @@ export default function RegistrationForm() {
       const start = new Date(startDate);
       const end = new Date(startDate);
       end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
-      
-      const response = await fetch("/api/check-subscription", {
+        const response = await fetch("/api/check-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          planType: plan === 'single' ? 'daily' : plan,
+          planType: plan,
           startDate: start.toISOString(),
           endDate: end.toISOString()
         }),
@@ -102,18 +99,16 @@ export default function RegistrationForm() {
       
       if (!data.canSubscribe) {
         setErrorMessage(data.message);
-        setSuccessMessage(null);
-      } else {        
+        setSuccessMessage(null);      } else {        
         // Set success message when user can subscribe
-        const planText = plan === 'single' ? 'single session' : 'monthly plan';
+        const planText = plan === 'daily' ? 'daily session' : 'monthly plan';
         const dateOptions: Intl.DateTimeFormatOptions = { 
           weekday: 'long', 
           month: 'short', 
           day: 'numeric',
           timeZone: 'Asia/Kolkata' // Set timezone to IST
-        };
-        
-        const dateText = plan === 'single' ? 
+        };        
+        const dateText = plan === 'daily' ? 
           `on ${new Date(startDate).toLocaleDateString('en-IN', dateOptions)}` : 
           `starting ${new Date(startDate).toLocaleDateString('en-IN', dateOptions)}`;
         
@@ -182,7 +177,7 @@ export default function RegistrationForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          planType: plan === 'single' ? 'daily' : plan,
+          planType: plan,
           startDate: start.toISOString(),
           endDate: end.toISOString()
         }),
@@ -222,7 +217,7 @@ export default function RegistrationForm() {
         body: JSON.stringify({
           amount: toPaise(price), // Convert INR to paise (smallest currency unit)
           currency: "INR",
-          planType: plan === 'single' ? 'daily' : plan,
+          planType: plan,
           duration: PLAN_PRICING[plan].duration,
           startDate,
           userId,
@@ -488,19 +483,19 @@ export default function RegistrationForm() {
               <div className="flex items-center gap-2 w-full justify-start">                <input
                   type="radio"
                   name="plan"
-                  value="single"
-                  checked={plan === "single"}
+                  value="daily"
+                  checked={plan === "daily"}
                   onChange={() => {
-                    handlePlanChange("single");
+                    handlePlanChange("daily");
                     if (email && email.includes('@')) {
                       setTimeout(() => checkSubscriptionConflict(), 500);
                     }
                   }}
                   className="accent-gray-600"
                 />
-                <span className="text-gray-800">Single Session</span>
+                <span className="text-gray-800">Daily Session</span>
               </div>
-              <span className="text-xs text-gray-400 font-medium pl-6">({PLAN_PRICING.single.display})</span>
+              <span className="text-xs text-gray-400 font-medium pl-6">({PLAN_PRICING.daily.display})</span>
             </label>
             <label className="flex flex-col items-end w-full sm:w-1/2 cursor-pointer gap-1">
               <div className="flex items-center gap-2 w-full justify-end">                <input
@@ -523,7 +518,7 @@ export default function RegistrationForm() {
           </div>
         </div>          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <label className="block mb-1 font-medium text-gray-700">
-            {plan === "single" ? "Session Date" : "Start Date"} <span className="text-xs text-gray-500">(IST)</span>
+            {plan === "daily" ? "Session Date" : "Start Date"} <span className="text-xs text-gray-500">(IST)</span>
           </label>          <input            type="date"
             value={startDate}
             onChange={(e) => {

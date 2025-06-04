@@ -41,41 +41,41 @@ async function runTests() {
     
     // Test 2: Get user by ID
     const firstUser = usersData.users[0];
-    console.log(`Testing GET /api/admin/users/${firstUser.id}...`);
-    const userResponse = await callApi(`/api/admin/users/${firstUser.id}`);
+    console.log(`Testing GET /api/admin/user?id=${firstUser.id}...`);
+    const userResponse = await callApi(`/api/admin/user?id=${firstUser.id}`);
     
     if (!userResponse.ok) {
-      console.log(`❌ GET /api/admin/users/${firstUser.id} failed with status: ${userResponse.status}`);
+      console.log(`❌ GET /api/admin/user?id=${firstUser.id} failed with status: ${userResponse.status}`);
       console.log(await userResponse.text());
       return;
     }
     
     const userData = await userResponse.json();
-    console.log(`✅ GET /api/admin/users/${firstUser.id} returned user: ${userData.name || userData.email}`);
+    console.log(`✅ GET /api/admin/user?id=${firstUser.id} returned user: ${userData.name || userData.email}`);
     
     // Test 3: Update user to grant superuser status
-    console.log(`Testing PATCH /api/admin/users/${firstUser.id} to grant superuser status...`);
+    console.log(`Testing PATCH /api/admin/user to grant superuser status...`);
     const updateResponse = await callApi(
-      `/api/admin/users/${firstUser.id}`,
+      `/api/admin/user`,
       'PATCH',
-      { grantSuperUser: true, createInfiniteSubscription: true }
+      { userId: firstUser.id, grantSuperUser: true, createInfiniteSubscription: true }
     );
     
     if (!updateResponse.ok) {
-      console.log(`❌ PATCH /api/admin/users/${firstUser.id} failed with status: ${updateResponse.status}`);
+      console.log(`❌ PATCH /api/admin/user failed with status: ${updateResponse.status}`);
       console.log(await updateResponse.text());
       return;
     }
     
     const updateData = await updateResponse.json();
-    console.log(`✅ PATCH /api/admin/users/${firstUser.id} response: ${updateData.message}`);
+    console.log(`✅ PATCH /api/admin/user response: ${updateData.message}`);
     
     // Test 4: Get updated user to verify superuser status
-    console.log(`Testing GET /api/admin/users/${firstUser.id} to verify superuser status...`);
-    const updatedUserResponse = await callApi(`/api/admin/users/${firstUser.id}`);
+    console.log(`Testing GET /api/admin/user?id=${firstUser.id} to verify superuser status...`);
+    const updatedUserResponse = await callApi(`/api/admin/user?id=${firstUser.id}`);
     
     if (!updatedUserResponse.ok) {
-      console.log(`❌ GET /api/admin/users/${firstUser.id} failed with status: ${updatedUserResponse.status}`);
+      console.log(`❌ GET /api/admin/user?id=${firstUser.id} failed with status: ${updatedUserResponse.status}`);
       console.log(await updatedUserResponse.text());
       return;
     }

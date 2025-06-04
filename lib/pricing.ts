@@ -4,11 +4,11 @@
  */
 
 export const PLAN_PRICING = {
-  single: {
+  daily: {
     amount: 299,         // Price in INR
     display: "Rs. 299",  // Formatted display price
     duration: 1,         // Duration in days
-    name: "Single Session"
+    name: "Daily Session"
   },
   monthly: {
     amount: 2999,        // Price in INR
@@ -19,8 +19,8 @@ export const PLAN_PRICING = {
 };
 
 // Types
-export type PlanType = "single" | "monthly";
-export type PlanPricing = typeof PLAN_PRICING[PlanType];
+export type PlanType = "daily" | "monthly" | "unlimited";
+export type PlanPricing = typeof PLAN_PRICING[Exclude<PlanType, "unlimited">];
 
 /**
  * Helper functions for pricing operations
@@ -55,9 +55,13 @@ export function formatPrice(amount: number): string {
 
 /**
  * Get the pricing details for a specific plan
- * @param planType The plan type ("single" or "monthly")
+ * @param planType The plan type ("daily", "monthly", or "unlimited")
  * @returns Pricing details for the plan
  */
-export function getPlanPricing(planType: PlanType): PlanPricing {
+export function getPlanPricing(planType: PlanType): PlanPricing | null {
+  if (planType === 'unlimited') {
+    // For unlimited plans, return null or a default pricing
+    return null;
+  }
   return PLAN_PRICING[planType];
 }
