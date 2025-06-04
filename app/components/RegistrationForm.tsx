@@ -68,23 +68,18 @@ export default function RegistrationForm() {
   };  // Check for existing subscription conflicts
   const checkSubscriptionConflict = async () => {
     if (!email || !email.includes('@') || !startDate) return;
-    
     setIsCheckingSubscription(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-    
-    // Clear field-specific errors related to subscription
     setFieldErrors({
       ...fieldErrors,
       email: ''
     });
-      try {
-      // Calculate end date based on plan duration (ensure we're working in IST context)
-      // Since startDate already comes from an input with IST date, we just need to create proper Date objects
+    try {
       const start = new Date(startDate);
       const end = new Date(startDate);
       end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
-        const response = await fetch("/api/check-subscription", {
+      const response = await fetch("/api/check-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -94,24 +89,22 @@ export default function RegistrationForm() {
           endDate: end.toISOString()
         }),
       });
-      
       const data = await response.json();
-      
       if (!data.canSubscribe) {
         setErrorMessage(data.message);
-        setSuccessMessage(null);      } else {        
+        setSuccessMessage(null);
+      } else {
         // Set success message when user can subscribe
         const planText = plan === 'daily' ? 'daily session' : 'monthly plan';
-        const dateOptions: Intl.DateTimeFormatOptions = { 
-          weekday: 'long', 
-          month: 'short', 
-          day: 'numeric',
-          timeZone: 'Asia/Kolkata' // Set timezone to IST
-        };        
-        const dateText = plan === 'daily' ? 
-          `on ${new Date(startDate).toLocaleDateString('en-IN', dateOptions)}` : 
-          `starting ${new Date(startDate).toLocaleDateString('en-IN', dateOptions)}`;
-        
+        let dateText = '';
+        if (plan === 'daily') {
+          dateText = `on ${formatDateDDMMYYYY(startDate)}`;
+        } else {
+          // Monthly: show full range (inclusive)
+          const endDateObj = new Date(startDate);
+          endDateObj.setDate(endDateObj.getDate() + PLAN_PRICING[plan].duration - 1);
+          dateText = `from ${formatDateDDMMYYYY(startDate)} to ${formatDateDDMMYYYY(endDateObj.toISOString().split('T')[0])}`;
+        }
         setSuccessMessage(`You can subscribe to the ${planText} ${dateText} (IST)!`);
         setErrorMessage(null);
       }
@@ -348,6 +341,15 @@ export default function RegistrationForm() {
       setIsLoading(false);
     }
   };
+  // Helper to format date as dd/mm/yyyy
+  function formatDateDDMMYYYY(dateString: string): string {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8 relative overflow-hidden">
       {/* Load Razorpay script */}
