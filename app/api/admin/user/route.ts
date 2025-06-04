@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-// GET /api/admin/users/[id]
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// GET /api/admin/user - Get a user by ID via query parameter
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('id');
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+    
     const user = await prisma.user.findUnique({
-      where: { id: params.id },
+      where: { id: userId },
       include: {
         subscriptions: {
           orderBy: {
@@ -17,31 +21,32 @@ export async function GET(
         }
       }
     });
-
+    
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-
-    return NextResponse.json(user);
+    
+    return NextResponse.json({ user });
   } catch (error) {
     console.error('Error fetching user:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// PATCH /api/admin/users/[id]
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// PATCH /api/admin/user - Update user, includes handling superuser status
+export async function PATCH(request: NextRequest) {
   try {
     const data = await request.json();
-    const { grantSuperUser, createInfiniteSubscription } = data;
+    const { userId, grantSuperUser, createInfiniteSubscription } = data;
+
+    if (!userId) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
 
     // First, update the user role if needed
     if (grantSuperUser) {
       await prisma.user.update({
-        where: { id: params.id },
+        where: { id: userId },
         data: { role: 'ADMIN' }
       });
     }
@@ -55,7 +60,7 @@ export async function PATCH(
 
       await prisma.subscription.create({
         data: {
-          userId: params.id,
+          userId: userId,
           planType: 'UNLIMITED',
           status: 'active',
           paymentStatus: 'completed',
@@ -68,27 +73,24 @@ export async function PATCH(
       });
     }
 
-    return NextResponse.json({ message: 'User updated successfully' });
+    // Fetch the updated user data with subscriptions
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        subscriptions: {
+          orderBy: {
+            startDate: 'desc'
+          }
+        }
+      }
+    });
+
+    return NextResponse.json({ 
+      message: 'User updated successfully',
+      user: updatedUser
+    });
   } catch (error) {
     console.error('Error updating user:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-// DELETE /api/admin/users/[id]
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Delete the user
-    await prisma.user.delete({
-      where: { id: params.id }
-    });
-    
-    return NextResponse.json({ message: 'User deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting user:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

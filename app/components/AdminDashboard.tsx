@@ -307,19 +307,32 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     const soon = new Date();
     soon.setDate(today.getDate() + 7);
     return users.filter(user => user.end && new Date(user.end) > today && new Date(user.end) <= soon);
-  };
-
-  const fetchUserDetails = async (userId: string) => {
+  };  const fetchUserDetails = async (userId: string) => {
     setLoading(true);
     try {
-      // Instead of fetching /api/admin/users/[id], filter from loaded users
-      const user = users.find(u => u.id === userId);
-      if (!user) throw new Error('User not found');
-      // Construct UserWithSubscriptions with empty subscriptions (or fetch if needed)
-      setSelectedUser({ ...user, subscriptions: [] });
+      // First check if we have the user in the loaded users
+      const basicUserInfo = users.find(u => u.id === userId);
+      if (!basicUserInfo) throw new Error('User not found');
+      
+      // Get the subscriptions for this user from the API
+      const response = await fetch(`/api/admin/user?id=${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user details');
+      }
+      
+      const data = await response.json();
+      
+      // If we got subscription data, use it, otherwise use an empty array
+      const userWithSubscriptions = {
+        ...basicUserInfo,
+        subscriptions: data.user?.subscriptions || []
+      };
+      
+      setSelectedUser(userWithSubscriptions);
       setShowUserDetail(true);
       setLoading(false);
     } catch (error) {
+      console.error('Error fetching user details:', error);
       setError('Error fetching user details');
       setLoading(false);
     }

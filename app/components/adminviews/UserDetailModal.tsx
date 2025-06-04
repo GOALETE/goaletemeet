@@ -73,9 +73,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
   };
   // Calculate summary info
   const totalSpent = user.subscriptions?.reduce((sum, sub) => sum + (sub.price || 0), 0);
-  const activeSubs = user.subscriptions?.filter(sub => sub.status === 'active').length || 0;
-
-  // Function to grant superuser status
+  const activeSubs = user.subscriptions?.filter(sub => sub.status === 'active').length || 0;  // Function to grant superuser status
   const handleGrantSuperuser = async () => {
     if (window.confirm('Are you sure you want to grant superuser status to this user? This will give them unlimited access without requiring payment.')) {
       setLoading(true);
@@ -88,19 +86,18 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           throw new Error('Admin authentication required');
         }
 
-        const response = await fetch(`/api/admin/users/${user.id}`, {
+        const response = await fetch(`/api/admin/user`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${adminPasscode}`
           },
           body: JSON.stringify({
+            userId: user.id,
             grantSuperUser: true,
             createInfiniteSubscription: true
           })
-        });
-
-        if (!response.ok) {
+        });if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.message || 'Failed to update user');
         }
@@ -108,11 +105,14 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
         const data = await response.json();
         setSuccessMessage('Successfully granted superuser status');
         
-        // If a callback was provided, call it with the updated user
-        if (onUserUpdated) {
+        // If a callback was provided, call it with the updated user from the response
+        if (onUserUpdated && data.user) {
+          onUserUpdated(data.user);
+        } else if (onUserUpdated) {
+          // Fallback to previous behavior if user not returned
           onUserUpdated({
             ...user,
-            role: 'superuser'
+            role: 'ADMIN'
           });
         }
       } catch (error) {

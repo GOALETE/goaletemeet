@@ -1,12 +1,13 @@
 {
   "name": "goaletemeet",
   "version": "0.1.0",
-  "private": true,
+  "private": true,  
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "prisma generate --no-engine && next build",
     "start": "next start",
     "lint": "next lint",
+    "lint:fix": "next lint --fix",
     "postinstall": "prisma generate --no-engine",
     "test:email": "tsx scripts/test-email.ts",
     "test:admin": "tsx scripts/test-admin-auth.ts",
