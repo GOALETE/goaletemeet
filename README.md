@@ -14,7 +14,7 @@ pnpm dev
 bun dev
 ```
 
-# GoAlete Club - Subscription Meeting App
+# Goalete Club - Subscription Meeting App
 
 ## Tech Stack
 

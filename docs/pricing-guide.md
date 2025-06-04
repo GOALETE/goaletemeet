@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document explains the centralized pricing configuration system for GoAlete. All pricing-related information is maintained in a single location (`lib/pricing.ts`) to ensure consistency throughout the application.
+This document explains the centralized pricing configuration system for Goalete. All pricing-related information is maintained in a single location (`lib/pricing.ts`) to ensure consistency throughout the application.
 
 ## Pricing Structure
 

@@ -362,7 +362,7 @@ export default function RegistrationForm() {
       {/* Watermark logo background */}
       <img
         src="/goalete_logo.jpeg"
-        alt="GoAlete Watermark"
+        alt="Goalete Watermark"
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 w-[600px] h-[600px] object-contain pointer-events-none select-none z-0"
         aria-hidden="true"
       />
@@ -371,7 +371,7 @@ export default function RegistrationForm() {
         className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg border border-gray-200 space-y-8 relative z-10"
       >
         <div className="text-center mb-4 flex flex-col items-center gap-2">
-          <img src="/goalete_logo.jpeg" alt="GoAlete Logo" className="w-24 h-24 rounded-full shadow border border-gray-200 bg-white object-cover" />
+          <img src="/goalete_logo.jpeg" alt="Goalete Logo" className="w-24 h-24 rounded-full shadow border border-gray-200 bg-white object-cover" />
           <h2 className="text-2xl font-bold text-gray-800 tracking-tight mb-1">GOALETE CLUB</h2>
           <p className="text-gray-500 text-base font-medium">How to Achieve Any Goal in Life</p>
         </div>

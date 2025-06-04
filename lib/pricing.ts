@@ -1,5 +1,5 @@
 /**
- * Centralized pricing configuration for GoAlete subscription plans
+ * Centralized pricing configuration for Goalete subscription plans
  * All pricing information should be managed here and imported where needed
  */
 
