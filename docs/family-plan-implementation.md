@@ -7,9 +7,10 @@ The Monthly Family Plan is a subscription option that allows two users to regist
 ## Key Features
 
 - **Single Payment**: One payment (₹4499) covers two users
-- **Two User Accounts**: Creates separate user records for both individuals
+- **Two User Accounts**: Creates separate user records for both individuals through a consistent frontend flow
 - **Separate Subscriptions**: Each user gets their own subscription record with proper tracking
 - **Individual Meeting Access**: Both users receive their own meeting invites
+- **Email Validation**: Ensures primary and secondary users have different email addresses (both frontend and backend validation)
 
 ## Implementation Details
 
@@ -32,7 +33,7 @@ export type PlanType = "daily" | "monthly" | "monthlyFamily" | "unlimited";
 
 ### 2. Registration Form (`app/components/RegistrationForm.tsx`)
 
-The form dynamically shows additional fields for the second person when the Monthly Family plan is selected:
+The form follows a user-friendly flow with plan selection, date selection, and personal details. It dynamically shows additional fields for the second person when the Monthly Family plan is selected:
 
 ```typescript
 // State for second person
@@ -54,35 +55,64 @@ const handlePlanChange = (newPlan: "daily" | "monthly" | "monthlyFamily") => {
 };
 
 // Form validation includes second person fields when applicable
-const validateForm = () => {
-  // ...validation for primary user
-  
-  // Validation for second user fields only if family plan is selected
-  secondFirstName: plan === 'monthlyFamily' ? 
-    (secondFirstName.trim() === '' ? 'First name is required' : '') : '',
-  // ...similar validation for other second user fields
-};
+// Email validation ensures emails are different for family plan
+if (plan === 'monthlyFamily' && email === secondEmail) {
+  setErrorMessage("Primary and secondary users must have different email addresses");
+  return false;
+}
 
-// Form submission includes second user data
+// Form submission process for family plan creates both users via API
 const handleSubmit = async (e: React.FormEvent) => {
-  // ...form processing
+  // ...form validation and other processing
   
-  // Add second person details for family plan
-  const requestBody = {
-    // ...primary user details
-    ...(plan === "monthlyFamily" ? {
-      secondFirstName,
-      secondLastName,
-      secondEmail,
-      secondPhone
-    } : {})
-  };
-  
-  // Send to createOrder API
-  const response = await fetch("/api/createOrder", {
+  // 1. Create primary user
+  const userRes = await fetch("/api/createUser", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(requestBody)
+    body: JSON.stringify({
+      firstName,
+      lastName,
+      email,
+      phone,
+      source,
+      reference,
+    }),      
+  });
+  const userData = await userRes.json();
+  const userId = userData.userId;
+  
+  // 2. For family plan, create second user
+  let secondUserId = null;
+  if (plan === "monthlyFamily") {
+    const secondUserRes = await fetch("/api/createUser", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: secondFirstName,
+        lastName: secondLastName,
+        email: secondEmail,
+        phone: secondPhone,
+        source: "Family Plan",
+        reference: "",
+      }),      
+    });
+    const secondUserData = await secondUserRes.json();
+    secondUserId = secondUserData.userId;
+  }
+  
+  // 3. Create order/subscription with both user IDs
+  const orderRes = await fetch("/api/createOrder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount: toPaise(price),
+      currency: "INR",
+      planType: plan,
+      duration: PLAN_PRICING[plan].duration,
+      startDate,
+      userId,
+      ...(plan === "monthlyFamily" ? { secondUserId } : {})
+    }),
   });
   
   // Handle response which includes subscriptionId(s)
@@ -96,30 +126,55 @@ const handleSubmit = async (e: React.FormEvent) => {
 The backend distinguishes between single-user and family plan orders:
 
 ```typescript
+// Schema to accept secondUserId for family plan
+const orderBodySchema = z.object({
+    amount: z.number().positive(),
+    currency: z.string().min(1),
+    planType: z.string().min(1),
+    duration: z.number().positive(),
+    startDate: z.string().optional(),
+    userId: z.string().min(1),
+    // Optional second user ID for family plan
+    secondUserId: z.string().optional(),
+});
+
+// Family plan handling
 if (planType === "monthlyFamily") {
-  // Validate second person fields
-  if (!secondFirstName || !secondLastName || !secondEmail || !secondPhone) {
-    return NextResponse.json({ message: "Second person details required for family plan." }, { status: 400 });
+  // Validate second user ID
+  if (!secondUserId) {
+    return NextResponse.json({ message: "Second user ID required for family plan." }, { status: 400 });
   }
   
-  // Create or fetch both users
+  // Fetch both users by their IDs
   const [user1, user2] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId } }),
-    prisma.user.upsert({
-      where: { email: secondEmail },
-      update: {},
-      create: {
-        firstName: secondFirstName,
-        lastName: secondLastName,
-        email: secondEmail,
-        phone: secondPhone,
-        source: "Family Plan",
-      },
-    })
+    prisma.user.findUnique({ where: { id: secondUserId } })
   ]);
   
+  if (!user1 || !user2) {
+    return NextResponse.json({ message: "User(s) not found." }, { status: 404 });
+  }
+  
+  // Check that primary and secondary emails are different
+  if (user1.email === user2.email) {
+    return NextResponse.json({ 
+      message: "Invalid family plan registration", 
+      details: "Primary and secondary users must have different email addresses"
+    }, { status: 400 });
+  }
+  
   // Check subscription eligibility for both users
-  // ...eligibility checks
+  const [canSub1, canSub2] = await Promise.all([
+    canUserSubscribeForDates(user1.email, subscriptionStartDate, subscriptionEndDate, planType),
+    canUserSubscribeForDates(user2.email, subscriptionStartDate, subscriptionEndDate, planType)
+  ]);
+  
+  if (!canSub1.canSubscribe) {
+    return NextResponse.json({ message: "Primary user cannot subscribe", details: canSub1.reason }, { status: 409 });
+  }
+  if (!canSub2.canSubscribe) {
+    return NextResponse.json({ message: "Second user cannot subscribe", details: canSub2.reason }, { status: 409 });
+  }
   
   // Create Razorpay order (single order for both subscriptions)
   const order = await razorpay.orders.create({
@@ -130,6 +185,7 @@ if (planType === "monthlyFamily") {
       description: "Payment for family subscription",
       plan_type: planType,
       // ...other metadata including both users
+      second_user_id: secondUserId,
     },
   });
   
@@ -144,6 +200,10 @@ if (planType === "monthlyFamily") {
   
   // Return both subscription IDs
   return NextResponse.json({ 
+    orderId: order.id, 
+    subscriptionIds: [sub1.id, sub2.id] 
+  }, { status: 201 });
+}
     orderId: order.id, 
     subscriptionIds: [sub1.id, sub2.id] 
   }, { status: 201 });
@@ -248,8 +308,11 @@ async function sendFamilyAdminNotificationEmail({
 
 1. User selects "Monthly Family Plan" on registration form
 2. User enters details for both people
-3. Form creates a single Razorpay order for ₹4499
-4. Backend creates two user records (if needed)
+3. User submits form which:
+   - Creates primary user via `/api/createUser`
+   - Creates secondary user via `/api/createUser`
+   - Creates a single Razorpay order for ₹4499 via `/api/createOrder`
+4. Backend validates both users exist and have different emails
 5. Backend creates two subscription records, each for ₹2249.50
 6. User completes payment
 7. Both subscriptions are activated

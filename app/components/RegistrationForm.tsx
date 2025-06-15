@@ -10,16 +10,13 @@ declare global {
   }
 }
 
-export default function RegistrationForm() {
-  // Basic form state
+export default function RegistrationForm() {  // Basic form state
   const [plan, setPlan] = useState<"daily" | "monthly" | "monthlyFamily">("daily");
   const [startDate, setStartDate] = useState("");
   const [source, setSource] = useState("Instagram");
   const [reference, setReference] = useState("");
-  
-  // Payment state
+    // Payment state
   const [isRazorpayLoaded, setIsRazorpayLoaded] = useState(false);
-  const [showPayment, setShowPayment] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
   // Primary user information
@@ -237,7 +234,7 @@ export default function RegistrationForm() {
         return;
       }
 
-      // 1. Create or fetch user
+      // 1. Create or fetch primary user
       const userRes = await fetch("/api/createUser", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -251,10 +248,31 @@ export default function RegistrationForm() {
         }),      
       });
       const userData = await userRes.json();
-      if (!userRes.ok || !userData.userId) throw new Error("User creation failed");
-      console.log("User creation successful:", userData);      
+      if (!userRes.ok || !userData.userId) throw new Error("Primary user creation failed");
+      console.log("Primary user creation successful:", userData);      
       
       const userId = userData.userId;
+      
+      // For family plan, create or fetch second user
+      let secondUserId = null;
+      if (plan === "monthlyFamily") {
+        const secondUserRes = await fetch("/api/createUser", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firstName: secondFirstName,
+            lastName: secondLastName,
+            email: secondEmail,
+            phone: secondPhone,
+            source: "Family Plan",
+            reference: "",
+          }),      
+        });
+        const secondUserData = await secondUserRes.json();
+        if (!secondUserRes.ok || !secondUserData.userId) throw new Error("Second user creation failed");
+        console.log("Second user creation successful:", secondUserData);
+        secondUserId = secondUserData.userId;
+      }
       
       // 2. Create order/subscription (pending)      
       const orderRes = await fetch("/api/createOrder", {
@@ -268,10 +286,7 @@ export default function RegistrationForm() {
           startDate,
           userId,
           ...(plan === "monthlyFamily" ? {
-            secondFirstName,
-            secondLastName,
-            secondEmail,
-            secondPhone
+            secondUserId
           } : {})
         }),
       });
@@ -415,8 +430,7 @@ export default function RegistrationForm() {
         alt="Goalete Watermark"
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 w-[600px] h-[600px] object-contain pointer-events-none select-none z-0"
         aria-hidden="true"
-      />
-      <form
+      />      <form
         onSubmit={handleSubmit}
         className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg border border-gray-200 space-y-8 relative z-10"
       >
@@ -426,7 +440,94 @@ export default function RegistrationForm() {
           <p className="text-gray-500 text-base font-medium">How to Achieve Any Goal in Life</p>
         </div>
 
-        <div className="space-y-4">          
+        {/* Subscription Plan Section - FIRST */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+          <p className="font-semibold text-gray-700 mb-2">Subscription Plan</p>
+          <div className="flex flex-col sm:flex-row gap-4 w-full">
+            <label className="flex flex-col items-start w-full sm:w-1/3 cursor-pointer gap-1">
+              <div className="flex items-center gap-2 w-full justify-start">
+                <input
+                  type="radio"
+                  name="plan"
+                  value="daily"
+                  checked={plan === "daily"}
+                  onChange={() => {
+                    handlePlanChange("daily");
+                    if (email && email.includes('@')) {
+                      setTimeout(() => checkSubscriptionConflict(), 500);
+                    }
+                  }}
+                  className="accent-gray-600"
+                />
+                <span className="text-gray-800">Daily Session</span>
+              </div>
+              <span className="text-xs text-gray-400 font-medium pl-6">({PLAN_PRICING.daily.display})</span>
+            </label>
+            <label className="flex flex-col items-center w-full sm:w-1/3 cursor-pointer gap-1">
+              <div className="flex items-center gap-2 w-full justify-center">
+                <input
+                  type="radio"
+                  name="plan"
+                  value="monthly"
+                  checked={plan === "monthly"}
+                  onChange={() => {
+                    handlePlanChange("monthly");
+                    if (email && email.includes('@')) {
+                      setTimeout(() => checkSubscriptionConflict(), 500);
+                    }
+                  }}
+                  className="accent-gray-600"
+                />
+                <span className="text-gray-800">Monthly Plan</span>
+              </div>
+              <span className="text-xs text-gray-400 font-medium">({PLAN_PRICING.monthly.display})</span>
+            </label>
+            <label className="flex flex-col items-end w-full sm:w-1/3 cursor-pointer gap-1">
+              <div className="flex items-center gap-2 w-full justify-end">
+                <input
+                  type="radio"
+                  name="plan"
+                  value="monthlyFamily"
+                  checked={plan === "monthlyFamily"}
+                  onChange={() => {
+                    handlePlanChange("monthlyFamily");
+                  }}
+                  className="accent-gray-600"
+                />
+                <span className="text-gray-800">Monthly Family</span>
+              </div>
+              <span className="text-xs text-gray-400 font-medium pr-6">({PLAN_PRICING.monthlyFamily.display})</span>
+            </label>
+          </div>
+        </div>
+        
+        {/* Date Selector Section - SECOND */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+          <p className="font-semibold text-gray-700 mb-2">Select Start Date</p>
+          <div className="w-full">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                if (email && email.includes('@')) {
+                  setTimeout(() => checkSubscriptionConflict(), 500);
+                }
+              }}
+              min={new Date().toISOString().split('T')[0]} // Set min to current date
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {plan === 'daily' 
+                ? 'Select the date for your daily session (IST)' 
+                : `Select start date for your ${plan === 'monthlyFamily' ? 'family ' : ''}plan (IST)`}
+            </p>
+          </div>
+        </div>
+
+        {/* Primary User Information - THIRD */}
+        <div className="space-y-4">
           <input
             type="text"
             placeholder="First Name"
@@ -449,7 +550,8 @@ export default function RegistrationForm() {
           />
           {fieldErrors.firstName && (
             <p className="text-red-500 text-xs mt-1">{fieldErrors.firstName}</p>
-          )}          
+          )}
+          
           <input
             type="text"
             placeholder="Last Name"
@@ -472,7 +574,8 @@ export default function RegistrationForm() {
           />
           {fieldErrors.lastName && (
             <p className="text-red-500 text-xs mt-1">{fieldErrors.lastName}</p>
-          )}          
+          )}
+          
           <input
             type="email"
             placeholder="Email"
@@ -500,7 +603,8 @@ export default function RegistrationForm() {
           />
           {fieldErrors.email && (
             <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
-          )}          
+          )}
+          
           <input
             type="tel"
             placeholder="Phone No."
@@ -528,113 +632,11 @@ export default function RegistrationForm() {
           {fieldErrors.phone && (
             <p className="text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
           )}
-        </div>          {/* Date Selector Section */}
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-          <p className="font-semibold text-gray-700 mb-2">Select Start Date</p>
-          <div className="w-full">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                if (email && email.includes('@')) {
-                  setTimeout(() => checkSubscriptionConflict(), 500);
-                }
-              }}
-              min={new Date().toISOString().split('T')[0]} // Set min to current date
-              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {plan === 'daily' 
-                ? 'Select the date for your daily session (IST)' 
-                : `Select start date for your ${plan === 'monthlyFamily' ? 'family ' : ''}plan (IST)`}
-            </p>
-          </div>
         </div>
         
-        {/* Source (How did you hear about us) Section */}
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-          <p className="font-semibold text-gray-700 mb-2">How did you hear about us?</p>
-          <div className="w-full">
-            <select
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
-              required
-            >
-              <option value="Instagram">Instagram</option>
-              <option value="Facebook">Facebook</option>
-              <option value="Twitter">Twitter</option>
-              <option value="LinkedIn">LinkedIn</option>
-              <option value="Google">Google</option>
-              <option value="Friend">Friend</option>
-              <option value="Reference">Reference/Referral</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Subscription Plan Section */}
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-          <p className="font-semibold text-gray-700 mb-2">Subscription Plan</p>
-          <div className="flex flex-col sm:flex-row gap-4 w-full">
-            <label className="flex flex-col items-start w-full sm:w-1/3 cursor-pointer gap-1">
-              <div className="flex items-center gap-2 w-full justify-start">                <input
-                  type="radio"
-                  name="plan"
-                  value="daily"
-                  checked={plan === "daily"}
-                  onChange={() => {
-                    handlePlanChange("daily");
-                    if (email && email.includes('@')) {
-                      setTimeout(() => checkSubscriptionConflict(), 500);
-                    }
-                  }}
-                  className="accent-gray-600"
-                />
-                <span className="text-gray-800">Daily Session</span>
-              </div>
-              <span className="text-xs text-gray-400 font-medium pl-6">({PLAN_PRICING.daily.display})</span>
-            </label>
-            <label className="flex flex-col items-center w-full sm:w-1/3 cursor-pointer gap-1">
-              <div className="flex items-center gap-2 w-full justify-center">                <input
-                  type="radio"
-                  name="plan"
-                  value="monthly"
-                  checked={plan === "monthly"}
-                  onChange={() => {
-                    handlePlanChange("monthly");
-                    if (email && email.includes('@')) {
-                      setTimeout(() => checkSubscriptionConflict(), 500);
-                    }
-                  }}
-                  className="accent-gray-600"
-                />
-                <span className="text-gray-800">Monthly Plan</span>
-              </div>
-              <span className="text-xs text-gray-400 font-medium">({PLAN_PRICING.monthly.display})</span>
-            </label>
-            <label className="flex flex-col items-end w-full sm:w-1/3 cursor-pointer gap-1">
-              <div className="flex items-center gap-2 w-full justify-end">                <input
-                  type="radio"
-                  name="plan"
-                  value="monthlyFamily"
-                  checked={plan === "monthlyFamily"}
-                  onChange={() => {
-                    handlePlanChange("monthlyFamily");
-                  }}
-                  className="accent-gray-600"
-                />
-                <span className="text-gray-800">Monthly Family</span>
-              </div>
-              <span className="text-xs text-gray-400 font-medium pr-6">({PLAN_PRICING.monthlyFamily.display})</span>
-            </label>
-          </div>
-        </div>
-        {/* Show second person fields if family plan is selected */}
+        {/* Show second person fields if family plan is selected - FOURTH (conditional) */}
         {plan === "monthlyFamily" && (
-          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200 mt-4">
+          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
             <p className="font-semibold text-yellow-700 mb-2">Second Person Details (Family Plan)</p>
             <div className="space-y-4">
               <input
@@ -682,10 +684,12 @@ export default function RegistrationForm() {
               />
               {fieldErrors.secondLastName && (
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.secondLastName}</p>
-              )}              <input
+              )}
+              <input
                 type="email"
                 placeholder="Second Person Email"
-                value={secondEmail}                onChange={(e) => {
+                value={secondEmail}
+                onChange={(e) => {
                   setSecondEmail(e.target.value);
                   if (e.target.value.trim() !== '') {
                     // Clear errors only if it's not the same as primary email
@@ -745,9 +749,31 @@ export default function RegistrationForm() {
           </div>
         )}
 
-        {/* Reference field (shown only if source is "Reference") */}
+        {/* Source (How did you hear about us) Section - FIFTH (moved to end) */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+          <p className="font-semibold text-gray-700 mb-2">How did you hear about us?</p>
+          <div className="w-full">
+            <select
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
+              required
+            >
+              <option value="Instagram">Instagram</option>
+              <option value="Facebook">Facebook</option>
+              <option value="Twitter">Twitter</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="Google">Google</option>
+              <option value="Friend">Friend</option>
+              <option value="Reference">Reference/Referral</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Reference field (shown only if source is "Reference") - SIXTH (conditional) */}
         {source === "Reference" && (
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 mt-4">
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
             <p className="font-semibold text-gray-700 mb-2">Reference Name</p>
             <input
               type="text"
@@ -757,27 +783,7 @@ export default function RegistrationForm() {
               className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
             />
           </div>
-        )}
-
-        {/* Payment section (shown only after form is filled and plan is selected) */}
-        {showPayment && (
-          <div className="bg-green-50 rounded-lg p-4 border border-green-200 mt-4">
-            <p className="font-semibold text-green-700 mb-2">Payment Information</p>
-            <p className="text-sm text-green-600 mb-2">
-              You will be charged <span className="font-bold">{PLAN_PRICING[plan].amount} INR</span> for the{" "}
-              <span className="font-semibold">{plan === "daily" ? "daily session" : "monthly plan"}</span>.
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowPayment(false)}
-              className="text-sm text-gray-500 hover:underline"
-            >
-              Change plan or details
-            </button>
-          </div>
-        )}
-
-        {/* Error or success message */}
+        )}        {/* Error or success message */}
         {(errorMessage || successMessage) && (
           <div className={`p-4 rounded-lg ${errorMessage ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
             <p className={`text-sm ${errorMessage ? 'text-red-700' : 'text-green-700'}`}>
@@ -787,19 +793,11 @@ export default function RegistrationForm() {
         )}
 
         {/* Submit button */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <button
+        <div className="flex flex-col sm:flex-row gap-4">          <button
             type="submit"
             className="w-full px-4 py-3 text-white bg-gray-800 rounded-lg shadow hover:bg-gray-700 focus:outline-none transition-all duration-200"
           >
             {isLoading ? "Processing..." : "Register & Pay Now"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowPayment(true)}
-            className="w-full px-4 py-3 text-gray-800 bg-gray-200 rounded-lg shadow hover:bg-gray-300 focus:outline-none transition-all duration-200"
-          >
-            Pay Later
           </button>
         </div>
       </form>

@@ -38,11 +38,8 @@ const orderBodySchema = z.object({
     duration: z.number().positive(),
     startDate: z.string().optional(),
     userId: z.string().min(1),
-    // Optional second person fields for family plan
-    secondFirstName: z.string().optional(),
-    secondLastName: z.string().optional(),
-    secondEmail: z.string().optional(),
-    secondPhone: z.string().optional(),
+    // Optional second user ID for family plan
+    secondUserId: z.string().optional(),
 });
 
 export type OrderBody = z.infer<typeof orderBodySchema>;
@@ -54,8 +51,7 @@ export async function POST(request: NextRequest) {
     const parsed = orderBodySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
-    }
-    const { amount, currency, planType, duration, startDate, userId, secondFirstName, secondLastName, secondEmail, secondPhone } = parsed.data;
+    }    const { amount, currency, planType, duration, startDate, userId, secondUserId } = parsed.data;
     
     // Determine start and end dates based on duration using IST
     let subscriptionStartDate: Date;
@@ -98,40 +94,31 @@ export async function POST(request: NextRequest) {
         details: subscriptionCheck.reason,
         subscriptionDetails: subscriptionCheck.subscriptionDetails
       }, { status: 409 }); // 409 Conflict
-    }
-
-    // Handle monthlyFamily plan logic
+    }    // Handle monthlyFamily plan logic
     if (planType === "monthlyFamily") {
-      // Validate second person fields
-      if (!secondFirstName || !secondLastName || !secondEmail || !secondPhone) {
-        return NextResponse.json({ message: "Second person details required for family plan." }, { status: 400 });
+      // Validate second user ID
+      if (!secondUserId) {
+        return NextResponse.json({ message: "Second user ID required for family plan." }, { status: 400 });
+      }
+      
+      // Fetch both users by their IDs
+      const [user1, user2] = await Promise.all([
+        prisma.user.findUnique({ where: { id: userId } }),
+        prisma.user.findUnique({ where: { id: secondUserId } })
+      ]);
+      
+      if (!user1 || !user2) {
+        return NextResponse.json({ message: "User(s) not found." }, { status: 404 });
       }
       
       // Check that primary and secondary emails are different
-      if (user.email === secondEmail) {
+      if (user1.email === user2.email) {
         return NextResponse.json({ 
           message: "Invalid family plan registration", 
           details: "Primary and secondary users must have different email addresses"
         }, { status: 400 });
       }
-      // Fetch both users (or create if not exist)
-      const [user1, user2] = await Promise.all([
-        prisma.user.findUnique({ where: { id: userId } }),
-        prisma.user.upsert({
-          where: { email: secondEmail },
-          update: {},
-          create: {
-            firstName: secondFirstName,
-            lastName: secondLastName,
-            email: secondEmail,
-            phone: secondPhone,
-            source: "Family Plan",
-          },
-        })
-      ]);
-      if (!user1 || !user2) {
-        return NextResponse.json({ message: "User(s) not found or could not be created." }, { status: 404 });
-      }
+      
       // Check subscription eligibility for both users
       const [canSub1, canSub2] = await Promise.all([
         canUserSubscribeForDates(user1.email, subscriptionStartDate, subscriptionEndDate, planType),
@@ -154,11 +141,10 @@ export async function POST(request: NextRequest) {
           notes: {
             description: "Payment for family subscription",
             plan_type: planType,
-            date: new Date().toISOString(),
-            startDate: subscriptionStartDate.toISOString(),
+            date: new Date().toISOString(),            startDate: subscriptionStartDate.toISOString(),
             endDate: subscriptionEndDate.toISOString(),
             user_id: userId,
-            second_user_email: secondEmail,
+            second_user_id: secondUserId,
           },
         });
         if (!order || !order.id) {
