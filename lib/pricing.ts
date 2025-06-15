@@ -15,11 +15,17 @@ export const PLAN_PRICING = {
     display: "Rs. 2999", // Formatted display price
     duration: 30,        // Duration in days
     name: "Monthly Plan"
+  },
+  monthlyFamily: {
+    amount: 4499,        // Price in INR
+    display: "Rs. 4499 (Family, 2 users)", // Formatted display price
+    duration: 30,        // Duration in days
+    name: "Monthly Family Plan"
   }
 };
 
 // Types
-export type PlanType = "daily" | "monthly" | "unlimited";
+export type PlanType = "daily" | "monthly" | "monthlyFamily" | "unlimited";
 export type PlanPricing = typeof PLAN_PRICING[Exclude<PlanType, "unlimited">];
 
 /**

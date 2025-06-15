@@ -20,8 +20,16 @@ The system automatically converts plan type codes to user-friendly display names
 |----------------|--------------|
 | daily          | Daily Session |
 | monthly        | Monthly Plan |
+| monthlyFamily  | Monthly Family Plan |
 | unlimited      | Unlimited Plan (admin only) |
 | (other values) | Original value is used |
+
+## Family Plan Emails
+
+For the Monthly Family plan, the system sends:
+- Welcome emails to both registered users
+- A special admin notification email that includes details of both users
+- Daily meeting invites to both users
 
 ## Testing Emails
 

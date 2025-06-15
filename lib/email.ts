@@ -542,3 +542,119 @@ export async function sendAdminNotificationEmail({
     return false;
   }
 }
+
+// Helper: family plan admin notification
+async function sendFamilyAdminNotificationEmail({
+  users,
+  planType,
+  startDate,
+  endDate,
+  amount,
+  paymentId
+}: {
+  users: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    source: string;
+    referenceName?: string;
+    subscriptionId: string;
+  }>;
+  planType: string;
+  startDate: Date;
+  endDate: Date;
+  amount: number;
+  paymentId?: string;
+}): Promise<boolean> {
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (!adminEmail) {
+      console.error('ADMIN_EMAIL environment variable is not set');
+      return false;
+    }
+    const dateOptions: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata' };
+    const formattedStartDate = startDate.toLocaleDateString('en-IN', dateOptions);
+    const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);
+    const formattedAmount = `₹${amount.toFixed(2)}`;
+    let planDisplay;
+    switch(planType.toLowerCase()) {
+      case 'monthlyfamily':
+        planDisplay = 'Monthly Family Plan';
+        break;
+      case 'daily': planDisplay = 'Daily Session'; break;
+      case 'monthly': planDisplay = 'Monthly Plan'; break;
+      case 'unlimited': planDisplay = 'Unlimited Plan'; break;
+      default: planDisplay = planType;
+    }
+    const currentDateTime = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
+    });
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Family Registration Notification</title>
+        <style>
+          body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { text-align: center; margin-bottom: 20px; background-color: #2c3e50; color: white; padding: 10px; border-radius: 5px; }
+          h1 { margin-bottom: 5px; font-size: 24px; }
+          .user-details, .subscription-details { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0; border-left: 4px solid #3498db; }
+          .payment-details { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0; border-left: 4px solid #27ae60; }
+          table { width: 100%; border-collapse: collapse; }
+          table td { padding: 8px; border-bottom: 1px solid #eee; }
+          table td:first-child { font-weight: bold; width: 35%; }
+          .footer { margin-top: 30px; font-size: 14px; color: #7f8c8d; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>👨‍👩‍👧‍👦 New Family Registration Alert</h1>
+        </div>
+        <p>A new <b>Monthly Family Plan</b> registration and payment has been completed on GOALETE Club.</p>
+        <div class="user-details">
+          <h2>Family Members</h2>
+          <table>
+            <tr><th>Name</th><th>Email</th><th>Phone</th><th>Subscription ID</th></tr>
+            ${users.map(u => `<tr><td>${u.firstName} ${u.lastName}</td><td>${u.email}</td><td>${u.phone}</td><td>${u.subscriptionId}</td></tr>`).join('')}
+          </table>
+        </div>
+        <div class="subscription-details">
+          <h2>Subscription Details</h2>
+          <table>
+            <tr><td>Plan Type:</td><td>${planDisplay}</td></tr>
+            <tr><td>Start Date:</td><td>${formattedStartDate}</td></tr>
+            <tr><td>End Date:</td><td>${formattedEndDate}</td></tr>
+          </table>
+        </div>
+        <div class="payment-details">
+          <h2>Payment Details</h2>
+          <table>
+            <tr><td>Amount:</td><td>${formattedAmount}</td></tr>
+            ${paymentId ? `<tr><td>Payment ID:</td><td>${paymentId}</td></tr>` : ''}
+            <tr><td>Timestamp:</td><td>${currentDateTime}</td></tr>
+          </table>
+        </div>
+        <p>You can view and manage these users in the <a href="https://goaletemeet.vercel.app/admin">admin dashboard</a>.</p>
+        <div class="footer">
+          <p>© 2025 GOALETE Club. This is an automated notification from the system.</p>
+        </div>
+      </body>
+      </html>
+    `;
+    return await sendEmail({
+      to: adminEmail,
+      subject: `New Family Registration: ${users.map(u => u.firstName).join(' & ')} (${planDisplay})`,
+      html: htmlContent
+    });
+  } catch (error) {
+    console.error('Error sending admin notification email (family):', error);
+    return false;
+  }
+}
+
+// Add export for the helper
+export { sendFamilyAdminNotificationEmail };

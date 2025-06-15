@@ -10,34 +10,55 @@ declare global {
   }
 }
 
-export default function RegistrationForm() {  
-  const [plan, setPlan] = useState<"daily" | "monthly">("daily");
+export default function RegistrationForm() {
+  // Basic form state
+  const [plan, setPlan] = useState<"daily" | "monthly" | "monthlyFamily">("daily");
   const [startDate, setStartDate] = useState("");
   const [source, setSource] = useState("Instagram");
   const [reference, setReference] = useState("");
+  
+  // Payment state
   const [isRazorpayLoaded, setIsRazorpayLoaded] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Primary user information
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [duration, setDuration] = useState(PLAN_PRICING.daily.duration)  
-  const [showPayment, setShowPayment] = useState(false);
-  const [formData, setFormData] = useState<any>(null);  const [isLoading, setIsLoading] = useState(false);
+  
+  // Second person fields for family plan
+  const [secondFirstName, setSecondFirstName] = useState("");
+  const [secondLastName, setSecondLastName] = useState("");
+  const [secondEmail, setSecondEmail] = useState("");
+  const [secondPhone, setSecondPhone] = useState("");
+    // Additional state
+  const [duration, setDuration] = useState(PLAN_PRICING.daily.duration);
+  const [formData, setFormData] = useState<any>(null);
+  
+  // Status messages and validation
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
+    // Field-specific error tracking
   const [fieldErrors, setFieldErrors] = useState({
     firstName: '',
     lastName: '',
     email: '',
-    phone: ''
-  });  // Set today's date as the default start date when component mounts (using IST timezone)
+    phone: '',
+    secondFirstName: '',
+    secondLastName: '',
+    secondEmail: '',
+    secondPhone: ''
+  });
+  
+  // Set today's date as the default start date when component mounts (using IST timezone)
   useEffect(() => {
     // Use IST timezone for date calculations
     const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     setStartDate(istDate.toISOString().split('T')[0]);
   }, []);
-
   // Check for subscription conflicts when user changes plan or date
   useEffect(() => {
     // Only check if email is entered
@@ -45,27 +66,41 @@ export default function RegistrationForm() {
       checkSubscriptionConflict();
     }
   }, [email, plan, startDate]);
+  
   // Helper function to check if a date is today in IST timezone
   const isToday = (dateString: string): boolean => {
     if (!dateString) return false;
     const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    const today = istDate.toISOString().split('T')[0];
-    return dateString === today;
-  };// Update duration when plan changes
-  const handlePlanChange = (newPlan: "daily" | "monthly") => {
+    const today = istDate.toISOString().split('T')[0];    return dateString === today;
+  };
+  
+  // Update duration when plan changes
+  const handlePlanChange = (newPlan: "daily" | "monthly" | "monthlyFamily") => {
     setPlan(newPlan);
     setDuration(PLAN_PRICING[newPlan].duration);
     setErrorMessage(null);
     setSuccessMessage(null);
-    
     // Clear field errors on plan change
     setFieldErrors({
       firstName: '',
       lastName: '',
       email: '',
-      phone: ''
+      phone: '',
+      secondFirstName: '',
+      secondLastName: '',
+      secondEmail: '',
+      secondPhone: ''
     });
-  };  // Check for existing subscription conflicts
+    // Clear second person fields if not family plan
+    if (newPlan !== "monthlyFamily") {
+      setSecondFirstName("");
+      setSecondLastName("");
+      setSecondEmail("");
+      setSecondPhone("");   
+     }
+  };  
+  
+  // Check for existing subscription conflicts
   const checkSubscriptionConflict = async () => {
     if (!email || !email.includes('@') || !startDate) return;
     setIsCheckingSubscription(true);
@@ -110,11 +145,13 @@ export default function RegistrationForm() {
       }
     } catch (error) {
       console.error("Error checking subscription:", error);
-      setSuccessMessage(null);
+      setSuccessMessage(null);    
     } finally {
       setIsCheckingSubscription(false);
     }
-  };  // handle form submission
+  };  
+  
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -128,7 +165,14 @@ export default function RegistrationForm() {
              !email.includes('@') || !email.includes('.') ? 'Please enter a valid email address' : '',
       phone: phone === '' ? 'Phone number is required' : 
              phone.length < 10 ? 'Phone number must be at least 10 digits' : 
-             phone.length > 12 ? 'Phone number is too long' : ''
+             phone.length > 12 ? 'Phone number is too long' : '',
+      secondFirstName: plan === 'monthlyFamily' ? (secondFirstName.trim() === '' ? 'First name is required' : secondFirstName.trim().length < 2 ? 'First name must be at least 2 characters' : '') : '',
+      secondLastName: plan === 'monthlyFamily' ? (secondLastName.trim() === '' ? 'Last name is required' : secondLastName.trim().length < 2 ? 'Last name must be at least 2 characters' : '') : '',
+      secondEmail: plan === 'monthlyFamily' ? 
+                  (secondEmail.trim() === '' ? 'Email is required' : 
+                   !secondEmail.includes('@') || !secondEmail.includes('.') ? 'Please enter a valid email address' : 
+                   secondEmail === email ? 'Second user cannot have the same email as the primary user' : '') : '',
+      secondPhone: plan === 'monthlyFamily' ? (secondPhone === '' ? 'Phone number is required' : secondPhone.length < 10 ? 'Phone number must be at least 10 digits' : secondPhone.length > 12 ? 'Phone number is too long' : '') : ''
     };
     
     // Check if Reference is required but empty
@@ -136,10 +180,19 @@ export default function RegistrationForm() {
       setErrorMessage("Please provide a reference name");
       return;
     }
-    
-    // Check if there are any validation errors
+      // Check if there are any validation errors
     if (Object.values(newFieldErrors).some(error => error !== '')) {
       setFieldErrors(newFieldErrors);
+      return;
+    }
+    
+    // Additional check for family plan - emails must be different
+    if (plan === 'monthlyFamily' && email === secondEmail) {
+      setErrorMessage("Primary and secondary users must have different email addresses");
+      setFieldErrors({
+        ...newFieldErrors,
+        secondEmail: 'Second user cannot have the same email as the primary user'
+      });
       return;
     }
     
@@ -214,6 +267,12 @@ export default function RegistrationForm() {
           duration: PLAN_PRICING[plan].duration,
           startDate,
           userId,
+          ...(plan === "monthlyFamily" ? {
+            secondFirstName,
+            secondLastName,
+            secondEmail,
+            secondPhone
+          } : {})
         }),
       });
       
@@ -234,14 +293,17 @@ export default function RegistrationForm() {
 
 
       const orderId = orderData.orderId;
-      const subscriptionId = orderData.subscriptionId;      
+      // For family plan, get both subscription IDs
+      const subscriptionIds = orderData.subscriptionIds || (orderData.subscriptionId ? [orderData.subscriptionId] : []);
       
       // 3. Start Razorpay payment
       if (!isRazorpayLoaded) {
         alert("Payment gateway is still loading. Please wait a moment and try again.");
         setIsLoading(false);
         return;
-      }      const options = {
+      }
+      const isFamily = plan === "monthlyFamily";
+      const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: toPaise(price),
         currency: "INR",
@@ -253,37 +315,24 @@ export default function RegistrationForm() {
                 await fetch(`/api/createOrder?orderId=${orderId}`, { method: "DELETE" });
                 console.log("deleted the order")
             }
-        },        
+        },
         handler: async function (response: any) {
           try {
-            // 4. On payment success, update subscription and user
+            // 4. On payment success, update subscription(s) and user(s)
             await fetch("/api/createOrder", {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                subscriptionId,
                 orderId,
                 paymentId: response.razorpay_payment_id,
-                userId,
-                paymentStatus: "succcess",
+                userId, // still pass for compatibility
+                ...(isFamily
+                  ? { subscriptionIds }
+                  : { subscriptionId: subscriptionIds[0] }),
                 status: "active",
+                paymentStatus: "success"
               }),
             });
-            /*            // Uncomment if you want to send a meeting invite immediately
-            // If subscription starts today, trigger immediate meeting invite
-            if (isToday(startDate)) {
-              await fetch("/api/send-meeting-invite", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  subscriptionId,
-                  userId,
-                  isImmediate: true
-                }),
-              });
-            }
-            */
-            
             alert("Payment Successful! Registration complete.");
           } catch (error) {
             alert("Payment verification or registration failed. Please contact support.");
@@ -295,11 +344,10 @@ export default function RegistrationForm() {
           email: email,
           contant: phone,
         },
-        theme: {          
+        theme: {
           color: "#3399cc",
         },
       };
-      
       const razorpay = new window.Razorpay(options);
       razorpay.on("payment.failed", async function (response: any) {
         alert("Payment failed");
@@ -308,15 +356,16 @@ export default function RegistrationForm() {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                subscriptionId,
                 orderId,
                 paymentId: response.razorpay_payment_id,
                 userId,
-                paymentStaus: "failed",
+                ...(isFamily
+                  ? { subscriptionIds }
+                  : { subscriptionId: subscriptionIds[0] }),
+                paymentStatus: "failed",
                 status: "inactive",
               }),
             });
-          //
         } catch (err) {
           await fetch(`/api/createOrder?orderId=${orderId}`, { method: "DELETE" });
           console.log("delete the subscription order")
@@ -335,9 +384,10 @@ export default function RegistrationForm() {
       
       setErrorMessage(errorMsg);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false);    
     }
   };
+  
   // Helper to format date as dd/mm/yyyy
   function formatDateDDMMYYYY(dateString: string): string {
     if (!dateString) return '';
@@ -481,7 +531,7 @@ export default function RegistrationForm() {
         </div>          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <p className="font-semibold text-gray-700 mb-2">Subscription Plan</p>
           <div className="flex flex-col sm:flex-row gap-4 w-full">
-            <label className="flex flex-col items-start w-full sm:w-1/2 cursor-pointer gap-1">
+            <label className="flex flex-col items-start w-full sm:w-1/3 cursor-pointer gap-1">
               <div className="flex items-center gap-2 w-full justify-start">                <input
                   type="radio"
                   name="plan"
@@ -499,8 +549,8 @@ export default function RegistrationForm() {
               </div>
               <span className="text-xs text-gray-400 font-medium pl-6">({PLAN_PRICING.daily.display})</span>
             </label>
-            <label className="flex flex-col items-end w-full sm:w-1/2 cursor-pointer gap-1">
-              <div className="flex items-center gap-2 w-full justify-end">                <input
+            <label className="flex flex-col items-center w-full sm:w-1/3 cursor-pointer gap-1">
+              <div className="flex items-center gap-2 w-full justify-center">                <input
                   type="radio"
                   name="plan"
                   value="monthly"
@@ -515,95 +565,195 @@ export default function RegistrationForm() {
                 />
                 <span className="text-gray-800">Monthly Plan</span>
               </div>
-              <span className="text-xs text-gray-400 font-medium pr-6">({PLAN_PRICING.monthly.display})</span>
+              <span className="text-xs text-gray-400 font-medium">({PLAN_PRICING.monthly.display})</span>
+            </label>
+            <label className="flex flex-col items-end w-full sm:w-1/3 cursor-pointer gap-1">
+              <div className="flex items-center gap-2 w-full justify-end">                <input
+                  type="radio"
+                  name="plan"
+                  value="monthlyFamily"
+                  checked={plan === "monthlyFamily"}
+                  onChange={() => {
+                    handlePlanChange("monthlyFamily");
+                  }}
+                  className="accent-gray-600"
+                />
+                <span className="text-gray-800">Monthly Family</span>
+              </div>
+              <span className="text-xs text-gray-400 font-medium pr-6">({PLAN_PRICING.monthlyFamily.display})</span>
             </label>
           </div>
-        </div>          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-          <label className="block mb-1 font-medium text-gray-700">
-            {plan === "daily" ? "Session Date" : "Start Date"} <span className="text-xs text-gray-500">(IST)</span>
-          </label>          <input            type="date"
-            value={startDate}
-            onChange={(e) => {
-              setStartDate(e.target.value);
-              setErrorMessage(null);
-              setSuccessMessage(null);
-              if (email && email.includes('@')) {                // Set timeout to avoid too many API calls while user is selecting
-                setTimeout(() => checkSubscriptionConflict(), 500);
-              }
-            }}
-            min={new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).toISOString().split('T')[0]} // Prevent selecting dates before today (in IST)
-            className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-white text-gray-900"
-            required
-          />
         </div>
-
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-          <p className="font-semibold text-gray-700 mb-2">How did you hear about us?</p>
-          <select
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-white text-gray-900"
-          >
-            <option>Instagram</option>
-            <option>Facebook</option>
-            <option>WhatsApp</option>
-            <option>Word of Mouth</option>
-            <option>Reference</option>
-          </select>          {source === "Reference" && (
-            <>
+        {/* Show second person fields if family plan is selected */}
+        {plan === "monthlyFamily" && (
+          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200 mt-4">
+            <p className="font-semibold text-yellow-700 mb-2">Second Person Details (Family Plan)</p>
+            <div className="space-y-4">
               <input
                 type="text"
-                placeholder="Reference Name"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                onBlur={() => {
-                  if (source === "Reference" && reference.trim() === '') {
-                    setErrorMessage("Please provide a reference name");
-                  } else {
-                    setErrorMessage(null);
+                placeholder="Second Person First Name"
+                value={secondFirstName}
+                onChange={(e) => {
+                  setSecondFirstName(e.target.value);
+                  if (e.target.value.trim() !== '') {
+                    setFieldErrors({...fieldErrors, secondFirstName: ''});
                   }
                 }}
-                className="w-full p-3 mt-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-white text-gray-900"
-                required={source === "Reference"}
+                onBlur={() => {
+                  if (secondFirstName.trim() === '') {
+                    setFieldErrors({...fieldErrors, secondFirstName: 'First name is required'});
+                  } else if (secondFirstName.trim().length < 2) {
+                    setFieldErrors({...fieldErrors, secondFirstName: 'First name must be at least 2 characters'});
+                  }
+                }}
+                className={`w-full p-3 border ${fieldErrors.secondFirstName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
+                required={plan === "monthlyFamily"}
               />
-              {source === "Reference" && reference.trim() === '' && (
-                <p className="text-red-500 text-xs mt-1">Reference name is required</p>
+              {fieldErrors.secondFirstName && (
+                <p className="text-red-500 text-xs mt-1">{fieldErrors.secondFirstName}</p>
               )}
-            </>
-          )}
-          </div>          {errorMessage && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-            <p className="font-medium text-sm">{errorMessage}</p>
-            <p className="text-xs text-gray-500 mt-1">All dates are in Indian Standard Time (IST).</p>
-            {isCheckingSubscription && (
-              <div className="mt-2 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-700"></div>
-              </div>
-            )}
-          </div>
-        )}{successMessage && !errorMessage && !isCheckingSubscription && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
-            <p className="font-medium text-sm">{successMessage}</p>
-            <p className="text-xs text-green-600 mt-1">You're good to go! Click "Subscribe Now" to continue.</p>
-            <p className="text-xs text-gray-500 mt-1">All dates and times are in Indian Standard Time (IST).</p>
+              <input
+                type="text"
+                placeholder="Second Person Last Name"
+                value={secondLastName}
+                onChange={(e) => {
+                  setSecondLastName(e.target.value);
+                  if (e.target.value.trim() !== '') {
+                    setFieldErrors({...fieldErrors, secondLastName: ''});
+                  }
+                }}
+                onBlur={() => {
+                  if (secondLastName.trim() === '') {
+                    setFieldErrors({...fieldErrors, secondLastName: 'Last name is required'});
+                  } else if (secondLastName.trim().length < 2) {
+                    setFieldErrors({...fieldErrors, secondLastName: 'Last name must be at least 2 characters'});
+                  }
+                }}
+                className={`w-full p-3 border ${fieldErrors.secondLastName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
+                required={plan === "monthlyFamily"}
+              />
+              {fieldErrors.secondLastName && (
+                <p className="text-red-500 text-xs mt-1">{fieldErrors.secondLastName}</p>
+              )}              <input
+                type="email"
+                placeholder="Second Person Email"
+                value={secondEmail}
+                onChange={(e) => {
+                  setSecondEmail(e.target.value);
+                  if (e.target.value.trim() !== '') {
+                    // Clear errors only if it's not the same as primary email
+                    if (e.target.value !== email) {
+                      setFieldErrors({...fieldErrors, secondEmail: ''});
+                      // Also clear the general error message if it was about duplicate emails
+                      if (errorMessage === "Primary and secondary users must have different email addresses") {
+                        setErrorMessage(null);
+                      }
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  if (secondEmail.trim() === '') {
+                    setFieldErrors({...fieldErrors, secondEmail: 'Email is required'});
+                  } else if (!secondEmail.includes('@') || !secondEmail.includes('.')) {
+                    setFieldErrors({...fieldErrors, secondEmail: 'Please enter a valid email address'});
+                  } else if (plan === 'monthlyFamily' && secondEmail === email) {
+                    setFieldErrors({...fieldErrors, secondEmail: 'Second user cannot have the same email as the primary user'});
+                  } else {
+                    setFieldErrors({...fieldErrors, secondEmail: ''});
+                  }
+                }}
+                className={`w-full p-3 border ${fieldErrors.secondEmail ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
+                required={plan === "monthlyFamily"}
+              />
+              {fieldErrors.secondEmail && (
+                <p className="text-red-500 text-xs mt-1">{fieldErrors.secondEmail}</p>
+              )}
+              <input
+                type="tel"
+                placeholder="Second Person Phone No."
+                value={secondPhone}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '');
+                  setSecondPhone(value);
+                  if (value !== '') {
+                    setFieldErrors({...fieldErrors, secondPhone: ''});
+                  }
+                }}
+                onBlur={() => {
+                  if (secondPhone === '') {
+                    setFieldErrors({...fieldErrors, secondPhone: 'Phone number is required'});
+                  } else if (secondPhone.length < 10) {
+                    setFieldErrors({...fieldErrors, secondPhone: 'Phone number must be at least 10 digits'});
+                  } else if (secondPhone.length > 12) {
+                    setFieldErrors({...fieldErrors, secondPhone: 'Phone number is too long'});
+                  }
+                }}
+                className={`w-full p-3 border ${fieldErrors.secondPhone ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
+                required={plan === "monthlyFamily"}
+              />
+              {fieldErrors.secondPhone && (
+                <p className="text-red-500 text-xs mt-1">{fieldErrors.secondPhone}</p>
+              )}
+            </div>
           </div>
         )}
 
-        {isCheckingSubscription && !errorMessage && (
-          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
-            <p className="font-medium text-sm">Checking subscription availability...</p>
+        {/* Reference field (shown only if source is "Reference") */}
+        {source === "Reference" && (
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 mt-4">
+            <p className="font-semibold text-gray-700 mb-2">Reference Name</p>
+            <input
+              type="text"
+              placeholder="Enter reference name"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
+            />
           </div>
-        )}        <button
-          type="submit"
-          className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl shadow text-lg transition-all duration-200 tracking-wide mt-2 border border-gray-700"
-          disabled={isLoading}
-        >
-          {isLoading ? "Processing..." : "Subscribe Now"}
-        </button>
-        
-        <div className="text-center text-xs text-gray-500 mt-4">
-          All dates and times are in Indian Standard Time (IST / UTC+5:30).
+        )}
+
+        {/* Payment section (shown only after form is filled and plan is selected) */}
+        {showPayment && (
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200 mt-4">
+            <p className="font-semibold text-green-700 mb-2">Payment Information</p>
+            <p className="text-sm text-green-600 mb-2">
+              You will be charged <span className="font-bold">{PLAN_PRICING[plan].amount} INR</span> for the{" "}
+              <span className="font-semibold">{plan === "daily" ? "daily session" : "monthly plan"}</span>.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowPayment(false)}
+              className="text-sm text-gray-500 hover:underline"
+            >
+              Change plan or details
+            </button>
+          </div>
+        )}
+
+        {/* Error or success message */}
+        {(errorMessage || successMessage) && (
+          <div className={`p-4 rounded-lg ${errorMessage ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+            <p className={`text-sm ${errorMessage ? 'text-red-700' : 'text-green-700'}`}>
+              {errorMessage || successMessage}
+            </p>
+          </div>
+        )}
+
+        {/* Submit button */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button
+            type="submit"
+            className="w-full px-4 py-3 text-white bg-gray-800 rounded-lg shadow hover:bg-gray-700 focus:outline-none transition-all duration-200"
+          >
+            {isLoading ? "Processing..." : "Register & Pay Now"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPayment(true)}
+            className="w-full px-4 py-3 text-gray-800 bg-gray-200 rounded-lg shadow hover:bg-gray-300 focus:outline-none transition-all duration-200"
+          >
+            Pay Later
+          </button>
         </div>
       </form>
     </div>

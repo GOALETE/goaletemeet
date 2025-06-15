@@ -245,10 +245,10 @@ export async function canUserSubscribe(email: string, planType?: string, startDa
       return {
         canSubscribe: false,
         reason: `You already have an active monthly subscription until ${formatDateDDMMYY(subscriptionStatus.subscriptionDetails?.endDate)}. Please wait for it to expire or check non-overlapping dates.`,
-        subscriptionDetails: subscriptionStatus.subscriptionDetails
-      };
+        subscriptionDetails: subscriptionStatus.subscriptionDetails      };
     }
-      // If user has a daily plan and tries to buy any other plan (without specific dates)
+    
+    // If user has a daily plan and tries to buy any other plan (without specific dates)
     if (currentPlanType === 'daily') {
       return {
         canSubscribe: false,
@@ -256,7 +256,8 @@ export async function canUserSubscribe(email: string, planType?: string, startDa
         subscriptionDetails: subscriptionStatus.subscriptionDetails
       };
     }
-      // Default case - has an active subscription, don't allow overlap
+    
+    // Default case - has an active subscription, don't allow overlap
     return {
       canSubscribe: false,
       reason: `You already have an active subscription until ${formatDateDDMMYY(subscriptionStatus.subscriptionDetails?.endDate)}`,

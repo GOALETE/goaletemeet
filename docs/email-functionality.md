@@ -30,6 +30,7 @@ Email templates are defined in `lib/email.ts` with responsive HTML designs for:
 - Welcome emails
 - Meeting invite emails
 - Admin notification emails
+- Family plan special notifications
 
 ## Email Types
 
@@ -51,11 +52,59 @@ Contains:
 
 ### Admin Notification Email
 
-Sent when a new user registers and makes a payment:
-- User details (name, email, phone, source, reference)
-- Subscription details (plan type, start/end dates)
-- Payment details (amount, payment ID)
-- Link to admin dashboard
+#### Single User Registration
+For individual plans (daily, monthly), includes:
+- User details (name, email, phone, etc.)
+- Subscription information
+- Payment details
+
+#### Family Plan Registration
+For monthly family plans, includes:
+- Details of both registered users
+- Combined subscription information
+- Single payment details
+- Both subscription IDs for tracking
+
+## Family Plan Email Flow
+
+### Registration Process
+
+For the Monthly Family plan, the registration form collects information for two users:
+1. Primary user details (first person)
+2. Secondary user details (second person)
+3. Single payment for both users
+
+### Backend Processing
+
+When a family plan payment is processed:
+1. Two separate user records are created in the database
+2. Two separate subscription records are created (each with half the total price)
+3. Each subscription is linked to its respective user
+
+### Email Notifications
+
+After successful payment:
+1. **Welcome Emails**: Both users receive individual welcome emails
+   - Each email contains the user's specific details
+   - Both emails reference the same payment information
+
+2. **Admin Notification**: A single admin notification is sent
+   - Contains details of both users in a family-specific template
+   - Shows both subscription IDs for tracking
+   - Clearly indicates this is a family plan registration
+
+3. **Meeting Invites**: Both users receive their own meeting invites
+   - Daily CRON job sends separate invites to each email
+   - Both users can independently access meetings
+
+### Testing Family Plan Emails
+
+To test family plan emails:
+1. Register with the Monthly Family plan option
+2. Complete the payment process
+3. Verify both welcome emails are received
+4. Check admin notification contains both users
+5. Run the daily CRON job to verify meeting invites
 
 ## CRON Job for Daily Invites
 

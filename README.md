@@ -25,6 +25,16 @@ bun dev
 - Zoom & Google Calendar APIs (meeting access)
 - Vercel (deploy, cron jobs)
 
+## Subscription Plans
+
+The application offers the following subscription plans:
+
+1. **Daily Session** - Rs. 299 for 1-day access
+2. **Monthly Plan** - Rs. 2999 for 30-day access (single user)
+3. **Monthly Family Plan** - Rs. 4499 for 30-day access (two users)
+
+Family plans allow two users to register at once, with each user receiving their own account and meeting access.
+
 ## Setup
 
 1. **Clone & Install**
@@ -81,6 +91,14 @@ bun dev
 
 - Meeting links are never public.
 - Only paid/active emails can join, enforced via API and daily calendar/invite logic.
+
+## Documentation
+
+- [Email System](./docs/email-system.md) - Email templates and notification system
+- [Email Functionality](./docs/email-functionality.md) - Implementation details for email features
+- [Pricing Guide](./docs/pricing-guide.md) - Plan pricing and configuration
+- [Subscription Protection](./docs/subscription-protection.md) - Authentication and access control
+- [Family Plan Implementation](./docs/family-plan-implementation.md) - Detailed guide for the Monthly Family Plan
 
 ---
 

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { canUserSubscribeForDates, getOrCreateDailyMeetingLink } from "@/lib/subscription";
 import { toPaise, fromPaise } from "@/lib/pricing";
+import { sendAdminNotificationEmail, sendFamilyAdminNotificationEmail } from "@/lib/email";
 
 // Get Razorpay keys from environment variables
 const key_id = process.env.RAZORPAY_KEY_ID;
@@ -29,14 +30,19 @@ try {
   // We'll handle this in the API handler
 }
 
-// Define the schema for order body validation
+// Extend the schema to accept second person details for family plan
 const orderBodySchema = z.object({
     amount: z.number().positive(),
     currency: z.string().min(1),
     planType: z.string().min(1),
     duration: z.number().positive(),
     startDate: z.string().optional(),
-    userId: z.string().min(1)
+    userId: z.string().min(1),
+    // Optional second person fields for family plan
+    secondFirstName: z.string().optional(),
+    secondLastName: z.string().optional(),
+    secondEmail: z.string().optional(),
+    secondPhone: z.string().optional(),
 });
 
 export type OrderBody = z.infer<typeof orderBodySchema>;
@@ -46,11 +52,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsed = orderBodySchema.safeParse(body);
-    
     if (!parsed.success) {
       return NextResponse.json({ message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
-    }    
-    const { amount, currency, planType, duration, startDate, userId } = parsed.data;
+    }
+    const { amount, currency, planType, duration, startDate, userId, secondFirstName, secondLastName, secondEmail, secondPhone } = parsed.data;
     
     // Determine start and end dates based on duration using IST
     let subscriptionStartDate: Date;
@@ -95,6 +100,106 @@ export async function POST(request: NextRequest) {
       }, { status: 409 }); // 409 Conflict
     }
 
+    // Handle monthlyFamily plan logic
+    if (planType === "monthlyFamily") {
+      // Validate second person fields
+      if (!secondFirstName || !secondLastName || !secondEmail || !secondPhone) {
+        return NextResponse.json({ message: "Second person details required for family plan." }, { status: 400 });
+      }
+      
+      // Check that primary and secondary emails are different
+      if (user.email === secondEmail) {
+        return NextResponse.json({ 
+          message: "Invalid family plan registration", 
+          details: "Primary and secondary users must have different email addresses"
+        }, { status: 400 });
+      }
+      // Fetch both users (or create if not exist)
+      const [user1, user2] = await Promise.all([
+        prisma.user.findUnique({ where: { id: userId } }),
+        prisma.user.upsert({
+          where: { email: secondEmail },
+          update: {},
+          create: {
+            firstName: secondFirstName,
+            lastName: secondLastName,
+            email: secondEmail,
+            phone: secondPhone,
+            source: "Family Plan",
+          },
+        })
+      ]);
+      if (!user1 || !user2) {
+        return NextResponse.json({ message: "User(s) not found or could not be created." }, { status: 404 });
+      }
+      // Check subscription eligibility for both users
+      const [canSub1, canSub2] = await Promise.all([
+        canUserSubscribeForDates(user1.email, subscriptionStartDate, subscriptionEndDate, planType),
+        canUserSubscribeForDates(user2.email, subscriptionStartDate, subscriptionEndDate, planType)
+      ]);
+      if (!canSub1.canSubscribe) {
+        return NextResponse.json({ message: "Primary user cannot subscribe", details: canSub1.reason }, { status: 409 });
+      }
+      if (!canSub2.canSubscribe) {
+        return NextResponse.json({ message: "Second user cannot subscribe", details: canSub2.reason }, { status: 409 });
+      }
+      // Create Razorpay order (single order for both subscriptions)
+      let order;
+      try {
+        if (!razorpay) throw new Error("Razorpay client is not initialized. Please check your environment variables.");
+        order = await razorpay.orders.create({
+          amount: amount, // already in paise
+          currency,
+          receipt: `receipt#${Date.now()}`,
+          notes: {
+            description: "Payment for family subscription",
+            plan_type: planType,
+            date: new Date().toISOString(),
+            startDate: subscriptionStartDate.toISOString(),
+            endDate: subscriptionEndDate.toISOString(),
+            user_id: userId,
+            second_user_email: secondEmail,
+          },
+        });
+        if (!order || !order.id) {
+          return NextResponse.json({ message: 'Failed to create order with Razorpay', details: order }, { status: 502 });
+        }
+      } catch (razorpayError) {
+        return NextResponse.json({ message: 'Razorpay order creation error', error: String(razorpayError) }, { status: 502 });
+      }
+      // Create two subscriptions in DB with half price each
+      const halfPrice = Math.round(fromPaise(amount) / 2);
+      const data1 = {
+        userId: user1.id,
+        planType,
+        startDate: subscriptionStartDate,
+        endDate: subscriptionEndDate,
+        orderId: order.id,
+        paymentRef: "",
+        paymentStatus: "pending",
+        status: "inactive",
+        duration: duration,
+        price: halfPrice,
+      };
+      const data2 = {
+        userId: user2.id,
+        planType,
+        startDate: subscriptionStartDate,
+        endDate: subscriptionEndDate,
+        orderId: order.id,
+        paymentRef: "",
+        paymentStatus: "pending",
+        status: "inactive",
+        duration: duration,
+        price: halfPrice,
+      };
+      const [sub1, sub2] = await Promise.all([
+        prisma.subscription.create({ data: data1 }),
+        prisma.subscription.create({ data: data2 })
+      ]);
+      return NextResponse.json({ orderId: order.id, subscriptionIds: [sub1.id, sub2.id] }, { status: 201 });
+    }
+
     const options = {
       amount: amount, // Ensure this is in the smallest currency unit (e.g., paise for INR)
       currency: currency, // Already validated by schema
@@ -106,7 +211,7 @@ export async function POST(request: NextRequest) {
         startDate: subscriptionStartDate.toISOString(), // Serialize as string
         endDate: subscriptionEndDate.toISOString(), // Serialize as string
         user_id: userId,
-      },
+      }
     };
     console.log("options package:", options)
 
@@ -160,54 +265,42 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Update subscription after payment success
+// PATCH: update both subscriptions for family plan
 export async function PATCH(request: NextRequest) {
   try {
-    const { subscriptionId, orderId, paymentId, userId, status, paymentStatus } = await request.json();
-    if (!subscriptionId || !orderId || !paymentId || !userId || !status) {
-      return NextResponse.json({ message: "subscriptionId, orderId, paymentId, userId, and status required" }, { status: 400 });
+    const { subscriptionId, subscriptionIds, orderId, paymentId, userId, status, paymentStatus } = await request.json();
+    if (!orderId || !paymentId || !status) {
+      return NextResponse.json({ message: "orderId, paymentId, and status required" }, { status: 400 });
     }
-    
-    // Validate paymentStatus
-    const validPaymentStatus = paymentStatus || "unknown";
-    
-    // First check if subscription exists
-    const existingSubscription = await prisma.subscription.findUnique({
+    // Find all subscriptions for this order (handles both single and family)
+    const subscriptions = await prisma.subscription.findMany({
       where: { orderId },
       include: { user: true },
     });
-    
-    if (!existingSubscription) {
-      return NextResponse.json({ message: "Subscription not found" }, { status: 404 });
+    if (!subscriptions || subscriptions.length === 0) {
+      return NextResponse.json({ message: "Subscription(s) not found" }, { status: 404 });
     }
-    
-    // Update the subscription with payment details
-    const subscription = await prisma.subscription.update({
-      where: { orderId },
-      data: {
-        paymentRef: paymentId,
-        paymentStatus: validPaymentStatus,
-        status,
-      },
-      include: {
-        user: true
-      }
-    });
-    
-    // Only connect to user if status is active and it"s not already connected
-    if (subscription && status === "active") {
-      // Connect subscription to user
-      await prisma.user.update({
-        where: { id: userId },
+    // If subscriptionIds is provided, filter to only those
+    let subsToUpdate = subscriptions;
+    if (Array.isArray(subscriptionIds) && subscriptionIds.length > 0) {
+      subsToUpdate = subscriptions.filter(sub => subscriptionIds.includes(sub.id));
+    }
+    // Update all relevant subscriptions for this order
+    const updatedSubs = await Promise.all(subsToUpdate.map(sub =>
+      prisma.subscription.update({
+        where: { id: sub.id },
         data: {
-          subscriptions: { connect: { id: subscription.id } },
+          paymentRef: paymentId,
+          paymentStatus: paymentStatus || "success",
+          status,
         },
-      });
-      
-      // Import the email utility
-      const { sendWelcomeEmail, sendMeetingInvite, sendAdminNotificationEmail } = await import("@/lib/email");
-      
-      // Send welcome email with subscription details
+        include: { user: true }
+      })
+    ));
+    // Send emails to all users
+    const { sendWelcomeEmail, sendMeetingInvite, sendAdminNotificationEmail } = await import("@/lib/email");
+    await Promise.all(updatedSubs.map(async (subscription) => {
+      // Send welcome email
       await sendWelcomeEmail({
         recipient: {
           name: `${subscription.user.firstName} ${subscription.user.lastName}`,
@@ -219,8 +312,52 @@ export async function PATCH(request: NextRequest) {
         amount: parseFloat(subscription.price.toString()),
         paymentId: subscription.paymentRef || undefined
       });
-      
-      // Send notification email to admin
+      // Send meeting invite if subscription starts today
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      today.setHours(0, 0, 0, 0);
+      const subscriptionStartDate = new Date(subscription.startDate);
+      subscriptionStartDate.setHours(0, 0, 0, 0);
+      if (subscriptionStartDate.getTime() === today.getTime()) {
+        const todayMeeting = await getOrCreateDailyMeetingLink();
+        if (todayMeeting) {
+          await sendMeetingInvite({
+            recipient: {
+              name: `${subscription.user.firstName} ${subscription.user.lastName}`,
+              email: subscription.user.email
+            },
+            meetingTitle: "GOALETE Club Session - Today",
+            meetingDescription: "Join us for today's GOALETE Club session to learn how to achieve any goal in life.",
+            meetingLink: todayMeeting.meetingLink,
+            startTime: todayMeeting.startTime,
+            endTime: todayMeeting.endTime,
+            platform: todayMeeting.platform === "zoom" ? "Zoom" : "Google Meet"
+          });
+        }
+      }
+    }));
+    // Send admin notification
+    if (updatedSubs.length > 1) {
+      // Family plan: send both users and subscription IDs
+      await sendFamilyAdminNotificationEmail({
+        users: updatedSubs.map(sub => ({
+          id: sub.user.id,
+          firstName: sub.user.firstName,
+          lastName: sub.user.lastName,
+          email: sub.user.email,
+          phone: sub.user.phone,
+          source: sub.user.source,
+          referenceName: sub.user.referenceName || undefined,
+          subscriptionId: sub.id
+        })),
+        planType: updatedSubs[0].planType,
+        startDate: updatedSubs[0].startDate,
+        endDate: updatedSubs[0].endDate,
+        amount: updatedSubs.reduce((sum, sub) => sum + parseFloat(sub.price.toString()), 0),
+        paymentId: updatedSubs[0].paymentRef || undefined
+      });
+    } else {
+      // Single plan: send as before
+      const subscription = updatedSubs[0];
       await sendAdminNotificationEmail({
         user: {
           id: subscription.user.id,
@@ -237,50 +374,8 @@ export async function PATCH(request: NextRequest) {
         amount: parseFloat(subscription.price.toString()),
         paymentId: subscription.paymentRef || undefined
       });
-      
-      // Check if the subscription starts today (using IST)
-      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      today.setHours(0, 0, 0, 0);
-      
-      const subscriptionStartDate = new Date(subscription.startDate);
-      subscriptionStartDate.setHours(0, 0, 0, 0);
-      
-      const isToday = subscriptionStartDate.getTime() === today.getTime();
-      
-      // If subscription starts today, send meeting invite immediately
-      if (isToday) {
-        // Use the getOrCreateDailyMeetingLink function from subscription.ts
-        const todayMeeting = await getOrCreateDailyMeetingLink();
-        
-        // If meeting exists, use its details for the invite
-        let meetingLink, platform, meetingStartTime, meetingEndTime;
-        
-        if (todayMeeting) {
-          meetingLink = todayMeeting.meetingLink;
-          platform = todayMeeting.platform;
-          meetingStartTime = todayMeeting.startTime;
-          meetingEndTime = todayMeeting.endTime;
-        }
-        
-        // Send meeting invite if we have meeting details
-        if (meetingLink && meetingStartTime && meetingEndTime) {
-          await sendMeetingInvite({
-            recipient: {
-              name: `${subscription.user.firstName} ${subscription.user.lastName}`,
-              email: subscription.user.email
-            },
-            meetingTitle: "GOALETE Club Session - Today",
-            meetingDescription: "Join us for today's GOALETE Club session to learn how to achieve any goal in life.",
-            meetingLink,
-            startTime: meetingStartTime,
-            endTime: meetingEndTime,
-            platform: platform === "zoom" ? "Zoom" : "Google Meet"
-          });
-        }
-      }
     }
-    
-    return NextResponse.json({ subscription }, { status: 200 });
+    return NextResponse.json({ subscriptions: updatedSubs }, { status: 200 });
   } catch (error) {
     console.error("Error in payment processing:", error);
     return NextResponse.json({ message: "Failed to update subscription", error: String(error) }, { status: 500 });
