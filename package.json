@@ -2,6 +2,7 @@
   "name": "goaletemeet",
   "version": "0.1.0",
   "private": true,
+  
   "scripts": {
     "dev": "next dev --turbopack",
     "preinstall": "npx prisma migrate dev --name init",
