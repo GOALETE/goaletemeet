@@ -59,12 +59,11 @@ export async function google_create_meet({ date, startTime, duration }: { date: 
 
     console.log(`Creating Google Meet for date: ${date}, time: ${startTime}, duration: ${duration} minutes`);
 
-    const jwtClient = new google.auth.JWT(
-      GOOGLE_CLIENT_EMAIL,
-      undefined,
-      GOOGLE_PRIVATE_KEY,
-      ['https://www.googleapis.com/auth/calendar']
-    );
+    const jwtClient = new google.auth.JWT({
+      email: GOOGLE_CLIENT_EMAIL,
+      key: GOOGLE_PRIVATE_KEY,
+      scopes: ['https://www.googleapis.com/auth/calendar'],
+    });
     
     try {
       await jwtClient.authorize();
@@ -139,13 +138,11 @@ export async function google_add_user_to_meeting(eventId: string, email: string,
   if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
     throw new Error('Google Meet API credentials are not set');
   }
-
-  const jwtClient = new google.auth.JWT(
-    GOOGLE_CLIENT_EMAIL,
-    undefined,
-    GOOGLE_PRIVATE_KEY,
-    ['https://www.googleapis.com/auth/calendar']
-  );
+  const jwtClient = new google.auth.JWT({
+    email: GOOGLE_CLIENT_EMAIL,
+    key: GOOGLE_PRIVATE_KEY,
+    scopes: ['https://www.googleapis.com/auth/calendar'],
+  });
   await jwtClient.authorize();
   const calendar = google.calendar({ version: 'v3', auth: jwtClient });
 

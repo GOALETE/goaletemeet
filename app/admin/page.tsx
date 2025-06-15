@@ -22,7 +22,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       {isAuthenticated ? (
-        <AdminDashboard />
+        <AdminDashboard initialUsers={[]} />
       ) : (
         <AdminAuth onAuthenticated={handleAuthenticated} />
       )}

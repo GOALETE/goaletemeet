@@ -344,5 +344,93 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     fetchUsers
   ]);
 
-  // ...existing code for handlers and rendering...
+  // Add the actual dashboard UI here
+  return (
+    <div className="admin-dashboard-container p-6">
+      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+      {/* Tab Navigation */}
+      <div className="flex space-x-4 mb-6">
+        <button className={`px-4 py-2 rounded ${activeTab === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('users')}>Users</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'calendar' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('calendar')}>Calendar</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'upcoming' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('upcoming')}>Upcoming Registrations</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'subscriptions' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('subscriptions')}>Subscriptions</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'sessionUsers' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('sessionUsers')}>Session Users</button>
+      </div>
+
+      {/* Tab Content */}
+      <div>
+        {activeTab === 'users' && (
+          <UsersView
+            users={users}
+            filteredUsers={filteredUsers}
+            loading={loading}
+            error={error}
+            userStats={userStats}
+            revenue={revenue}
+            filterState={filterState}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            updateFilter={(key, value) => setFilterState((prev: any) => ({ ...prev, [key]: value }))
+            }
+            setSortBy={setSortBy}
+            setSortOrder={setSortOrder}
+            setPage={setPage}
+            setPageSize={setPageSize}
+            handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
+            downloadCSV={() => {}}
+            downloadFullDBExport={() => {}}
+          />
+        )}
+        {activeTab === 'calendar' && (
+          <AdminCalendar />
+        )}
+        {activeTab === 'upcoming' && (
+          <UpcomingRegistrationsView
+            loading={loading}
+            upcomingMeetings={upcomingMeetings}
+            upcomingRegistrations={upcomingRegistrations}
+            handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
+            setActiveTab={(tab: string) => setActiveTab(tab as typeof activeTab)}
+          />
+        )}
+        {activeTab === 'subscriptions' && (
+          <SubscriptionsView
+            subscriptionView={subscriptionView}
+            setSubscriptionView={setSubscriptionView}
+            subscriptionUsers={subscriptionUsers}
+            subscriptionsLoading={subscriptionsLoading}
+            revenue={revenue}
+            handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
+          />
+        )}
+        {activeTab === 'sessionUsers' && (
+          <SessionUsersView
+            sessionDate={sessionDate}
+            setSessionDate={setSessionDate}
+            sessionUsers={sessionUsers}
+            sessionUsersLoading={sessionUsersLoading}
+          />
+        )}
+      </div>
+
+      {/* User Detail Modal */}
+      {showUserDetail && selectedUser && (
+        <UserDetailModal
+          user={selectedUser}
+          show={showUserDetail}
+          onClose={() => setShowUserDetail(false)}
+          modalSortBy={"startDate"}
+          modalSortOrder={"desc"}
+          modalFilterStatus={"all"}
+          modalFilterPayment={"all"}
+          setModalFilterStatus={() => {}}
+          setModalFilterPayment={() => {}}
+          handleModalSort={() => {}}
+        />
+      )}
+    </div>
+  );
 }

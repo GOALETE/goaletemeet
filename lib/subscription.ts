@@ -1,6 +1,6 @@
 import prisma from './prisma';
 import { createCompleteMeeting } from './meetingLink';
-import { Meeting } from '@prisma/client';
+import type { Meeting } from '@/generated/prisma';
 import { MeetingWithUsers } from '../types/meeting';
 
 // Format date helper function for DD:MM:YY format in IST timezone

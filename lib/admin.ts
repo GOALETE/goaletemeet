@@ -1,4 +1,4 @@
-import { Subscription, User } from "@prisma/client";
+import type { Subscription, User } from "@/generated/prisma";
 import { format } from "date-fns";
 
 // Extended Subscription type with price field
