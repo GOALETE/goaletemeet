@@ -528,7 +528,55 @@ export default function RegistrationForm() {
           {fieldErrors.phone && (
             <p className="text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
           )}
-        </div>          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+        </div>          {/* Date Selector Section */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+          <p className="font-semibold text-gray-700 mb-2">Select Start Date</p>
+          <div className="w-full">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                if (email && email.includes('@')) {
+                  setTimeout(() => checkSubscriptionConflict(), 500);
+                }
+              }}
+              min={new Date().toISOString().split('T')[0]} // Set min to current date
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {plan === 'daily' 
+                ? 'Select the date for your daily session (IST)' 
+                : `Select start date for your ${plan === 'monthlyFamily' ? 'family ' : ''}plan (IST)`}
+            </p>
+          </div>
+        </div>
+        
+        {/* Source (How did you hear about us) Section */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+          <p className="font-semibold text-gray-700 mb-2">How did you hear about us?</p>
+          <div className="w-full">
+            <select
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
+              required
+            >
+              <option value="Instagram">Instagram</option>
+              <option value="Facebook">Facebook</option>
+              <option value="Twitter">Twitter</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="Google">Google</option>
+              <option value="Friend">Friend</option>
+              <option value="Reference">Reference/Referral</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Subscription Plan Section */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <p className="font-semibold text-gray-700 mb-2">Subscription Plan</p>
           <div className="flex flex-col sm:flex-row gap-4 w-full">
             <label className="flex flex-col items-start w-full sm:w-1/3 cursor-pointer gap-1">
@@ -637,8 +685,7 @@ export default function RegistrationForm() {
               )}              <input
                 type="email"
                 placeholder="Second Person Email"
-                value={secondEmail}
-                onChange={(e) => {
+                value={secondEmail}                onChange={(e) => {
                   setSecondEmail(e.target.value);
                   if (e.target.value.trim() !== '') {
                     // Clear errors only if it's not the same as primary email
