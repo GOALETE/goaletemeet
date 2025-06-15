@@ -2,30 +2,55 @@
  * Email service utility for sending meeting invites
  * Using nodemailer with Gmail SMTP
  */
-import nodemailer from 'nodemailer';
-const dotenv = require('dotenv');
-dotenv.config();
+import nodemailer, { Transporter } from 'nodemailer';
 
-// Configure nodemailer with Gmail SMTP
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-    // Note: For Gmail, you need to use an "App Password" not your regular password
-    // Generate one at: https://myaccount.google.com/apppasswords
+/**
+ * Creates and returns a configured nodemailer transport
+ * @returns Nodemailer transporter or null if configuration is missing
+ */
+export const createTransporter = (): Transporter | null => {
+  try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      console.error('Email configuration missing. Check your .env file for EMAIL_USER and EMAIL_PASSWORD.');
+      return null;
+    }
+
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+      // Add connection timeout and pool settings for better reliability
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      socketTimeout: 15000, // 15 seconds timeout for connections
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Failed to create email transporter:', {
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
+    return null;
   }
-});
+};
 
 interface EmailOptions {
-  to: string;
+  to: string | string[]; // Allow multiple recipients
   subject: string;
   text?: string;
   html?: string;
+  cc?: string | string[];
+  bcc?: string | string[];
+  replyTo?: string;
   attachments?: Array<{
     filename: string;
     content: string;
     contentType: string;
+    encoding?: string;
   }>;
 }
 
@@ -48,11 +73,25 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       attachments: options.attachments
     };
 
+    const transporter = createTransporter();
+    if (!transporter) {
+      console.error('Could not create email transporter');
+      return false;
+    }
+
     const info = await transporter.sendMail(mailOptions);
     console.log('Email sent:', info.messageId);
     return true;
   } catch (error) {
-    console.error('Error sending email:', error);
+    // Enhanced error logging with more details
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error sending email:', {
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      recipient: options.to,
+      subject: options.subject,
+      timestamp: new Date().toISOString()
+    });
     return false;
   }
 }
@@ -104,7 +143,8 @@ export function createCalendarEvent(options: {
     'TZOFFSETTO:+0530',
     'END:STANDARD',
     'END:VTIMEZONE',
-    `ORGANIZER;CN=${options.organizer.name}:mailto:${options.organizer.email}`,    `UID:${Math.random().toString(36).substring(2)}@goalete.com`,
+    `ORGANIZER;CN=${options.organizer.name}:mailto:${options.organizer.email}`,    
+    `UID:${Math.random().toString(36).substring(2)}@goalete.com`,
     `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${options.attendee.name}:mailto:${options.attendee.email}`,
     `SUMMARY:${options.summary} (IST)`,
     `DESCRIPTION:${options.description}\\n\\nNote: All times are in Indian Standard Time (IST).`,
@@ -150,12 +190,14 @@ export async function sendMeetingInvite({
     description: `${meetingDescription}\n\nJoin using this link: ${meetingLink}`,
     location: meetingLink,
     startTime,
-    endTime,    organizer: {
+    endTime,    
+    organizer: {
       name: 'GOALETE Club',
       email: process.env.EMAIL_USER || 'noreply@goalete.com'
     },
     attendee: recipient
   });
+  
   // Format date and time for display
   const dateOptions: Intl.DateTimeFormatOptions = { 
     weekday: 'long', 
@@ -195,7 +237,8 @@ export async function sendMeetingInvite({
         .footer { margin-top: 40px; font-size: 14px; color: #7f8c8d; text-align: center; }
         .host-link { margin-top: 10px; font-size: 15px; color: #e67e22; }
       </style>
-    </head>    <body>
+    </head>    
+    <body>
       <div class="header">
         <img src="https://goaletemeet.vercel.app/goalete_logo.jpeg" alt="GOALETE Club" class="logo">
         <h1>${meetingTitle}</h1>
@@ -229,9 +272,8 @@ export async function sendMeetingInvite({
     </body>
     </html>
   `;
-
-  // Send the email with calendar attachment
-  return await sendEmail({
+  // Send the email with calendar attachment using retry mechanism for reliability
+  return await sendEmailWithRetry({
     to: recipient.email,
     subject: meetingTitle,
     html: htmlContent,
@@ -242,7 +284,7 @@ export async function sendMeetingInvite({
         contentType: 'text/calendar'
       }
     ]
-  });
+  }, 3, 2000);
 }
 
 /**
@@ -346,16 +388,16 @@ export async function sendWelcomeEmail({
     </body>
     </html>
   `;
-
-  // Send the welcome email
-  return await sendEmail({
+  // Send the welcome email with retry mechanism for reliability
+  return await sendEmailWithRetry({
     to: recipient.email,
     subject: 'Welcome to GOALETE Club - Your Subscription is Active!',
-    html: htmlContent  });
+    html: htmlContent
+  }, 3, 2000);
 }
 
 /**
- * Sends a notification email to admin when a new user registers
+ * Sends an admin notification email when a new user registration is completed
  */
 export async function sendAdminNotificationEmail({
   user,
@@ -397,7 +439,8 @@ export async function sendAdminNotificationEmail({
     };
     
     const formattedStartDate = startDate.toLocaleDateString('en-IN', dateOptions);
-    const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);    // Display amount in INR
+    const formattedEndDate = endDate.toLocaleDateString('en-IN', dateOptions);    
+    // Display amount in INR
     const formattedAmount = `₹${amount.toFixed(2)}`;
     
     // Plan type display name
@@ -413,7 +456,7 @@ export async function sendAdminNotificationEmail({
         planDisplay = 'Unlimited Plan';
         break;
       default:
-        planDisplay = planType; // Use the original value if no mapping exists
+        planDisplay = planType;
     }
     
     // Current date and time in IST
@@ -426,8 +469,8 @@ export async function sendAdminNotificationEmail({
       minute: '2-digit',
       hour12: true
     });
-
-    // HTML content for admin notification email
+    
+    // Create email content with responsive design
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -529,14 +572,12 @@ export async function sendAdminNotificationEmail({
         </div>
       </body>
       </html>
-    `;
-
-    // Send the notification email to admin
-    return await sendEmail({
+    `;    // Send the notification email to admin with retry mechanism
+    return await sendEmailWithRetry({
       to: adminEmail,
       subject: `New Registration: ${user.firstName} ${user.lastName} (${planDisplay})`,
       html: htmlContent
-    });
+    }, 3, 2000);
   } catch (error) {
     console.error('Error sending admin notification email:', error);
     return false;
@@ -544,7 +585,7 @@ export async function sendAdminNotificationEmail({
 }
 
 // Helper: family plan admin notification
-async function sendFamilyAdminNotificationEmail({
+export async function sendFamilyAdminNotificationEmail({
   users,
   planType,
   startDate,
@@ -644,17 +685,56 @@ async function sendFamilyAdminNotificationEmail({
         </div>
       </body>
       </html>
-    `;
-    return await sendEmail({
+    `;    return await sendEmailWithRetry({
       to: adminEmail,
       subject: `New Family Registration: ${users.map(u => u.firstName).join(' & ')} (${planDisplay})`,
       html: htmlContent
-    });
+    }, 3, 2000);
   } catch (error) {
     console.error('Error sending admin notification email (family):', error);
     return false;
   }
 }
 
-// Add export for the helper
-export { sendFamilyAdminNotificationEmail };
+/**
+ * Sends an email with retry mechanism for improved reliability
+ * @param options Email options including recipients, subject, and content
+ * @param maxRetries Maximum number of retry attempts (default: 3)
+ * @param retryDelay Delay in ms between retries (default: 1000ms)
+ * @returns Promise<boolean> indicating success or failure
+ */
+export async function sendEmailWithRetry(
+  options: EmailOptions, 
+  maxRetries: number = 3, 
+  retryDelay: number = 1000
+): Promise<boolean> {
+  let retries = 0;
+  
+  while (retries <= maxRetries) {
+    try {
+      const result = await sendEmail(options);
+      if (result) return true;
+      
+      // If email sending failed but didn't throw an exception
+      retries++;
+      console.log(`Email send attempt ${retries}/${maxRetries} failed, retrying in ${retryDelay}ms...`);
+      
+      // Wait before retrying
+      if (retries <= maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    } catch (error) {
+      retries++;
+      console.error(`Email send attempt ${retries}/${maxRetries} threw an exception:`, error);
+      
+      // Wait before retrying, with exponential backoff
+      if (retries <= maxRetries) {
+        const backoffDelay = retryDelay * Math.pow(2, retries - 1);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
+    }
+  }
+  
+  console.error(`Failed to send email to ${options.to} after ${maxRetries} attempts`);
+  return false;
+}

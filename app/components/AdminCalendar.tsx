@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addDays } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
@@ -42,11 +42,7 @@ export default function AdminCalendar() {
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
-  useEffect(() => {
-    fetchMeetings();
-  }, [currentMonth]);
-
-  const fetchMeetings = async () => {
+  const fetchMeetings = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -82,7 +78,12 @@ export default function AdminCalendar() {
       setError('Failed to fetch meetings');
       setLoading(false);
     }
-  };  const createMeetings = async () => {
+  }, [currentMonth]);
+  useEffect(() => {
+    fetchMeetings();
+  }, [currentMonth, fetchMeetings]);
+
+  const createMeetings = async () => {
     try {
       if (!isDateRange && selectedDates.length === 0) {
         showToast('Please select at least one date or use date range', 'error');

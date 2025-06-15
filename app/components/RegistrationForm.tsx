@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Script from "next/script";
+import Image from "next/image";
 import { PLAN_PRICING, toPaise } from "@/lib/pricing";
 
 // Declare the Razorpay interface
@@ -56,49 +57,9 @@ export default function RegistrationForm() {  // Basic form state
     const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     setStartDate(istDate.toISOString().split('T')[0]);
   }, []);
-  // Check for subscription conflicts when user changes plan or date
-  useEffect(() => {
-    // Only check if email is entered
-    if (email && email.includes('@')) {
-      checkSubscriptionConflict();
-    }
-  }, [email, plan, startDate]);
-  
-  // Helper function to check if a date is today in IST timezone
-  const isToday = (dateString: string): boolean => {
-    if (!dateString) return false;
-    const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    const today = istDate.toISOString().split('T')[0];    return dateString === today;
-  };
-  
-  // Update duration when plan changes
-  const handlePlanChange = (newPlan: "daily" | "monthly" | "monthlyFamily") => {
-    setPlan(newPlan);
-    setDuration(PLAN_PRICING[newPlan].duration);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    // Clear field errors on plan change
-    setFieldErrors({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      secondFirstName: '',
-      secondLastName: '',
-      secondEmail: '',
-      secondPhone: ''
-    });
-    // Clear second person fields if not family plan
-    if (newPlan !== "monthlyFamily") {
-      setSecondFirstName("");
-      setSecondLastName("");
-      setSecondEmail("");
-      setSecondPhone("");   
-     }
-  };  
   
   // Check for existing subscription conflicts
-  const checkSubscriptionConflict = async () => {
+  const checkSubscriptionConflict = useCallback(async () => {
     if (!email || !email.includes('@') || !startDate) return;
     setIsCheckingSubscription(true);
     setErrorMessage(null);
@@ -146,6 +107,47 @@ export default function RegistrationForm() {  // Basic form state
     } finally {
       setIsCheckingSubscription(false);
     }
+  }, [email, plan, startDate, fieldErrors]);
+  
+  // Check for subscription conflicts when user changes plan or date
+  useEffect(() => {
+    // Only check if email is entered
+    if (email && email.includes('@')) {
+      checkSubscriptionConflict();
+    }
+  }, [checkSubscriptionConflict, email, plan, startDate]);
+  
+  // Helper function to check if a date is today in IST timezone
+  const isToday = (dateString: string): boolean => {
+    if (!dateString) return false;
+    const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const today = istDate.toISOString().split('T')[0];    return dateString === today;
+  };
+  
+  // Update duration when plan changes
+  const handlePlanChange = (newPlan: "daily" | "monthly" | "monthlyFamily") => {
+    setPlan(newPlan);
+    setDuration(PLAN_PRICING[newPlan].duration);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    // Clear field errors on plan change
+    setFieldErrors({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      secondFirstName: '',
+      secondLastName: '',
+      secondEmail: '',
+      secondPhone: ''
+    });
+    // Clear second person fields if not family plan
+    if (newPlan !== "monthlyFamily") {
+      setSecondFirstName("");
+      setSecondLastName("");
+      setSecondEmail("");
+      setSecondPhone("");   
+     }
   };  
   
   // Handle form submission
@@ -425,17 +427,19 @@ export default function RegistrationForm() {  // Basic form state
       />
       
       {/* Watermark logo background */}
-      <img
+      <Image
         src="/goalete_logo.jpeg"
         alt="Goalete Watermark"
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 w-[600px] h-[600px] object-contain pointer-events-none select-none z-0"
         aria-hidden="true"
+        width={600}
+        height={600}
       />      <form
         onSubmit={handleSubmit}
         className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg border border-gray-200 space-y-8 relative z-10"
       >
         <div className="text-center mb-4 flex flex-col items-center gap-2">
-          <img src="/goalete_logo.jpeg" alt="Goalete Logo" className="w-24 h-24 rounded-full shadow border border-gray-200 bg-white object-cover" />
+          <Image src="/goalete_logo.jpeg" alt="Goalete Logo" className="w-24 h-24 rounded-full shadow border border-gray-200 bg-white object-cover" width={96} height={96} />
           <h2 className="text-2xl font-bold text-gray-800 tracking-tight mb-1">GOALETE CLUB</h2>
           <p className="text-gray-500 text-base font-medium">How to Achieve Any Goal in Life</p>
         </div>

@@ -3,8 +3,19 @@ import { Meeting as PrismaMeeting, User } from '@prisma/client';
 
 // Enhanced Meeting type that includes platform-specific fields
 export interface MeetingWithUsers extends PrismaMeeting {
+  id: string;
+  meetingDate: Date;
+  platform: string;
+  meetingLink: string;
+  startTime: Date;
+  endTime: Date;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  isDefault: boolean;
+  meetingDesc?: string | null;
+  meetingTitle: string;
   users?: User[];
-  // Ensure these fields match what's in the Prisma schema
   googleEventId?: string | null;
   zoomMeetingId?: string | null;
   zoomStartUrl?: string | null;
