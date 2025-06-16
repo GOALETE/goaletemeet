@@ -107,6 +107,11 @@ export async function POST(request: NextRequest) {
         prisma.user.findUnique({ where: { id: secondUserId } })
       ]);
       
+      // Log user info for debugging
+      console.log('FAMILY PLAN CHECK:');
+      console.log('Primary user:', { id: user1?.id, email: user1?.email });
+      console.log('Second user:', { id: user2?.id, email: user2?.email });
+      
       if (!user1 || !user2) {
         return NextResponse.json({ message: "User(s) not found." }, { status: 404 });
       }
