@@ -372,13 +372,15 @@ export async function PATCH(request: NextRequest) {
 
 // Delete subscription on payment failure
 export async function DELETE(request: NextRequest) {
-  try {
+  try {    
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get("orderId");
     if (!orderId)
       return NextResponse.json({ error: "orderId required" }, { status: 400 });
-    await prisma.subscription.delete({ where: { orderId } });
-    return NextResponse.json({ message: "Deleted" }, { status: 200 });
+    
+    // Use deleteMany to handle family plans with multiple subscriptions
+    const deleteResult = await prisma.subscription.deleteMany({ where: { orderId } });
+    return NextResponse.json({ message: `Deleted ${deleteResult.count} subscription(s)` }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ error: "Failed to delete subscription", details: error }, { status: 500 });
   }
