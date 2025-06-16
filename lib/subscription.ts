@@ -1,6 +1,6 @@
 import prisma from './prisma';
 import { createCompleteMeeting } from './meetingLink';
-import { Meeting } from '@prisma/client';
+import type { Meeting } from '@/generated/prisma';
 import { MeetingWithUsers } from '../types/meeting';
 
 // Format date helper function for DD:MM:YY format in IST timezone
@@ -16,6 +16,19 @@ const formatDateDDMMYY = (date: Date): string => {
   const formatter = new Intl.DateTimeFormat('en-IN', options);
   return formatter.format(date).replace(/\-/g, '/');
 };
+
+/**
+ * Subscription validation result interface
+ */
+interface SubscriptionValidationResult {
+  canSubscribe: boolean;
+  reason: string | null;
+  subscriptionDetails: any | null;
+  conflictingDates?: {
+    start: string;
+    end: string;
+  };
+}
 
 /**
  * Check if a user has an active subscription
@@ -54,18 +67,33 @@ export async function checkActiveSubscription(email: string) {
       };
     }
     
-    // Fix: Type assertion to ensure subscriptions property exists
-    const userWithSubs = user as typeof user & { subscriptions: any[] };
-    const hasActiveSubscription = userWithSubs.subscriptions.length > 0;
-      return {
+    const subscriptions = user.subscriptions;
+    const hasActiveSubscription = subscriptions && subscriptions.length > 0;
+    
+    // Add more detailed logging
+    console.log(`Checked subscription status for ${email}: ${hasActiveSubscription ? 'Active' : 'Not active'}`);
+    
+    return {
       hasActiveSubscription,
       message: hasActiveSubscription 
-        ? `User has an active subscription ending on ${formatDateDDMMYY(userWithSubs.subscriptions[0].endDate)}`
+        ? `User has an active subscription ending on ${formatDateDDMMYY(subscriptions[0].endDate)}`
         : "User has no active subscriptions",
-      subscriptionDetails: hasActiveSubscription ? userWithSubs.subscriptions[0] : null
+      subscriptionDetails: hasActiveSubscription ? subscriptions[0] : null,
+      // Add additional fields for better information
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName
+      }
     };
   } catch (error) {
-    console.error("Error checking subscription status:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Error checking subscription status:", {
+      error: errorMessage,
+      email,
+      timestamp: new Date().toISOString()
+    });
     throw error;
   }
 }
@@ -78,8 +106,23 @@ export async function checkActiveSubscription(email: string) {
  * @param planType The type of plan being purchased ('daily' or 'monthly')
  * @returns Object indicating if user can subscribe and reason if not
  */
-export async function canUserSubscribeForDates(email: string, startDate: Date, endDate: Date, planType?: string) {
+export async function canUserSubscribeForDates(
+  email: string, 
+  startDate: Date, 
+  endDate: Date, 
+  planType?: string
+): Promise<SubscriptionValidationResult> {
   try {
+    // Validate dates first
+    const dateValidation = validateDates(startDate, endDate);
+    if (!dateValidation.isValid) {
+      return {
+        canSubscribe: false,
+        reason: dateValidation.reason,
+        subscriptionDetails: null
+      };
+    }
+
     // Get all active subscriptions for this user
     const allSubsUser = await prisma.user.findUnique({
       where: { email },
@@ -98,7 +141,15 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
         reason: "User not found in database, can create new subscription",
         subscriptionDetails: null
       };
-    }    
+    }
+    
+    if (!allSubsUser.subscriptions || allSubsUser.subscriptions.length === 0) {
+      return {
+        canSubscribe: true,
+        reason: "No active subscriptions found, can create new subscription",
+        subscriptionDetails: null
+      };
+    }
     
     // Check for any overlapping subscriptions
     const overlappingSubscriptions = allSubsUser.subscriptions.filter((sub: any) => {
@@ -115,23 +166,10 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
       newEndDate.setHours(0, 0, 0, 0);
 
       // Treat endDate as exclusive: allow booking if newStartDate >= subEndDate or newEndDate <= subStartDate
-      if (newStartDate >= subEndDate || newEndDate < subStartDate) {
+      if (newStartDate >= subEndDate || newEndDate <= subStartDate) {
         return false;
       }
-      /*
-      // Allow adjacent daily plans (no overlap if one ends the day before the other starts)
-      if (
-        (sub.planType === 'daily' || planType === 'daily') &&
-        (
-          subEndDate.getTime() === newStartDate.getTime() ||
-          newEndDate.getTime() === subStartDate.getTime() ||
-          subEndDate.getTime() + 24 * 60 * 60 * 1000 === newStartDate.getTime() ||
-          newEndDate.getTime() + 24 * 60 * 60 * 1000 === subStartDate.getTime()
-        )
-      ) {
-        return false;
-      }
-      */
+      
       // Only consider actual overlaps, not adjacent dates
       return true;
     });
@@ -160,9 +198,14 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
       return {
         canSubscribe: false,
         reason: `Cannot purchase a monthly plan that overlaps with your existing daily plan from ${formattedSubStart}${formattedSubStart !== formattedSubEnd ? ` to ${formattedSubEnd}` : ''}. Please select non-overlapping dates.`,
-        subscriptionDetails: dailySub
+        subscriptionDetails: dailySub,
+        conflictingDates: {
+          start: dailySub.startDate.toISOString(),
+          end: dailySub.endDate.toISOString()
+        }
       };
     }
+    
     // Case 2: User has a monthly plan and is trying to buy a daily plan that falls within that month
     const monthlySub = overlappingSubscriptions.find((sub: any) => sub.planType === 'monthly');
     const hasOverlappingMonthlyPlan = !!monthlySub;
@@ -175,9 +218,14 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
       return {
         canSubscribe: false,
         reason: `Cannot purchase a daily plan that overlaps with your existing monthly plan from ${formattedSubStart} to ${formattedSubEnd}. Please select a date outside your monthly plan.`,
-        subscriptionDetails: monthlySub
+        subscriptionDetails: monthlySub,
+        conflictingDates: {
+          start: monthlySub.startDate.toISOString(),
+          end: monthlySub.endDate.toISOString()
+        }
       };
     }
+    
     // Case 3: User has a daily plan and is trying to buy another daily plan for the same slot
     const hasOverlappingDailyForDaily = planType === 'daily' && hasOverlappingDailyPlan;
     if (hasOverlappingDailyForDaily && dailySub) {
@@ -189,9 +237,14 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
       return {
         canSubscribe: false,
         reason: `Cannot book daily plan for ${formattedNewStart} because you already have a booking for ${formattedSubStart}${formattedSubStart !== formattedSubEnd ? ` to ${formattedSubEnd}` : ''}. Please select a different date.`,
-        subscriptionDetails: dailySub
+        subscriptionDetails: dailySub,
+        conflictingDates: {
+          start: dailySub.startDate.toISOString(),
+          end: dailySub.endDate.toISOString()
+        }
       };
     }
+    
     // Default case - Any other overlap is also not allowed
     const firstOverlapping = overlappingSubscriptions[0];
     // Format dates for clearer messaging (use DD:MM:YY)
@@ -203,11 +256,19 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
     return {
       canSubscribe: false,
       reason: `Cannot book for ${formattedNewStart}${formattedNewStart !== formattedNewEnd ? ` to ${formattedNewEnd}` : ''} because you already have a subscription from ${formattedSubStart} to ${formattedSubEnd}. Please select non-overlapping dates.`,
-      subscriptionDetails: firstOverlapping
+      subscriptionDetails: firstOverlapping,
+      conflictingDates: {
+        start: firstOverlapping.startDate.toISOString(),
+        end: firstOverlapping.endDate.toISOString()
+      }
     };
   } catch (error) {
     console.error("Error checking if user can subscribe for dates:", error);
-    throw error;
+    return {
+      canSubscribe: false,
+      reason: "An error occurred while checking subscription eligibility. Please try again.",
+      subscriptionDetails: null
+    };
   }
 }
 
@@ -219,10 +280,19 @@ export async function canUserSubscribeForDates(email: string, startDate: Date, e
  * @param endDate Optional end date for the new subscription
  * @returns Object indicating if user can subscribe and reason if not
  */
-export async function canUserSubscribe(email: string, planType?: string, startDate?: Date, endDate?: Date) {
+export async function canUserSubscribe(email: string, planType?: string, startDate?: Date, endDate?: Date): Promise<SubscriptionValidationResult> {
   try {
-    // If we have specific dates, use the more specific function
+    // If we have specific dates, validate them first
     if (startDate && endDate) {
+      const dateValidation = validateDates(startDate, endDate);
+      if (!dateValidation.isValid) {
+        return {
+          canSubscribe: false,
+          reason: dateValidation.reason,
+          subscriptionDetails: null
+        };
+      }
+      // Then use the more specific function for overlap checking
       return await canUserSubscribeForDates(email, startDate, endDate, planType);
     }
     
@@ -240,31 +310,117 @@ export async function canUserSubscribe(email: string, planType?: string, startDa
     
     // For users with an active subscription, further checks based on plan type
     const currentPlanType = subscriptionStatus.subscriptionDetails?.planType;
+    const currentEndDate = subscriptionStatus.subscriptionDetails?.endDate;
+    const formattedEndDate = currentEndDate ? formatDateDDMMYY(currentEndDate) : 'unknown date';
       // If user has a monthly plan and tries to buy any other plan (overlapping)
-    if (currentPlanType === 'monthly') {
+    if (currentPlanType === 'monthly' && subscriptionStatus.subscriptionDetails) {
       return {
         canSubscribe: false,
-        reason: `You already have an active monthly subscription until ${formatDateDDMMYY(subscriptionStatus.subscriptionDetails?.endDate)}. Please wait for it to expire or check non-overlapping dates.`,
-        subscriptionDetails: subscriptionStatus.subscriptionDetails
+        reason: `You already have an active monthly subscription until ${formattedEndDate}. Please wait for it to expire or check non-overlapping dates.`,
+        subscriptionDetails: subscriptionStatus.subscriptionDetails,
+        conflictingDates: currentEndDate ? {
+          start: subscriptionStatus.subscriptionDetails.startDate.toISOString(),
+          end: currentEndDate.toISOString()
+        } : undefined
       };
     }
-      // If user has a daily plan and tries to buy any other plan (without specific dates)
-    if (currentPlanType === 'daily') {
+    
+    // If user has a daily plan and tries to buy any other plan (without specific dates)
+    if (currentPlanType === 'daily' && subscriptionStatus.subscriptionDetails) {
       return {
         canSubscribe: false,
-        reason: `You already have an active daily subscription until ${formatDateDDMMYY(subscriptionStatus.subscriptionDetails?.endDate)}. Please wait for it to expire or check non-overlapping dates.`,
-        subscriptionDetails: subscriptionStatus.subscriptionDetails
+        reason: `You already have an active daily subscription until ${formattedEndDate}. Please wait for it to expire or check non-overlapping dates.`,
+        subscriptionDetails: subscriptionStatus.subscriptionDetails,
+        conflictingDates: currentEndDate ? {
+          start: subscriptionStatus.subscriptionDetails.startDate.toISOString(),
+          end: currentEndDate.toISOString()
+        } : undefined
       };
     }
       // Default case - has an active subscription, don't allow overlap
+    if (subscriptionStatus.subscriptionDetails && currentEndDate) {
+      return {
+        canSubscribe: false,
+        reason: `You already have an active subscription until ${formattedEndDate}`,
+        subscriptionDetails: subscriptionStatus.subscriptionDetails,
+        conflictingDates: {
+          start: subscriptionStatus.subscriptionDetails.startDate.toISOString(),
+          end: currentEndDate.toISOString()
+        }
+      };
+    }
+    
+    // Final fallback return
     return {
       canSubscribe: false,
-      reason: `You already have an active subscription until ${formatDateDDMMYY(subscriptionStatus.subscriptionDetails?.endDate)}`,
+      reason: "You have an active subscription with unknown details. Please contact support.",
       subscriptionDetails: subscriptionStatus.subscriptionDetails
     };
   } catch (error) {
     console.error("Error checking if user can subscribe:", error);
-    throw error;
+    return {
+      canSubscribe: false,
+      reason: "An error occurred while checking subscription eligibility. Please try again.",
+      subscriptionDetails: null
+    };
+  }
+}
+
+/**
+ * Check if dates are valid for subscription
+ * @param startDate Proposed start date
+ * @param endDate Proposed end date
+ * @returns Object with validation result and reason
+ */
+function validateDates(startDate: Date, endDate: Date): { isValid: boolean; reason: string | null } {
+  try {
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    today.setHours(0, 0, 0, 0);
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Remove time part for pure date comparison
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    
+    // Basic validation - start must be before end
+    if (start >= end) {
+      return {
+        isValid: false,
+        reason: 'Start date must be before end date.'
+      };
+    }
+    
+    // Cannot book dates in the past
+    if (start < today) {
+      return {
+        isValid: false,
+        reason: 'Cannot book dates in the past.'
+      };
+    }
+    
+    // Max duration check (prevent booking too far in advance)
+    const maxDurationDays = 365; // 1 year
+    const durationDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (durationDays > maxDurationDays) {
+      return {
+        isValid: false,
+        reason: `Subscription duration cannot exceed ${maxDurationDays} days.`
+      };
+    }
+    
+    return {
+      isValid: true,
+      reason: null
+    };
+  } catch (error) {
+    console.error('Error validating dates:', error);
+    return {
+      isValid: false,
+      reason: 'Error validating dates. Please try again.'
+    };
   }
 }
 

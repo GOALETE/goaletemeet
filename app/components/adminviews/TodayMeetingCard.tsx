@@ -51,7 +51,7 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch today\'s meeting');
+        throw new Error('Failed to fetch today&apos;s meeting');
       }
       
       const data = await response.json();
@@ -62,7 +62,7 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
       }
     } catch (error) {
       console.error('Error fetching today\'s meeting:', error);
-      setError('Failed to fetch today\'s meeting');
+      setError('Failed to fetch today&apos;s meeting');
     } finally {
       setLoading(false);
     }
@@ -83,7 +83,7 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-md p-4 mb-4 h-48 flex items-center justify-center">
-        <div className="animate-pulse text-gray-400">Loading today's meeting...</div>
+        <div className="animate-pulse text-gray-400">Loading today&apos;s meeting...</div>
       </div>
     );
   }
@@ -99,7 +99,7 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
   if (!meeting) {
     return (
       <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-        <h3 className="text-lg font-semibold mb-2">Today's Meeting</h3>
+        <h3 className="text-lg font-semibold mb-2">Today&apos;s Meeting</h3>
         <div className="text-gray-500">No meeting scheduled for today</div>
         <div className="mt-2">
           <button 
@@ -115,7 +115,7 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-      <h3 className="text-lg font-semibold mb-2">Today's Meeting</h3>
+      <h3 className="text-lg font-semibold mb-2">Today&apos;s Meeting</h3>
       
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-4 text-sm">
         <div className="text-gray-600">Platform:</div>

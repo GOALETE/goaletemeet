@@ -1,13 +1,24 @@
 // Types for the Meeting functionality
-import { Meeting as PrismaMeeting, User } from '@prisma/client';
+import type { User } from '@/generated/prisma';
 
-// Enhanced Meeting type that includes platform-specific fields
-export interface MeetingWithUsers extends PrismaMeeting {
+// Meeting type matching the Prisma schema, plus user details
+export interface MeetingWithUsers {
+  id: string;
+  meetingDate: Date;
+  platform: string;
+  meetingLink: string;
+  startTime: Date;
+  endTime: Date;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  isDefault: boolean;
+  meetingDesc: string | null;
+  meetingTitle: string;
   users?: User[];
-  // Ensure these fields match what's in the Prisma schema
-  googleEventId?: string | null;
-  zoomMeetingId?: string | null;
-  zoomStartUrl?: string | null;
+  googleEventId: string | null;
+  zoomMeetingId: string | null;
+  zoomStartUrl: string | null;
 }
 
 // Response type for the meeting API

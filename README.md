@@ -1,87 +1,160 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GoaleteMeet
 
-## Getting Started
+A comprehensive meeting management platform for scheduling, sending invites, and managing online meetings for GOALETE Club sessions.
 
-First, run the development server:
+## 🚀 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Meeting Management**: Create and manage Google Meet and Zoom meetings
+- **Subscription System**: Handle user subscriptions with various plan types
+- **Automated Invites**: Daily email invites to all active subscribers
+- **Admin Dashboard**: Manage users, meetings, and subscriptions
+- **Email Notifications**: Rich HTML emails with calendar invites
+- **Next.js 15**: Built with the latest Next.js 15 App Router architecture
+
+## 📋 Requirements
+
+- Node.js 20.x or higher
+- PostgreSQL database
+- Razorpay account for payment processing
+- SMTP server for email sending
+- (Optional) Google Calendar API credentials for Google Meet integration
+- (Optional) Zoom API credentials for Zoom meetings integration
+
+## 🔧 Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/goaletemeet.git
+   cd goaletemeet
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your values
+   ```
+
+4. Run the environment check to ensure all required variables are set:
+   ```bash
+   npm run check-env
+   ```
+
+5. Set up the database:
+   ```bash
+   npx prisma migrate dev
+   ```
+
+6. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+## 🏗️ Project Structure
+
+```
+goaletemeet/
+├── app/                   # Next.js App Router structure
+│   ├── api/               # API routes
+│   ├── components/        # React components
+│   ├── admin/             # Admin dashboard pages
+│   ├── form/              # Registration form page
+│   └── generated/         # Generated Prisma client
+├── docs/                  # Documentation
+├── lib/                   # Shared utilities
+├── prisma/                # Database schema & migrations
+├── public/                # Static assets
+├── scripts/               # Test and utility scripts
+├── types/                 # TypeScript type definitions
+└── trash/                 # Deprecated code (to be removed)
 ```
 
-# Goalete Club - Subscription Meeting App
+## 📦 Environment Variables
 
-## Tech Stack
+The application requires several environment variables to be set. See `.env.example` for a complete list. Critical variables include:
 
-- Next.js (App router, React)
-- Neon DB (PostgreSQL, via Prisma)
-- Razorpay (payments)
-- Gmail SMTP (email notifications)
-- Zoom & Google Calendar APIs (meeting access)
-- Vercel (deploy, cron jobs)
+- `DATABASE_URL`: PostgreSQL connection string
+- `RAZORPAY_KEY_ID` and `RAZORPAY_SECRET_KEY`: Razorpay API credentials
+- `SMTP_*` variables: Email server configuration
+- `ADMIN_PASSCODE`: Password for admin dashboard access
 
-## Setup
+## 📚 Documentation
 
-1. **Clone & Install**
-   ```
-   git clone <your-repo>
-   cd <your-repo>
-   pnpm install
-   ```
+- [API Documentation](./docs/api-documentation.md)
+- [Email System](./docs/email-system.md)
+- [Meeting Integration](./docs/meeting-integration-tests.md)
+- [Error Handling & Testing](./docs/error-handling-testing.md)
+- [Family Plan Implementation](./docs/family-plan-implementation.md)
+- [Subscription Protection](./docs/subscription-protection.md)
 
-2. **Configure .env**
-   ```
-   DATABASE_URL=postgresql://<user>:<pass>@<neon-url>:5432/<db>
-   RAZORPAY_KEY_ID=...
-   RAZORPAY_KEY_SECRET=...
-   EMAIL_USER=your-email@gmail.com
-   EMAIL_PASSWORD=your-app-password
-   GOOGLE_SERVICE_ACCOUNT_JSON=...
-   ZOOM_JWT=...
-   ```
+## 🧪 Testing
 
-3. **Prisma Migrate**
-   ```
-   npx prisma generate
-   npx prisma migrate dev --name init
-   ```
+The project includes comprehensive test scripts:
 
-4. **Run Locally**
-   ```
-   pnpm dev
-   ```
+```bash
+# Run all core tests
+npm run test:all
 
-5. **Deploy**
-   - Connect your repo to Vercel
-   - Set environment variables
-   - Deploy!
+# Individual test suites
+npm run test:email-functionality   # Test email sending
+npm run test:daily-cron            # Test daily invite cron job
+npm run test:meeting-management    # Test meeting creation
+npm run test:api-endpoints         # Test API endpoints
+npm run test:family-plan           # Test family plan registration
+```
 
-## Features
+## 📦 API Endpoints
 
-- Elegant subscription form (see `/components/RegistrationForm.tsx`)
-- Razorpay integration
-- Daily invite automation (cron: `/api/cron-daily-invites`)
-- Welcome emails after successful payment
-- Platform-specific meeting invites (Google Meet or Zoom)
-- Simple admin dashboard (WIP)
+### Core Endpoints
 
-## Integrations
+- `POST /api/check-subscription` - Check if a user can subscribe
+- `GET /api/cron-daily-invites` - Send daily meeting invites
+- `POST /api/send-meeting-invite` - Send meeting invite to a user
+- `POST /api/createUser` - Create a new user
+- `POST /api/createOrder` - Create a payment order
 
-- **Razorpay**: See [Razorpay docs](https://razorpay.com/docs/api/) for client and webhook setup.
-- **Gmail SMTP**: Used for sending welcome emails and meeting invites with calendar attachments. See [Email Documentation](./docs/email-functionality.md).
-- **Google Calendar API**: Use a service account to create events and invite emails.
-- **Zoom API**: Use JWT or OAuth to update allowed emails for the static meeting.
+### Admin Endpoints
 
-## Security
+- `POST /api/admin/auth` - Authenticate admin access
+- `GET /api/admin/users` - Get all users
+- `GET /api/admin/user` - Get user details
+- `GET /api/admin/subscriptions` - Get all subscriptions
+- `GET /api/admin/today-active` - Get today's active users
+- `GET /api/admin/statistics` - Get admin dashboard statistics
 
-- Meeting links are never public.
-- Only paid/active emails can join, enforced via API and daily calendar/invite logic.
+## 🛡️ Next.js 15 Compliance
 
----
+This project is built with Next.js 15 using the App Router. It implements several Next.js 15 best practices:
 
-PRs, feedback, and issues welcome!
+- Uses `next/image` for optimized image loading
+- Server components where possible
+- Client components where interactivity is needed
+- Metadata API for improved SEO
+- Fonts optimization with `next/font`
+- Optimized tailwind.config.js
+
+## 🧰 Development Tools
+
+- **Linting**: `npm run lint`
+- **Fixing lint issues**: `npm run lint:fix`
+- **Type checking**: TypeScript compiler
+- **Environment checking**: `npm run check-env`
+
+## 🚀 Deployment
+
+The project is configured for deployment on Vercel:
+
+```bash
+npm run build
+npm run start
+```
+
+A `vercel.json` configuration is included for Vercel deployment settings.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

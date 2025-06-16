@@ -33,7 +33,7 @@ model Subscription {
   status        String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  orderId       String   @unique
+  orderId       String   
   paymentStatus String
   duration      Int?
   price         Int      @default(0)

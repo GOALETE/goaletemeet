@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import AdminCalendar from './AdminCalendar';
 import UsersView from './adminviews/UsersView';
@@ -124,114 +124,9 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   const [planStats, setPlanStats] = useState<any[]>([]);
 
   const { toast, showToast } = useToast();
-  useEffect(() => {
-    fetchUsers();
-    fetchStatistics();
-    fetchUpcomingMeetings();
-    fetchUpcomingRegistrations();
-    
-    // Store admin passcode in session storage for API calls
-    const adminAuthenticated = sessionStorage.getItem('adminAuthenticated');
-    if (adminAuthenticated === 'true') {
-      const adminPasscode = process.env.ADMIN_PASSCODE || 'adminGoaleteM33t2025!';
-      sessionStorage.setItem('adminPasscode', adminPasscode);
-    }
-  }, []);
 
-  useEffect(() => {
-    if (activeTab === 'users') {
-      fetchUsers();
-    } else if (activeTab === 'upcoming') {
-      fetchUpcomingRegistrations();
-    } else if (activeTab === 'subscriptions') {
-      fetchSubscriptionData(subscriptionView);
-    } else if (activeTab === 'sessionUsers') {
-      fetchSessionUsers(sessionDate);
-    }
-  }, [
-    activeTab,
-    filterState.plan, 
-    filterState.dateRange, 
-    filterState.startDate, 
-    filterState.endDate, 
-    filterState.status, 
-    filterState.source, 
-    filterState.paymentStatus, 
-    filterState.search, 
-    sortBy, 
-    sortOrder, 
-    page, 
-    pageSize,
-    subscriptionView,
-    sessionDate
-  ]);
-
-  const fetchStatistics = async () => {
-    try {
-      const response = await fetch('/api/admin/statistics');
-      if (!response.ok) {
-        throw new Error('Failed to fetch statistics');
-      }
-      const data = await response.json();
-      setUserStats({
-        total: data.stats.total,
-        active: data.stats.active,
-        expired: data.stats.expired,
-        upcoming: data.stats.upcoming,
-      });
-      setRevenue(data.revenue);
-      setPaymentStats(data.paymentStats);
-      setPlanStats(data.planStats);
-    } catch (error) {
-      setError('Error fetching statistics');
-    }
-  };
-  const fetchUpcomingMeetings = async () => {
-    try {
-      const adminPasscode = sessionStorage.getItem('adminPasscode');
-      if (!adminPasscode) return;
-      
-      // Get today's date in IST
-      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      const startDate = format(today, 'yyyy-MM-dd');
-      
-      const response = await fetch(`/api/admin/meetings?startDate=${startDate}`, {
-        headers: {
-          'Authorization': `Bearer ${adminPasscode}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch upcoming meetings');
-      }
-      
-      const data = await response.json();
-      setUpcomingMeetings(data.meetings);
-    } catch (error) {
-      console.error('Error fetching upcoming meetings:', error);
-    }
-  };
-    const fetchUpcomingRegistrations = async () => {
-    try {
-      // Get active subscriptions for upcoming dates (in IST)
-      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      const startDateStr = format(today, 'yyyy-MM-dd');
-      
-      // Use the existing API to get upcoming registrations
-      const queryParams = new URLSearchParams();
-      queryParams.set('status', 'active');
-      queryParams.set('startDate', startDateStr);
-      
-      const response = await fetch(`/api/admin/users?${queryParams.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch upcoming registrations');
-      
-      const data = await response.json();
-      setUpcomingRegistrations(data.users);
-    } catch (error) {
-      console.error('Error fetching upcoming registrations:', error);
-    }
-  };
-  const fetchUsers = async () => {
+  // Only one fetchUsers function, wrapped in useCallback
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     // Build query parameters based on current filters
     const queryParams = new URLSearchParams();
@@ -290,137 +185,85 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       setError('Error fetching users data');
       setLoading(false);
     }
-  };
-  
-  useEffect(() => {
-    if (filterState.showExpiringSoon) {
-      const expiringSoonUsers = filterExpiringSoon(users);
-      setFilteredUsers(expiringSoonUsers);
-    } else {
-      setFilteredUsers(users);
-    }
-  }, [users, filterState.showExpiringSoon]);
+  }, [filterState, sortBy, sortOrder, page, pageSize]);
 
-  // Filter expiring soon (within 7 days)
-  const filterExpiringSoon = (users: UserData[]) => {
-    const today = new Date();
-    const soon = new Date();
-    soon.setDate(today.getDate() + 7);
-    return users.filter(user => user.end && new Date(user.end) > today && new Date(user.end) <= soon);
-  };  const fetchUserDetails = async (userId: string) => {
-    setLoading(true);
+  // Only one fetchStatistics function
+  const fetchStatistics = async () => {
     try {
-      // First check if we have the user in the loaded users
-      const basicUserInfo = users.find(u => u.id === userId);
-      if (!basicUserInfo) throw new Error('User not found');
-      
-      // Get the subscriptions for this user from the API
-      const response = await fetch(`/api/admin/user?id=${userId}`);
+      const response = await fetch('/api/admin/statistics');
       if (!response.ok) {
-        throw new Error('Failed to fetch user details');
+        throw new Error('Failed to fetch statistics');
+      }
+      const data = await response.json();
+      setUserStats({
+        total: data.stats.total,
+        active: data.stats.active,
+        expired: data.stats.expired,
+        upcoming: data.stats.upcoming,
+      });
+      setRevenue(data.revenue);
+      setPaymentStats(data.paymentStats);
+      setPlanStats(data.planStats);
+    } catch (error) {
+      setError('Error fetching statistics');
+    }
+  };
+
+  // Only one fetchUpcomingMeetings function
+  const fetchUpcomingMeetings = async () => {
+    try {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) return;
+      
+      // Get today's date in IST
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      const startDate = format(today, 'yyyy-MM-dd');
+      
+      const response = await fetch(`/api/admin/meetings?startDate=${startDate}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch upcoming meetings');
       }
       
       const data = await response.json();
-      
-      // If we got subscription data, use it, otherwise use an empty array
-      const userWithSubscriptions = {
-        ...basicUserInfo,
-        subscriptions: data.user?.subscriptions || []
-      };
-      
-      setSelectedUser(userWithSubscriptions);
-      setShowUserDetail(true);
-      setLoading(false);
+      setUpcomingMeetings(data.meetings);
     } catch (error) {
-      console.error('Error fetching user details:', error);
-      setError('Error fetching user details');
-      setLoading(false);
+      console.error('Error fetching upcoming meetings:', error);
     }
   };
 
-  const handleRowClick = (userId: string) => {
-    fetchUserDetails(userId);
+  // Only one fetchUpcomingRegistrations function
+  const fetchUpcomingRegistrations = async () => {
+    try {
+      // Get active subscriptions for upcoming dates (in IST)
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      const startDateStr = format(today, 'yyyy-MM-dd');
+      
+      // Use the existing API to get upcoming registrations
+      const queryParams = new URLSearchParams();
+      queryParams.set('status', 'active');
+      queryParams.set('startDate', startDateStr);
+      
+      const response = await fetch(`/api/admin/users?${queryParams.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch upcoming registrations');
+      
+      const data = await response.json();
+      setUpcomingRegistrations(data.users);
+    } catch (error) {
+      console.error('Error fetching upcoming registrations:', error);
+    }
   };
 
-  const handleCloseDetail = () => {
-    setShowUserDetail(false);
-    setSelectedUser(null);
-  };
-  // Export options
-  const downloadCSV = (all: boolean = false) => {
-    // Build query parameters based on current filters
-    const queryParams = new URLSearchParams();
-    if (filterState.plan !== 'all') queryParams.set('planType', filterState.plan);
-    if (filterState.status !== 'all') queryParams.set('status', filterState.status);
-    if (filterState.paymentStatus !== 'all') queryParams.set('paymentStatus', filterState.paymentStatus);
-    
-    if (filterState.dateRange === 'custom' && filterState.startDate && filterState.endDate) {
-      queryParams.set('startDate', filterState.startDate);
-      queryParams.set('endDate', filterState.endDate);
-    } else if (filterState.dateRange === 'today') {
-      const today = new Date();
-      queryParams.set('startDate', format(today, 'yyyy-MM-dd'));
-      queryParams.set('endDate', format(today, 'yyyy-MM-dd'));
-    } else if (filterState.dateRange === 'thisWeek') {
-      const today = new Date();
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay());
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
-      queryParams.set('startDate', format(startOfWeek, 'yyyy-MM-dd'));
-      queryParams.set('endDate', format(endOfWeek, 'yyyy-MM-dd'));
-    } else if (filterState.dateRange === 'thisMonth') {
-      const today = new Date();
-      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      queryParams.set('startDate', format(startOfMonth, 'yyyy-MM-dd'));
-      queryParams.set('endDate', format(endOfMonth, 'yyyy-MM-dd'));
-    }
-    
-    if (filterState.source !== 'all') queryParams.set('source', filterState.source);
-    if (filterState.search) queryParams.set('search', filterState.search);
-    if (!all) {
-      queryParams.set('page', String(page));
-      queryParams.set('pageSize', String(pageSize));
-    }
-    window.location.href = `/api/admin/export?${queryParams.toString()}`;
-  };
-    // Download entire database export filtered by active and paid
-  const downloadFullDBExport = () => {
-    const queryParams = new URLSearchParams();
-    queryParams.set('status', 'active');
-    queryParams.set('paymentStatus', 'completed');
-    queryParams.set('fullExport', 'true');
-    window.location.href = `/api/admin/export?${queryParams.toString()}`;
-  };
-  
-  // Export current subscription view
-  const exportSubscriptionView = () => {
-    const queryParams = new URLSearchParams();
-    queryParams.set('viewType', subscriptionView);
-    
-    if (subscriptionView === 'thisWeek') {
-      const today = new Date();
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay());
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
-      queryParams.set('startDate', format(startOfWeek, 'yyyy-MM-dd'));
-      queryParams.set('endDate', format(endOfWeek, 'yyyy-MM-dd'));
-    } else if (subscriptionView === 'upcoming') {
-      const today = new Date();
-      queryParams.set('startDate', format(today, 'yyyy-MM-dd'));
-    }
-    
-    window.location.href = `/api/admin/export?${queryParams.toString()}&status=active&paymentStatus=completed`;
-  };
-    // Fetch subscription data based on view type
+  // Fetch subscription data based on view type
   const fetchSubscriptionData = async (viewType: 'all' | 'thisWeek' | 'upcoming') => {
     setSubscriptionsLoading(true);
     try {
       const queryParams = new URLSearchParams();
       queryParams.set('viewType', viewType);
-      
       if (viewType === 'thisWeek') {
         const today = new Date();
         const startOfWeek = new Date(today);
@@ -433,10 +276,8 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         const today = new Date();
         queryParams.set('startDate', format(today, 'yyyy-MM-dd'));
       }
-      
       const response = await fetch(`/api/admin/subscriptions?${queryParams.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch subscription data');
-      
       const data = await response.json();
       setSubscriptionUsers(data.users);
       setRevenue(data.revenue); // Update revenue based on the current view
@@ -445,38 +286,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       console.error('Error fetching subscription data:', error);
       setSubscriptionsLoading(false);
     }
-  };
-
-  // Clear all filters
-  const clearFilters = () => {
-    setFilterState({
-      plan: 'all',
-      dateRange: 'all',
-      startDate: '',
-      endDate: '',
-      status: 'all',
-      source: 'all',
-      paymentStatus: 'all',
-      search: '',
-      showExpiringSoon: false
-    });
-    setPage(1);
-  };
-
-  // Copy all emails
-  const copyAllEmails = () => {
-    const emails = filteredUsers.map(u => u.email).join(', ');
-    navigator.clipboard.writeText(emails);
-    showToast('All emails copied!', 'success');
-  };
-  
-  // Update a single filter value
-  const updateFilter = (key: keyof typeof filterState, value: string | boolean) => {
-    setFilterState(prev => ({
-      ...prev,
-      [key]: value
-    }));
-    setPage(1);
   };
 
   // Fetch users for a given session date
@@ -493,250 +302,133 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     setSessionUsersLoading(false);
   };
 
-  // Fetch users for today on mount or when sessionDate changes
   useEffect(() => {
-    if (activeTab === 'sessionUsers') {
+    fetchUsers();
+    fetchStatistics();
+    fetchUpcomingMeetings();
+    fetchUpcomingRegistrations();
+    // Store admin passcode in session storage for API calls
+    const adminAuthenticated = sessionStorage.getItem('adminAuthenticated');
+    if (adminAuthenticated === 'true') {
+      const adminPasscode = process.env.ADMIN_PASSCODE || 'adminGoaleteM33t2025!';
+      sessionStorage.setItem('adminPasscode', adminPasscode);
+    }
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsers();
+    } else if (activeTab === 'upcoming') {
+      fetchUpcomingRegistrations();
+    } else if (activeTab === 'subscriptions') {
+      fetchSubscriptionData(subscriptionView);
+    } else if (activeTab === 'sessionUsers') {
       fetchSessionUsers(sessionDate);
     }
-  }, [activeTab, sessionDate]);
+  }, [
+    activeTab,
+    filterState.plan, 
+    filterState.dateRange, 
+    filterState.startDate, 
+    filterState.endDate, 
+    filterState.status, 
+    filterState.source, 
+    filterState.paymentStatus, 
+    filterState.search, 
+    sortBy, 
+    sortOrder, 
+    page, 
+    pageSize,
+    subscriptionView,
+    sessionDate,
+    fetchUsers
+  ]);
 
-  // --- Modal subscription table state and logic ---
-  // Place these hooks and functions inside AdminDashboard, before the return statement
-  const [modalSortBy, setModalSortBy] = useState<keyof Subscription>('startDate');
-  const [modalSortOrder, setModalSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [modalFilterStatus, setModalFilterStatus] = useState<string>('all');
-  const [modalFilterPayment, setModalFilterPayment] = useState<string>('all');
-
-  const handleModalSort = (field: keyof Subscription) => {
-    if (modalSortBy === field) {
-      setModalSortOrder(modalSortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setModalSortBy(field);
-      setModalSortOrder('asc');
-    }
-  };
-  // Handle user updates from the modal
-  const handleUserUpdated = (updatedUser: any) => {
-    // Update the selected user
-    setSelectedUser(updatedUser);
-
-    // Update user in the main list
-    const updatedUsers = users.map(user => 
-      user.id === updatedUser.id 
-        ? { ...user, role: updatedUser.role } 
-        : user
-    );
-    setUsers(updatedUsers);
-    setFilteredUsers(updatedUsers);
-
-    // Show success toast
-    showToast(`User ${updatedUser.name || updatedUser.email} updated successfully`);
-    
-    // Refresh data
-    fetchUsers();
-  };
-
-  const filteredAndSortedSubscriptions = selectedUser?.subscriptions
-    ? selectedUser.subscriptions
-        .filter(sub =>
-          (modalFilterStatus === 'all' || sub.status === modalFilterStatus) &&
-          (modalFilterPayment === 'all' || sub.paymentStatus === modalFilterPayment)
-        )
-        .slice()
-        .sort((a, b) => {
-          let aValue: any;
-          let bValue: any;
-          switch (modalSortBy) {
-            case 'planType':
-            case 'orderId':
-            case 'status':
-            case 'paymentStatus':
-              aValue = a[modalSortBy] || '';
-              bValue = b[modalSortBy] || '';
-              break;
-            case 'startDate':
-            case 'endDate':
-              aValue = a[modalSortBy] ? new Date(a[modalSortBy] as string).getTime() : 0;
-              bValue = b[modalSortBy] ? new Date(b[modalSortBy] as string).getTime() : 0;
-              break;
-            case 'duration':
-            case 'price':
-              aValue = a[modalSortBy] ?? 0;
-              bValue = b[modalSortBy] ?? 0;
-              break;
-            default:
-              aValue = '';
-              bValue = '';
-          }
-          if (aValue < bValue) return modalSortOrder === 'asc' ? -1 : 1;
-          if (aValue > bValue) return modalSortOrder === 'asc' ? 1 : -1;
-          return 0;
-        })
-    : [];
-  
+  // Add the actual dashboard UI here
   return (
-    <div className="bg-gray-50 min-h-screen">
-      {/* Toast notification */}
-      {toast && (
-        <div className={`fixed top-4 left-1/2 z-50 transform -translate-x-1/2 px-4 py-2 rounded shadow-lg ${toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'}`}>
-          {toast.message}
-        </div>
-      )}
-      
-      {/* Header with title and quick actions */}
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="flex flex-wrap justify-between items-center">
-          <h1 className="text-2xl font-semibold">GOALETE Admin Dashboard</h1>
-          <div className="flex gap-2">
-            <button 
-              onClick={clearFilters} 
-              className="px-3 py-2 border border-gray-300 rounded bg-white hover:bg-gray-50 transition"
-            >
-              Clear Filters
-            </button>
-            <button 
-              onClick={copyAllEmails} 
-              className="px-3 py-2 border border-gray-300 rounded bg-white hover:bg-gray-50 transition"
-            >
-              Copy Emails
-            </button>
-          </div>
-        </div>
-      </div>
-        {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="flex">
-          <button
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'users'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-            onClick={() => setActiveTab('users')}
-          >
-            Users
-          </button>
-          <button
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'upcoming'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-            onClick={() => setActiveTab('upcoming')}
-          >
-            Upcoming Registrations
-          </button>
-          <button
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'subscriptions'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-            onClick={() => setActiveTab('subscriptions')}
-          >
-            Subscriptions Dashboard
-          </button>
-          <button
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'calendar'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-            onClick={() => setActiveTab('calendar')}
-          >
-            Meeting Calendar
-          </button>
-          <button
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'sessionUsers'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-            onClick={() => setActiveTab('sessionUsers')}
-          >
-            Session Users
-          </button>
-        </div>
-      </div>
-      
-      {/* Today's Meeting Card - Always visible at the top */}
-      <div className="mt-4 px-4">
-        <TodayMeetingCard refreshTrigger={refreshMeetingTrigger} />
+    <div className="admin-dashboard-container p-6">
+      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+      {/* Tab Navigation */}
+      <div className="flex space-x-4 mb-6">
+        <button className={`px-4 py-2 rounded ${activeTab === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('users')}>Users</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'calendar' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('calendar')}>Calendar</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'upcoming' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('upcoming')}>Upcoming Registrations</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'subscriptions' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('subscriptions')}>Subscriptions</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'sessionUsers' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('sessionUsers')}>Session Users</button>
       </div>
 
-      {/* Conditional rendering based on active tab */}
-      {activeTab === 'users' && (
-        <UsersView
-          users={users}
-          filteredUsers={filteredUsers}
-          loading={loading}
-          error={error}
-          userStats={userStats}
-          revenue={revenue}
-          filterState={filterState}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          updateFilter={updateFilter}
-          setSortBy={setSortBy}
-          setSortOrder={setSortOrder}
-          setPage={setPage}
-          setPageSize={setPageSize}
-          handleRowClick={handleRowClick}
-          downloadCSV={downloadCSV}
-          downloadFullDBExport={downloadFullDBExport}
-        />
-      )}
+      {/* Tab Content */}
+      <div>
+        {activeTab === 'users' && (
+          <UsersView
+            users={users}
+            filteredUsers={filteredUsers}
+            loading={loading}
+            error={error}
+            userStats={userStats}
+            revenue={revenue}
+            filterState={filterState}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            updateFilter={(key, value) => setFilterState((prev: any) => ({ ...prev, [key]: value }))
+            }
+            setSortBy={setSortBy}
+            setSortOrder={setSortOrder}
+            setPage={setPage}
+            setPageSize={setPageSize}
+            handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
+            downloadCSV={() => {}}
+            downloadFullDBExport={() => {}}
+          />
+        )}
         {activeTab === 'calendar' && (
-        <AdminCalendar />
-      )}
-      
-      {activeTab === 'subscriptions' && (
-        <SubscriptionsView
-          subscriptionView={subscriptionView}
-          setSubscriptionView={setSubscriptionView}
-          subscriptionUsers={subscriptionUsers}
-          subscriptionsLoading={subscriptionsLoading}
-          revenue={revenue}
-          handleRowClick={handleRowClick}
-        />
-      )}
-      
-      {activeTab === 'upcoming' && (
-        <UpcomingRegistrationsView
-          loading={loading}
-          upcomingMeetings={upcomingMeetings}
-          upcomingRegistrations={upcomingRegistrations}
-          handleRowClick={handleRowClick}
-          setActiveTab={(tab) => setActiveTab(tab as typeof activeTab)}
-        />
-      )}
-      
-      {activeTab === 'sessionUsers' && (
-        <SessionUsersView
-          sessionDate={sessionDate}
-          setSessionDate={setSessionDate}
-          sessionUsers={sessionUsers}
-          sessionUsersLoading={sessionUsersLoading}
-        />
-      )}
-      
-      {/* User detail modal */}
+          <AdminCalendar />
+        )}
+        {activeTab === 'upcoming' && (
+          <UpcomingRegistrationsView
+            loading={loading}
+            upcomingMeetings={upcomingMeetings}
+            upcomingRegistrations={upcomingRegistrations}
+            handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
+            setActiveTab={(tab: string) => setActiveTab(tab as typeof activeTab)}
+          />
+        )}
+        {activeTab === 'subscriptions' && (
+          <SubscriptionsView
+            subscriptionView={subscriptionView}
+            setSubscriptionView={setSubscriptionView}
+            subscriptionUsers={subscriptionUsers}
+            subscriptionsLoading={subscriptionsLoading}
+            revenue={revenue}
+            handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
+          />
+        )}
+        {activeTab === 'sessionUsers' && (
+          <SessionUsersView
+            sessionDate={sessionDate}
+            setSessionDate={setSessionDate}
+            sessionUsers={sessionUsers}
+            sessionUsersLoading={sessionUsersLoading}
+          />
+        )}
+      </div>
+
+      {/* User Detail Modal */}
       {showUserDetail && selectedUser && (
         <UserDetailModal
           user={selectedUser}
-          show={true}
-          onClose={handleCloseDetail}
-          modalSortBy={modalSortBy}
-          modalSortOrder={modalSortOrder}
-          modalFilterStatus={modalFilterStatus}
-          modalFilterPayment={modalFilterPayment}
-          setModalFilterStatus={setModalFilterStatus}
-          setModalFilterPayment={setModalFilterPayment}
-          handleModalSort={handleModalSort}
-          onUserUpdated={handleUserUpdated}
+          show={showUserDetail}
+          onClose={() => setShowUserDetail(false)}
+          modalSortBy={"startDate"}
+          modalSortOrder={"desc"}
+          modalFilterStatus={"all"}
+          modalFilterPayment={"all"}
+          setModalFilterStatus={() => {}}
+          setModalFilterPayment={() => {}}
+          handleModalSort={() => {}}
         />
       )}
     </div>
