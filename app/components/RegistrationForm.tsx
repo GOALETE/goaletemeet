@@ -11,12 +11,14 @@ declare global {
   }
 }
 
-export default function RegistrationForm() {  // Basic form state
+export default function RegistrationForm() {
+  // Basic form state
   const [plan, setPlan] = useState<"daily" | "monthly" | "monthlyFamily">("daily");
   const [startDate, setStartDate] = useState("");
   const [source, setSource] = useState("Instagram");
   const [reference, setReference] = useState("");
-    // Payment state
+  
+  // Payment state
   const [isRazorpayLoaded, setIsRazorpayLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -31,7 +33,8 @@ export default function RegistrationForm() {  // Basic form state
   const [secondLastName, setSecondLastName] = useState("");
   const [secondEmail, setSecondEmail] = useState("");
   const [secondPhone, setSecondPhone] = useState("");
-    // Additional state
+  
+  // Additional state
   const [duration, setDuration] = useState(PLAN_PRICING.daily.duration);
   const [formData, setFormData] = useState<any>(null);
   
@@ -39,7 +42,8 @@ export default function RegistrationForm() {  // Basic form state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
-    // Field-specific error tracking
+  
+  // Field-specific error tracking
   const [fieldErrors, setFieldErrors] = useState({
     firstName: '',
     lastName: '',
@@ -58,16 +62,75 @@ export default function RegistrationForm() {  // Basic form state
     setStartDate(istDate.toISOString().split('T')[0]);
   }, []);
   
-  // Check for existing subscription conflicts
+  // Validation rules for each field
+  const validationRules = {
+    firstName: (value: string) => {
+      if (value.trim() === '') return 'First name is required';
+      if (value.trim().length < 2) return 'First name must be at least 2 characters';
+      return '';
+    },
+    lastName: (value: string) => {
+      if (value.trim() === '') return 'Last name is required';
+      if (value.trim().length < 2) return 'Last name must be at least 2 characters';
+      return '';
+    },
+    email: (value: string) => {
+      if (value.trim() === '') return 'Email is required';
+      if (!value.includes('@') || !value.includes('.')) return 'Please enter a valid email address';
+      return '';
+    },
+    phone: (value: string) => {
+      if (value === '') return 'Phone number is required';
+      if (value.length < 10) return 'Phone number must be at least 10 digits';
+      if (value.length > 12) return 'Phone number is too long';
+      return '';
+    },
+    secondEmail: (value: string, primaryEmail: string) => {
+      if (value.trim() === '') return 'Email is required';
+      if (!value.includes('@') || !value.includes('.')) return 'Please enter a valid email address';
+      if (value === primaryEmail) return 'Second user cannot have the same email as the primary user';
+      return '';
+    }
+  };
+  
+  // Helper function to handle input changes with fewer re-renders
+  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>, field: keyof typeof fieldErrors, value: string) => {
+    setter(value);
+    
+    // Only clear errors if the field now has a value
+    if (value.trim() !== '') {
+      // Only update fieldErrors if there's an actual error to clear
+      if (fieldErrors[field] !== '') {
+        setFieldErrors(prev => ({...prev, [field]: ''}));
+      }
+    }
+  };
+  
+  // Helper function to validate input fields on blur
+  const validateField = (field: keyof typeof fieldErrors, value: string, validationRule: (val: string, ...args: any[]) => string, ...args: any[]) => {
+    const error = validationRule(value, ...args);
+    
+    // Only update state if the error message has changed
+    if (fieldErrors[field] !== error) {
+      setFieldErrors(prev => ({...prev, [field]: error}));
+    }
+  };
+  
+  // Helper function to check if a date is today in IST timezone
+  const isToday = (dateString: string): boolean => {
+    if (!dateString) return false;
+    const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const today = istDate.toISOString().split('T')[0];
+    return dateString === today;
+  };
+
+  // Check for existing subscription conflicts - debounced implementation
   const checkSubscriptionConflict = useCallback(async () => {
     if (!email || !email.includes('@') || !startDate) return;
     setIsCheckingSubscription(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-    setFieldErrors({
-      ...fieldErrors,
-      email: ''
-    });
+    
     try {
       const start = new Date(startDate);
       const end = new Date(startDate);
@@ -107,22 +170,20 @@ export default function RegistrationForm() {  // Basic form state
     } finally {
       setIsCheckingSubscription(false);
     }
-  }, [email, plan, startDate, fieldErrors]);
+  }, [email, plan, startDate]); // Dependencies are okay here
   
   // Check for subscription conflicts when user changes plan or date
+  // Uses a debounce pattern to avoid too many API calls
   useEffect(() => {
     // Only check if email is entered
     if (email && email.includes('@')) {
-      checkSubscriptionConflict();
+      // Use a timer to avoid too many API calls during rapid changes
+      const timer = setTimeout(() => {
+        checkSubscriptionConflict();
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [checkSubscriptionConflict, email, plan, startDate]);
-  
-  // Helper function to check if a date is today in IST timezone
-  const isToday = (dateString: string): boolean => {
-    if (!dateString) return false;
-    const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    const today = istDate.toISOString().split('T')[0];    return dateString === today;
-  };
+  }, [email, plan, startDate, checkSubscriptionConflict]); // Include all dependencies
   
   // Update duration when plan changes
   const handlePlanChange = (newPlan: "daily" | "monthly" | "monthlyFamily") => {
@@ -130,6 +191,7 @@ export default function RegistrationForm() {  // Basic form state
     setDuration(PLAN_PRICING[newPlan].duration);
     setErrorMessage(null);
     setSuccessMessage(null);
+    
     // Clear field errors on plan change
     setFieldErrors({
       firstName: '',
@@ -141,14 +203,15 @@ export default function RegistrationForm() {  // Basic form state
       secondEmail: '',
       secondPhone: ''
     });
+    
     // Clear second person fields if not family plan
     if (newPlan !== "monthlyFamily") {
       setSecondFirstName("");
       setSecondLastName("");
       setSecondEmail("");
       setSecondPhone("");   
-     }
-  };  
+    }
+  };
   
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -156,22 +219,14 @@ export default function RegistrationForm() {  // Basic form state
     
     // Check for field validation errors before proceeding
     const newFieldErrors = {
-      firstName: firstName.trim() === '' ? 'First name is required' : 
-                 firstName.trim().length < 2 ? 'First name must be at least 2 characters' : '',
-      lastName: lastName.trim() === '' ? 'Last name is required' : 
-                lastName.trim().length < 2 ? 'Last name must be at least 2 characters' : '',
-      email: email.trim() === '' ? 'Email is required' : 
-             !email.includes('@') || !email.includes('.') ? 'Please enter a valid email address' : '',
-      phone: phone === '' ? 'Phone number is required' : 
-             phone.length < 10 ? 'Phone number must be at least 10 digits' : 
-             phone.length > 12 ? 'Phone number is too long' : '',
-      secondFirstName: plan === 'monthlyFamily' ? (secondFirstName.trim() === '' ? 'First name is required' : secondFirstName.trim().length < 2 ? 'First name must be at least 2 characters' : '') : '',
-      secondLastName: plan === 'monthlyFamily' ? (secondLastName.trim() === '' ? 'Last name is required' : secondLastName.trim().length < 2 ? 'Last name must be at least 2 characters' : '') : '',
-      secondEmail: plan === 'monthlyFamily' ? 
-                  (secondEmail.trim() === '' ? 'Email is required' : 
-                   !secondEmail.includes('@') || !secondEmail.includes('.') ? 'Please enter a valid email address' : 
-                   secondEmail === email ? 'Second user cannot have the same email as the primary user' : '') : '',
-      secondPhone: plan === 'monthlyFamily' ? (secondPhone === '' ? 'Phone number is required' : secondPhone.length < 10 ? 'Phone number must be at least 10 digits' : secondPhone.length > 12 ? 'Phone number is too long' : '') : ''
+      firstName: validationRules.firstName(firstName),
+      lastName: validationRules.lastName(lastName),
+      email: validationRules.email(email),
+      phone: validationRules.phone(phone),
+      secondFirstName: plan === 'monthlyFamily' ? validationRules.firstName(secondFirstName) : '',
+      secondLastName: plan === 'monthlyFamily' ? validationRules.lastName(secondLastName) : '',
+      secondEmail: plan === 'monthlyFamily' ? validationRules.secondEmail(secondEmail, email) : '',
+      secondPhone: plan === 'monthlyFamily' ? validationRules.phone(secondPhone) : ''
     };
     
     // Check if Reference is required but empty
@@ -179,7 +234,8 @@ export default function RegistrationForm() {  // Basic form state
       setErrorMessage("Please provide a reference name");
       return;
     }
-      // Check if there are any validation errors
+    
+    // Check if there are any validation errors
     if (Object.values(newFieldErrors).some(error => error !== '')) {
       setFieldErrors(newFieldErrors);
       return;
@@ -414,6 +470,7 @@ export default function RegistrationForm() {  // Basic form state
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8 relative overflow-hidden">
       {/* Load Razorpay script */}
@@ -434,7 +491,9 @@ export default function RegistrationForm() {  // Basic form state
         aria-hidden="true"
         width={600}
         height={600}
-      />      <form
+      />
+      
+      <form
         onSubmit={handleSubmit}
         className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg border border-gray-200 space-y-8 relative z-10"
       >
@@ -451,19 +510,8 @@ export default function RegistrationForm() {  // Basic form state
             type="text"
             placeholder="First Name"
             value={firstName}
-            onChange={(e) => {
-              setFirstName(e.target.value);
-              if (e.target.value.trim() !== '') {
-                setFieldErrors({...fieldErrors, firstName: ''});
-              }
-            }}
-            onBlur={() => {
-              if (firstName.trim() === '') {
-                setFieldErrors({...fieldErrors, firstName: 'First name is required'});
-              } else if (firstName.trim().length < 2) {
-                setFieldErrors({...fieldErrors, firstName: 'First name must be at least 2 characters'});
-              }
-            }}
+            onChange={(e) => handleInputChange(setFirstName, 'firstName', e.target.value)}
+            onBlur={() => validateField('firstName', firstName, validationRules.firstName)}
             className={`w-full p-3 border ${fieldErrors.firstName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
             required
           />
@@ -475,19 +523,8 @@ export default function RegistrationForm() {  // Basic form state
             type="text"
             placeholder="Last Name"
             value={lastName}
-            onChange={(e) => {
-              setLastName(e.target.value);
-              if (e.target.value.trim() !== '') {
-                setFieldErrors({...fieldErrors, lastName: ''});
-              }
-            }}
-            onBlur={() => {
-              if (lastName.trim() === '') {
-                setFieldErrors({...fieldErrors, lastName: 'Last name is required'});
-              } else if (lastName.trim().length < 2) {
-                setFieldErrors({...fieldErrors, lastName: 'Last name must be at least 2 characters'});
-              }
-            }}
+            onChange={(e) => handleInputChange(setLastName, 'lastName', e.target.value)}
+            onBlur={() => validateField('lastName', lastName, validationRules.lastName)}
             className={`w-full p-3 border ${fieldErrors.lastName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
             required
           />
@@ -500,20 +537,13 @@ export default function RegistrationForm() {  // Basic form state
             placeholder="Email"
             value={email}
             onChange={(e) => {
-              setEmail(e.target.value);
+              handleInputChange(setEmail, 'email', e.target.value);
               setErrorMessage(null);
               setSuccessMessage(null);
-              if (e.target.value.trim() !== '') {
-                setFieldErrors({...fieldErrors, email: ''});
-              }
             }}
             onBlur={() => {
-              if (email.trim() === '') {
-                setFieldErrors({...fieldErrors, email: 'Email is required'});
-              } else if (!email.includes('@') || !email.includes('.')) {
-                setFieldErrors({...fieldErrors, email: 'Please enter a valid email address'});
-              } else {
-                setFieldErrors({...fieldErrors, email: ''});
+              validateField('email', email, validationRules.email);
+              if (email && email.includes('@') && !fieldErrors.email) {
                 checkSubscriptionConflict();
               }
             }}
@@ -531,20 +561,9 @@ export default function RegistrationForm() {  // Basic form state
             onChange={(e) => {
               // Only allow digits in phone number
               const value = e.target.value.replace(/\D/g, '');
-              setPhone(value);
-              if (value !== '') {
-                setFieldErrors({...fieldErrors, phone: ''});
-              }
+              handleInputChange(setPhone, 'phone', value);
             }}
-            onBlur={() => {
-              if (phone === '') {
-                setFieldErrors({...fieldErrors, phone: 'Phone number is required'});
-              } else if (phone.length < 10) {
-                setFieldErrors({...fieldErrors, phone: 'Phone number must be at least 10 digits'});
-              } else if (phone.length > 12) {
-                setFieldErrors({...fieldErrors, phone: 'Phone number is too long'});
-              }
-            }}
+            onBlur={() => validateField('phone', phone, validationRules.phone)}
             className={`w-full p-3 border ${fieldErrors.phone ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
             required
           />
@@ -564,12 +583,7 @@ export default function RegistrationForm() {  // Basic form state
                   name="plan"
                   value="daily"
                   checked={plan === "daily"}
-                  onChange={() => {
-                    handlePlanChange("daily");
-                    if (email && email.includes('@')) {
-                      setTimeout(() => checkSubscriptionConflict(), 500);
-                    }
-                  }}
+                  onChange={() => handlePlanChange("daily")}
                   className="accent-gray-600"
                 />
                 <span className="text-gray-800">Daily Session</span>
@@ -583,12 +597,7 @@ export default function RegistrationForm() {  // Basic form state
                   name="plan"
                   value="monthly"
                   checked={plan === "monthly"}
-                  onChange={() => {
-                    handlePlanChange("monthly");
-                    if (email && email.includes('@')) {
-                      setTimeout(() => checkSubscriptionConflict(), 500);
-                    }
-                  }}
+                  onChange={() => handlePlanChange("monthly")}
                   className="accent-gray-600"
                 />
                 <span className="text-gray-800">Monthly Plan</span>
@@ -602,9 +611,7 @@ export default function RegistrationForm() {  // Basic form state
                   name="plan"
                   value="monthlyFamily"
                   checked={plan === "monthlyFamily"}
-                  onChange={() => {
-                    handlePlanChange("monthlyFamily");
-                  }}
+                  onChange={() => handlePlanChange("monthlyFamily")}
                   className="accent-gray-600"
                 />
                 <span className="text-gray-800">Monthly Family</span>
@@ -623,19 +630,8 @@ export default function RegistrationForm() {  // Basic form state
                 type="text"
                 placeholder="Second Person First Name"
                 value={secondFirstName}
-                onChange={(e) => {
-                  setSecondFirstName(e.target.value);
-                  if (e.target.value.trim() !== '') {
-                    setFieldErrors({...fieldErrors, secondFirstName: ''});
-                  }
-                }}
-                onBlur={() => {
-                  if (secondFirstName.trim() === '') {
-                    setFieldErrors({...fieldErrors, secondFirstName: 'First name is required'});
-                  } else if (secondFirstName.trim().length < 2) {
-                    setFieldErrors({...fieldErrors, secondFirstName: 'First name must be at least 2 characters'});
-                  }
-                }}
+                onChange={(e) => handleInputChange(setSecondFirstName, 'secondFirstName', e.target.value)}
+                onBlur={() => validateField('secondFirstName', secondFirstName, validationRules.firstName)}
                 className={`w-full p-3 border ${fieldErrors.secondFirstName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
                 required={plan === "monthlyFamily"}
               />
@@ -646,19 +642,8 @@ export default function RegistrationForm() {  // Basic form state
                 type="text"
                 placeholder="Second Person Last Name"
                 value={secondLastName}
-                onChange={(e) => {
-                  setSecondLastName(e.target.value);
-                  if (e.target.value.trim() !== '') {
-                    setFieldErrors({...fieldErrors, secondLastName: ''});
-                  }
-                }}
-                onBlur={() => {
-                  if (secondLastName.trim() === '') {
-                    setFieldErrors({...fieldErrors, secondLastName: 'Last name is required'});
-                  } else if (secondLastName.trim().length < 2) {
-                    setFieldErrors({...fieldErrors, secondLastName: 'Last name must be at least 2 characters'});
-                  }
-                }}
+                onChange={(e) => handleInputChange(setSecondLastName, 'secondLastName', e.target.value)}
+                onBlur={() => validateField('secondLastName', secondLastName, validationRules.lastName)}
                 className={`w-full p-3 border ${fieldErrors.secondLastName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
                 required={plan === "monthlyFamily"}
               />
@@ -670,29 +655,14 @@ export default function RegistrationForm() {  // Basic form state
                 placeholder="Second Person Email"
                 value={secondEmail}
                 onChange={(e) => {
-                  setSecondEmail(e.target.value);
-                  if (e.target.value.trim() !== '') {
-                    // Clear errors only if it's not the same as primary email
-                    if (e.target.value !== email) {
-                      setFieldErrors({...fieldErrors, secondEmail: ''});
-                      // Also clear the general error message if it was about duplicate emails
-                      if (errorMessage === "Primary and secondary users must have different email addresses") {
-                        setErrorMessage(null);
-                      }
-                    }
+                  handleInputChange(setSecondEmail, 'secondEmail', e.target.value);
+                  // Clear the general error message if it was about duplicate emails
+                  if (errorMessage === "Primary and secondary users must have different email addresses" && 
+                      e.target.value !== email) {
+                    setErrorMessage(null);
                   }
                 }}
-                onBlur={() => {
-                  if (secondEmail.trim() === '') {
-                    setFieldErrors({...fieldErrors, secondEmail: 'Email is required'});
-                  } else if (!secondEmail.includes('@') || !secondEmail.includes('.')) {
-                    setFieldErrors({...fieldErrors, secondEmail: 'Please enter a valid email address'});
-                  } else if (plan === 'monthlyFamily' && secondEmail === email) {
-                    setFieldErrors({...fieldErrors, secondEmail: 'Second user cannot have the same email as the primary user'});
-                  } else {
-                    setFieldErrors({...fieldErrors, secondEmail: ''});
-                  }
-                }}
+                onBlur={() => validateField('secondEmail', secondEmail, validationRules.secondEmail, email)}
                 className={`w-full p-3 border ${fieldErrors.secondEmail ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
                 required={plan === "monthlyFamily"}
               />
@@ -705,20 +675,9 @@ export default function RegistrationForm() {  // Basic form state
                 value={secondPhone}
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, '');
-                  setSecondPhone(value);
-                  if (value !== '') {
-                    setFieldErrors({...fieldErrors, secondPhone: ''});
-                  }
+                  handleInputChange(setSecondPhone, 'secondPhone', value);
                 }}
-                onBlur={() => {
-                  if (secondPhone === '') {
-                    setFieldErrors({...fieldErrors, secondPhone: 'Phone number is required'});
-                  } else if (secondPhone.length < 10) {
-                    setFieldErrors({...fieldErrors, secondPhone: 'Phone number must be at least 10 digits'});
-                  } else if (secondPhone.length > 12) {
-                    setFieldErrors({...fieldErrors, secondPhone: 'Phone number is too long'});
-                  }
-                }}
+                onBlur={() => validateField('secondPhone', secondPhone, validationRules.phone)}
                 className={`w-full p-3 border ${fieldErrors.secondPhone ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
                 required={plan === "monthlyFamily"}
               />
@@ -738,9 +697,8 @@ export default function RegistrationForm() {  // Basic form state
               value={startDate}
               onChange={(e) => {
                 setStartDate(e.target.value);
-                if (email && email.includes('@')) {
-                  setTimeout(() => checkSubscriptionConflict(), 500);
-                }
+                setErrorMessage(null);
+                setSuccessMessage(null);
               }}
               min={new Date().toISOString().split('T')[0]} // Set min to current date
               className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
@@ -750,6 +708,7 @@ export default function RegistrationForm() {  // Basic form state
               {plan === 'daily' 
                 ? 'Select the date for your daily session (IST)' 
                 : `Select start date for your ${plan === 'monthlyFamily' ? 'family ' : ''}plan (IST)`}
+
             </p>
           </div>
         </div>
@@ -788,7 +747,9 @@ export default function RegistrationForm() {  // Basic form state
               className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
             />
           </div>
-        )}{/* Error or success message */}
+        )}
+        
+        {/* Error or success message */}
         {(errorMessage || successMessage) && (
           <div className={`p-4 rounded-lg ${errorMessage ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
             <p className={`text-sm ${errorMessage ? 'text-red-700' : 'text-green-700'}`}>
@@ -798,9 +759,11 @@ export default function RegistrationForm() {  // Basic form state
         )}
 
         {/* Submit button */}
-        <div className="flex flex-col sm:flex-row gap-4">          <button
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button
             type="submit"
             className="w-full px-4 py-3 text-white bg-gray-800 rounded-lg shadow hover:bg-gray-700 focus:outline-none transition-all duration-200"
+            disabled={isLoading}
           >
             {isLoading ? "Processing..." : "Register & Pay Now"}
           </button>
