@@ -444,94 +444,9 @@ export default function RegistrationForm() {  // Basic form state
           <p className="text-gray-500 text-base font-medium">How to Achieve Any Goal in Life</p>
         </div>
 
-        {/* Subscription Plan Section - FIRST */}
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-          <p className="font-semibold text-gray-700 mb-2">Subscription Plan</p>
-          <div className="flex flex-col sm:flex-row gap-4 w-full">
-            <label className="flex flex-col items-start w-full sm:w-1/3 cursor-pointer gap-1">
-              <div className="flex items-center gap-2 w-full justify-start">
-                <input
-                  type="radio"
-                  name="plan"
-                  value="daily"
-                  checked={plan === "daily"}
-                  onChange={() => {
-                    handlePlanChange("daily");
-                    if (email && email.includes('@')) {
-                      setTimeout(() => checkSubscriptionConflict(), 500);
-                    }
-                  }}
-                  className="accent-gray-600"
-                />
-                <span className="text-gray-800">Daily Session</span>
-              </div>
-              <span className="text-xs text-gray-400 font-medium pl-6">({PLAN_PRICING.daily.display})</span>
-            </label>
-            <label className="flex flex-col items-center w-full sm:w-1/3 cursor-pointer gap-1">
-              <div className="flex items-center gap-2 w-full justify-center">
-                <input
-                  type="radio"
-                  name="plan"
-                  value="monthly"
-                  checked={plan === "monthly"}
-                  onChange={() => {
-                    handlePlanChange("monthly");
-                    if (email && email.includes('@')) {
-                      setTimeout(() => checkSubscriptionConflict(), 500);
-                    }
-                  }}
-                  className="accent-gray-600"
-                />
-                <span className="text-gray-800">Monthly Plan</span>
-              </div>
-              <span className="text-xs text-gray-400 font-medium">({PLAN_PRICING.monthly.display})</span>
-            </label>
-            <label className="flex flex-col items-end w-full sm:w-1/3 cursor-pointer gap-1">
-              <div className="flex items-center gap-2 w-full justify-end">
-                <input
-                  type="radio"
-                  name="plan"
-                  value="monthlyFamily"
-                  checked={plan === "monthlyFamily"}
-                  onChange={() => {
-                    handlePlanChange("monthlyFamily");
-                  }}
-                  className="accent-gray-600"
-                />
-                <span className="text-gray-800">Monthly Family</span>
-              </div>
-              <span className="text-xs text-gray-400 font-medium pr-6">({PLAN_PRICING.monthlyFamily.display})</span>
-            </label>
-          </div>
-        </div>
-        
-        {/* Date Selector Section - SECOND */}
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-          <p className="font-semibold text-gray-700 mb-2">Select Start Date</p>
-          <div className="w-full">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                if (email && email.includes('@')) {
-                  setTimeout(() => checkSubscriptionConflict(), 500);
-                }
-              }}
-              min={new Date().toISOString().split('T')[0]} // Set min to current date
-              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {plan === 'daily' 
-                ? 'Select the date for your daily session (IST)' 
-                : `Select start date for your ${plan === 'monthlyFamily' ? 'family ' : ''}plan (IST)`}
-            </p>
-          </div>
-        </div>
-
-        {/* Primary User Information - THIRD */}
+        {/* Primary User Information - FIRST */}
         <div className="space-y-4">
+          <p className="font-semibold text-gray-700 mb-2">Your Information</p>
           <input
             type="text"
             placeholder="First Name"
@@ -637,8 +552,69 @@ export default function RegistrationForm() {  // Basic form state
             <p className="text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
           )}
         </div>
+
+        {/* Subscription Plan Section - SECOND */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+          <p className="font-semibold text-gray-700 mb-2">Subscription Plan</p>
+          <div className="flex flex-col sm:flex-row gap-4 w-full">
+            <label className="flex flex-col items-start w-full sm:w-1/3 cursor-pointer gap-1">
+              <div className="flex items-center gap-2 w-full justify-start">
+                <input
+                  type="radio"
+                  name="plan"
+                  value="daily"
+                  checked={plan === "daily"}
+                  onChange={() => {
+                    handlePlanChange("daily");
+                    if (email && email.includes('@')) {
+                      setTimeout(() => checkSubscriptionConflict(), 500);
+                    }
+                  }}
+                  className="accent-gray-600"
+                />
+                <span className="text-gray-800">Daily Session</span>
+              </div>
+              <span className="text-xs text-gray-400 font-medium pl-6">({PLAN_PRICING.daily.display})</span>
+            </label>
+            <label className="flex flex-col items-center w-full sm:w-1/3 cursor-pointer gap-1">
+              <div className="flex items-center gap-2 w-full justify-center">
+                <input
+                  type="radio"
+                  name="plan"
+                  value="monthly"
+                  checked={plan === "monthly"}
+                  onChange={() => {
+                    handlePlanChange("monthly");
+                    if (email && email.includes('@')) {
+                      setTimeout(() => checkSubscriptionConflict(), 500);
+                    }
+                  }}
+                  className="accent-gray-600"
+                />
+                <span className="text-gray-800">Monthly Plan</span>
+              </div>
+              <span className="text-xs text-gray-400 font-medium">({PLAN_PRICING.monthly.display})</span>
+            </label>
+            <label className="flex flex-col items-end w-full sm:w-1/3 cursor-pointer gap-1">
+              <div className="flex items-center gap-2 w-full justify-end">
+                <input
+                  type="radio"
+                  name="plan"
+                  value="monthlyFamily"
+                  checked={plan === "monthlyFamily"}
+                  onChange={() => {
+                    handlePlanChange("monthlyFamily");
+                  }}
+                  className="accent-gray-600"
+                />
+                <span className="text-gray-800">Monthly Family</span>
+              </div>
+              <span className="text-xs text-gray-400 font-medium pr-6">({PLAN_PRICING.monthlyFamily.display})</span>
+            </label>
+          </div>
+        </div>
         
-        {/* Show second person fields if family plan is selected - FOURTH (conditional) */}
+        {/* Show second person fields if family plan is selected - THIRD (conditional) */}
         {plan === "monthlyFamily" && (
           <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
             <p className="font-semibold text-yellow-700 mb-2">Second Person Details (Family Plan)</p>
@@ -752,8 +728,33 @@ export default function RegistrationForm() {  // Basic form state
             </div>
           </div>
         )}
+        
+        {/* Date Selector Section - FOURTH */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+          <p className="font-semibold text-gray-700 mb-2">Select Start Date</p>
+          <div className="w-full">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                if (email && email.includes('@')) {
+                  setTimeout(() => checkSubscriptionConflict(), 500);
+                }
+              }}
+              min={new Date().toISOString().split('T')[0]} // Set min to current date
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {plan === 'daily' 
+                ? 'Select the date for your daily session (IST)' 
+                : `Select start date for your ${plan === 'monthlyFamily' ? 'family ' : ''}plan (IST)`}
+            </p>
+          </div>
+        </div>
 
-        {/* Source (How did you hear about us) Section - FIFTH (moved to end) */}
+        {/* Source (How did you hear about us) Section - FIFTH */}
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <p className="font-semibold text-gray-700 mb-2">How did you hear about us?</p>
           <div className="w-full">
@@ -775,7 +776,7 @@ export default function RegistrationForm() {  // Basic form state
           </div>
         </div>
 
-        {/* Reference field (shown only if source is "Reference") - SIXTH (conditional) */}
+        {/* Reference field (shown only if source is "Reference") */}
         {source === "Reference" && (
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
             <p className="font-semibold text-gray-700 mb-2">Reference Name</p>
@@ -787,7 +788,7 @@ export default function RegistrationForm() {  // Basic form state
               className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
             />
           </div>
-        )}        {/* Error or success message */}
+        )}{/* Error or success message */}
         {(errorMessage || successMessage) && (
           <div className={`p-4 rounded-lg ${errorMessage ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
             <p className={`text-sm ${errorMessage ? 'text-red-700' : 'text-green-700'}`}>
