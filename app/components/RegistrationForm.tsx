@@ -671,18 +671,18 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                   />
                   {fieldErrors.phone && (
                     <p className="text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
-                  )}
-                </div>
+                  )}                </div>
               </div>
             </div>
-          </div>          {/* Subscription Plan Section */}
+          </div>
+          
+          {/* Plan Selection Section */}
           <div className="overflow-visible">
             <div className="mb-4">
               <p className="font-semibold text-gray-700 flex items-center before:content-[''] before:block before:w-2 before:h-5 before:mr-2 before:bg-blue-600 before:rounded-sm">
                 Choose Your Plan
               </p>
             </div>
-            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 max-w-full overflow-visible mb-12">              {/* Daily Plan */}              <div 
                 onClick={(e) => {
                   // Don't handle click if info button was clicked
@@ -1081,7 +1081,107 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
               </div>
             </div>
           </div>
-{/* Date Selector Section */}
+          {/* Second Person Information - Only shown for Family Plan */}
+          {plan === "monthlyFamily" && (
+            <div className="mt-4 rounded-xl shadow-md border border-amber-200 overflow-hidden animate__animated animate__fadeIn">
+              <div className="bg-gradient-to-r from-amber-50 to-amber-100 py-3 px-4 border-b border-amber-200">
+                <p className="font-semibold text-gray-700 flex items-center">
+                  <svg className="h-5 w-5 mr-2 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  Second Person Details
+                </p>
+              </div>
+              <div className="p-5 bg-white">
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    name="secondFirstName"
+                    placeholder="First name"
+                    value={secondFirstName}
+                    onChange={(e) => {
+                      setSecondFirstName(e.target.value);
+                      setFieldErrors({...fieldErrors, secondFirstName: ''});
+                    }}
+                    className={`w-full p-3 border ${fieldErrors.secondFirstName ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                    required
+                  />
+                  {fieldErrors.secondFirstName && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.secondFirstName}</p>
+                  )}
+                </div>
+                
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    name="secondLastName"
+                    placeholder="Last name"
+                    value={secondLastName}
+                    onChange={(e) => {
+                      setSecondLastName(e.target.value);
+                      setFieldErrors({...fieldErrors, secondLastName: ''});
+                    }}
+                    className={`w-full p-3 border ${fieldErrors.secondLastName ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                    required
+                  />
+                  {fieldErrors.secondLastName && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.secondLastName}</p>
+                  )}
+                </div>
+                
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    name="secondEmail"
+                    placeholder="email@example.com"
+                    value={secondEmail}
+                    onChange={(e) => {
+                      setSecondEmail(e.target.value);
+                      setFieldErrors({...fieldErrors, secondEmail: ''});
+                    }}
+                    className={`w-full p-3 border ${fieldErrors.secondEmail ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                    required
+                  />
+                  {fieldErrors.secondEmail && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.secondEmail}</p>
+                  )}
+                </div>
+                
+                <div className="mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    name="secondPhone"
+                    placeholder="Enter 10-digit number"
+                    value={secondPhone}
+                    onChange={(e) => {
+                      setSecondPhone(e.target.value);
+                      setFieldErrors({...fieldErrors, secondPhone: ''});
+                    }}
+                    className={`w-full p-3 border ${fieldErrors.secondPhone ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                    required
+                  />
+                  {fieldErrors.secondPhone && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.secondPhone}</p>
+                  )}
+                </div>
+                
+                <div className="flex items-start bg-amber-50 p-3 rounded-lg mt-3 text-sm">
+                  <svg className="h-5 w-5 mr-2 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-amber-700">
+                    Both participants will receive their own access to all sessions during the plan period. Each person must have a unique email address.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Date Selector Section */}
           <div className="mt-16 rounded-xl shadow-md border border-gray-200 overflow-hidden">
             <div className="bg-gradient-to-r from-gray-50 to-gray-100 py-3 px-4 border-b border-gray-200">
               <p className="font-semibold text-gray-700 flex items-center">
@@ -1244,6 +1344,20 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                 </span>
               )}
             </button>
+          </div>
+            {/* Plan selection information */}
+          <div className="flex items-start bg-blue-50 p-3 rounded-lg mt-3 text-sm">
+            <svg className="h-5 w-5 mr-2 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="text-blue-700">
+              {plan === 'daily' ? (
+                <>Choose a single session to get started with GOALETE Club.</>
+              ) : plan === 'monthly' ? (
+                <>The monthly plan provides 30 days of continuous access to all GOALETE Club sessions.</>
+              ) : (                <>Share your GOALETE Club journey with a family member or friend. Each person gets their own access to all sessions.</>
+              )}
+            </div>
           </div>
         </form>
       </div>
