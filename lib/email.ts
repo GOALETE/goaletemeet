@@ -211,7 +211,7 @@ export async function sendAdminNotificationEmail({
   startDate: Date;
   endDate: Date;
   amount: number;
-  paymentId: string;
+  paymentId?: string;
 }): Promise<boolean> {
   const adminEmail = process.env.ADMIN_EMAIL;
   if (!adminEmail) {
@@ -362,7 +362,7 @@ export async function sendFamilyAdminNotificationEmail({
   startDate: Date;
   endDate: Date;
   amount: number;
-  paymentId: string;
+  paymentId?: string;
 }): Promise<boolean> {
   const adminEmail = process.env.ADMIN_EMAIL;
   if (!adminEmail) {
@@ -740,6 +740,252 @@ export async function sendWelcomeEmail({
     });
   } catch (error) {
     console.error('Error sending welcome email:', error);
+    return false;
+  }
+}
+
+/**
+ * Sends a meeting invite email with calendar attachment
+ * @param params Parameters including recipient details, meeting info, and platform
+ * @returns Promise<boolean> indicating success or failure
+ */
+export async function sendMeetingInvite({
+  recipient,
+  meetingTitle,
+  meetingDescription,
+  meetingLink,
+  startTime,
+  endTime,
+  platform,
+  hostLink
+}: {
+  recipient: {
+    name: string;
+    email: string;
+  };
+  meetingTitle: string;
+  meetingDescription: string;
+  meetingLink: string;
+  startTime: Date;
+  endTime: Date;
+  platform: string;
+  hostLink?: string;
+}): Promise<boolean> {
+  try {
+    // Format dates for calendar and display
+    const startDateISO = startTime.toISOString();
+    const endDateISO = endTime.toISOString();
+    
+    // Format times for display in email body
+    const timeOptions: Intl.DateTimeFormatOptions = { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      hour12: true,
+      timeZone: 'Asia/Kolkata' 
+    };
+    const dateOptions: Intl.DateTimeFormatOptions = { 
+      weekday: 'long',
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric',
+      timeZone: 'Asia/Kolkata'
+    };
+    
+    const formattedDate = startTime.toLocaleDateString('en-IN', dateOptions);
+    const formattedStartTime = startTime.toLocaleTimeString('en-IN', timeOptions);
+    const formattedEndTime = endTime.toLocaleTimeString('en-IN', timeOptions);
+    
+    // Platform-specific content
+    const platformName = platform === 'Zoom' ? 'Zoom' : 'Google Meet';
+    const platformIcon = platform === 'Zoom' ? '🔵' : '👥';
+    const platformInstructions = platform === 'Zoom' 
+      ? 'You can join using the Zoom app or directly from your web browser.'
+      : 'You can join directly from your web browser, no installation required.';
+    
+    // Create iCalendar content for the meeting
+    const icalContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//GOALETE CLUB//Meeting Invite//EN
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTART:${startDateISO.replace(/[-:]/g, '').replace(/\.\d+/g, '')}
+DTEND:${endDateISO.replace(/[-:]/g, '').replace(/\.\d+/g, '')}
+DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/g, '')}
+ORGANIZER;CN=GOALETE CLUB:mailto:${process.env.EMAIL_USER}
+UID:${Date.now()}@goaleteclub.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${recipient.name}:mailto:${recipient.email}
+SUMMARY:${meetingTitle}
+DESCRIPTION:${meetingDescription}\\n\\nJoin ${platformName}: ${meetingLink}
+LOCATION:${meetingLink}
+SEQUENCE:0
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR`;
+    
+    // Create HTML content with modern, elegant design
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${meetingTitle}</title>
+        <style>
+          /* Base styles */
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            background-color: ${platform === 'Zoom' ? '#2D8CFF' : '#1a73e8'};
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+          }
+          .content {
+            padding: 30px 20px;
+          }
+          .meeting-details {
+            background-color: #f5f7fa;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+          }
+          .meeting-link {
+            background-color: #e8f4fd;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+          }
+          .meeting-link a {
+            display: inline-block;
+            background-color: ${platform === 'Zoom' ? '#2D8CFF' : '#1a73e8'};
+            color: white;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-top: 10px;
+          }
+          .details-row {
+            margin-bottom: 10px;
+          }
+          .details-label {
+            font-weight: 600;
+            color: #596880;
+          }
+          .host-link {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #666;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+          }
+          .host-link a {
+            color: #1a73e8;
+            text-decoration: underline;
+          }
+          .footer {
+            background-color: #f5f7fa;
+            padding: 20px;
+            text-align: center;
+            color: #596880;
+            font-size: 14px;
+            border-top: 1px solid #e1e8ed;
+          }
+          .calendar-info {
+            font-style: italic;
+            margin-top: 20px;
+            color: #666;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>${platformIcon} ${meetingTitle}</h1>
+          </div>
+          
+          <div class="content">
+            <p>Dear ${recipient.name},</p>
+            <p>You're invited to a GOALETE CLUB session on ${platformName}.</p>
+            
+            <div class="meeting-details">
+              <div class="details-row">
+                <div class="details-label">Date:</div>
+                <div>${formattedDate}</div>
+              </div>
+              <div class="details-row">
+                <div class="details-label">Time:</div>
+                <div>${formattedStartTime} - ${formattedEndTime} (IST)</div>
+              </div>
+              <div class="details-row">
+                <div class="details-label">Platform:</div>
+                <div>${platformName}</div>
+              </div>
+            </div>
+            
+            <p>${meetingDescription}</p>
+            <p>${platformInstructions}</p>
+            
+            <div class="meeting-link">
+              <p>Click the button below to join the meeting:</p>
+              <a href="${meetingLink}" target="_blank">Join ${platformName} Meeting</a>
+            </div>
+            
+            ${hostLink ? `
+            <div class="host-link">
+              <p><strong>For hosts only:</strong> If you are the host, use <a href="${hostLink}">this link</a> to start the meeting.</p>
+            </div>
+            ` : ''}
+            
+            <p class="calendar-info">This invitation includes a calendar attachment. Add it to your calendar to receive a reminder.</p>
+          </div>
+          
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} GOALETE CLUB. All rights reserved.</p>
+            <p>If you have any questions, please contact us at ${process.env.EMAIL_USER || 'info@goaleteclub.com'}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    // Send email with calendar attachment
+    return await sendEmail({
+      to: recipient.email,
+      subject: `${meetingTitle} - GOALETE CLUB`,
+      html: htmlContent,
+      attachments: [
+        {
+          filename: 'meeting-invite.ics',
+          content: icalContent,
+          contentType: 'text/calendar; charset=utf-8; method=REQUEST'
+        }
+      ]
+    });
+  } catch (error) {
+    console.error('Error sending meeting invite:', error);
     return false;
   }
 }
