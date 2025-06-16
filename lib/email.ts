@@ -528,16 +528,15 @@ export async function sendWelcomeEmail({
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to GOALETE Club!</title>
-        <style>
+        <title>Welcome to GOALETE Club!</title>        <style>
           body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
           .header { text-align: center; margin-bottom: 30px; }
-          .logo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; }
+          .logo { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 3px solid #27ae60; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
           h1 { color: #2c3e50; margin-bottom: 5px; }
           .plan-details { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0; border-left: 4px solid #27ae60; }
           .highlight { font-weight: bold; color: #27ae60; }
           .instructions { background-color: #eafaf1; padding: 15px; border-radius: 8px; margin: 20px 0; }
-          .contact-us { margin-top: 20px; }
+          .contact-us { margin-top: 20px; background-color: #f0f7fd; padding: 15px; border-radius: 8px; border-left: 4px solid #3498db; }
           .button { display: inline-block; background-color: #3498db; color: white; text-decoration: none; padding: 10px 20px; border-radius: 4px; font-weight: 600; }
           .social-links { margin: 15px 0; }
           .social-links a { color: #3498db; text-decoration: none; margin: 0 10px; }
@@ -576,9 +575,9 @@ export async function sendWelcomeEmail({
           <p>Sessions are typically held at <span class="highlight">9:00 PM (IST)</span>.</p>
           <p>Please ensure you join the session on time for the best experience.</p>
         </div>
-        
-        <div class="contact-us">
-          <p>If you have any questions or need assistance, please don't hesitate to contact us.</p>
+          <div class="contact-us">
+          <p><strong>Questions or Need Help?</strong></p>
+          <p>Our support team is ready to assist you with any questions you might have about your subscription or upcoming sessions.</p>
           <a href="mailto:${process.env.EMAIL_USER || 'info@goaleteclub.com'}" class="button">Contact Support</a>
         </div>
         

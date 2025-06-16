@@ -3,27 +3,24 @@
  * All pricing information should be managed here and imported where needed
  */
 
-export const PLAN_PRICING = {
-  daily: {
+export const PLAN_PRICING = {  daily: {
     amount: 299,         // Price in INR
     display: "Rs. 299",  // Formatted display price
     duration: 1,         // Duration in days
     name: "Daily Session",
-    description: "Join the legendary Goalete webinar on any one date convenient to you and kickstart the journey of infinite possibilities in life"
-  },
-  monthly: {
+    description: "Experience a transformative single day session that will introduce you to powerful goal-setting techniques. Choose any date that works for you and begin your journey to achieving what matters most in your life."
+  },  monthly: {
     amount: 2999,        // Price in INR
     display: "Rs. 2999", // Formatted display price
     duration: 30,        // Duration in days
     name: "Monthly Plan",
-    description: "Get daily webinar access for a month at a super discounted fee and keep yourself motivated every day"
-  },
-  monthlyFamily: {
+    description: "Maintain momentum with daily access for a full month. This consistent approach delivers superior results, keeping you motivated and accountable every step of your journey. Enjoy significant savings compared to daily sessions."
+  },  monthlyFamily: {
     amount: 4499,        // Price in INR
-    display: "Rs. 4499 (Family, 2 users)", // Formatted display price
+    display: "Rs. 4499", // Formatted display price
     duration: 30,        // Duration in days
     name: "Monthly Family Plan",
-    description: "Get 2 monthly memberships at a further massive discount. Keep one for yourself and gift the other to a parent, partner, coach, friend or colleague"
+    description: "Share the journey with someone important in your life! This plan offers full access for two people, with 25% savings over two individual memberships. Perfect for couples, friends, family members, or colleagues who want to achieve goals together."
   }
 };
 

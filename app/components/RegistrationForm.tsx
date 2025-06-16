@@ -11,7 +11,43 @@ declare global {
   }
 }
 
-export default function RegistrationForm() {
+export default function RegistrationForm() {  // Add custom styles for 3D card flip
+  useEffect(() => {
+    // Add the custom CSS needed for card flipping
+    const style = document.createElement('style');
+    style.textContent = `
+      .perspective-1000 {
+        perspective: 1000px;
+      }
+      .transform-style-3d {
+        transform-style: preserve-3d;
+      }
+      .backface-hidden {
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+      }
+      .rotate-y-180 {
+        transform: rotateY(180deg);
+      }
+      @keyframes shimmer {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(100%);
+        }
+      }
+      .animate-shimmer {
+        animation: shimmer 2s infinite;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   // Basic form state
   const [plan, setPlan] = useState<"daily" | "monthly" | "monthlyFamily">("daily");
   const [startDate, setStartDate] = useState("");
@@ -33,10 +69,11 @@ export default function RegistrationForm() {
   const [secondLastName, setSecondLastName] = useState("");
   const [secondEmail, setSecondEmail] = useState("");
   const [secondPhone, setSecondPhone] = useState("");
-  
-  // Additional state
+    // Additional state
   const [duration, setDuration] = useState(PLAN_PRICING.daily.duration);
-  const [formData, setFormData] = useState<any>(null);
+  
+  // Card flip state
+  const [flippedCard, setFlippedCard] = useState<string | null>(null);
   
   // Status messages and validation
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -54,6 +91,7 @@ export default function RegistrationForm() {
     secondEmail: '',
     secondPhone: ''
   });
+
   // Set today's date as the default start date when component mounts (using IST timezone)
   useEffect(() => {
     // Use IST timezone for date calculations
@@ -169,10 +207,9 @@ export default function RegistrationForm() {
     } finally {
       setIsCheckingSubscription(false);
     }
-  }, [email, plan, startDate]); // Dependencies are okay here
+  }, [email, plan, startDate]); // Dependencies
   
   // Check for subscription conflicts when user changes plan or date
-  // Uses a debounce pattern to avoid too many API calls
   useEffect(() => {
     // Only check if email is entered
     if (email && email.includes('@')) {
@@ -182,7 +219,7 @@ export default function RegistrationForm() {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [email, plan, startDate, checkSubscriptionConflict]); // Include all dependencies
+  }, [email, plan, startDate, checkSubscriptionConflict]);
   
   // Update duration when plan changes
   const handlePlanChange = (newPlan: "daily" | "monthly" | "monthlyFamily") => {
@@ -251,24 +288,14 @@ export default function RegistrationForm() {
     }
     
     setIsLoading(true);
-    setErrorMessage(null); // Reset error message on new submission
-    setSuccessMessage(null); // Reset success message on new submission
-    console.log("Form submitted with data:", {
-      firstName,
-      lastName,
-      email,
-      phone,
-      plan,
-      startDate,
-      duration,
-      source,
-      reference,
-    });        
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    
     try {
       const price = PLAN_PRICING[plan].amount;
       
       // Double-check subscription availability (using IST dates)
-      const start = new Date(startDate); // startDate from form input is already in IST
+      const start = new Date(startDate);
       const end = new Date(startDate);
       end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
       
@@ -306,7 +333,6 @@ export default function RegistrationForm() {
       });
       const userData = await userRes.json();
       if (!userRes.ok || !userData.userId) throw new Error("Primary user creation failed");
-      console.log("Primary user creation successful:", userData);      
       
       const userId = userData.userId;
       
@@ -327,7 +353,6 @@ export default function RegistrationForm() {
         });
         const secondUserData = await secondUserRes.json();
         if (!secondUserRes.ok || !secondUserData.userId) throw new Error("Second user creation failed");
-        console.log("Second user creation successful:", secondUserData);
         secondUserId = secondUserData.userId;
       }
       
@@ -336,7 +361,7 @@ export default function RegistrationForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: toPaise(price), // Convert INR to paise (smallest currency unit)
+          amount: toPaise(price),
           currency: "INR",
           planType: plan,
           duration: PLAN_PRICING[plan].duration,
@@ -360,9 +385,6 @@ export default function RegistrationForm() {
       if (!orderRes.ok || !orderData.orderId) {
         throw new Error("Order creation failed: " + (orderData.message || "Unknown error"));
       }
-      
-      console.log("orderData:", orderData)
-
 
       const orderId = orderData.orderId;
       // For family plan, get both subscription IDs
@@ -397,7 +419,7 @@ export default function RegistrationForm() {
               body: JSON.stringify({
                 orderId,
                 paymentId: response.razorpay_payment_id,
-                userId, // still pass for compatibility
+                userId,
                 ...(isFamily
                   ? { subscriptionIds }
                   : { subscriptionId: subscriptionIds[0] }),
@@ -499,8 +521,7 @@ export default function RegistrationForm() {
     return () => clearTimeout(timer);
   }, []);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8 relative overflow-hidden">
+  return (    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Load Razorpay script */}
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
@@ -512,344 +533,793 @@ export default function RegistrationForm() {
       />
       
       {/* Watermark logo background */}
-      <Image
-        src="/goalete_logo.jpeg"
-        alt="Goalete Watermark"
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 w-[600px] h-[600px] object-contain pointer-events-none select-none z-0"
-        aria-hidden="true"
-        width={600}
-        height={600}
-      />
-        <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg border border-gray-200 space-y-8 relative z-10"
-        autoComplete="on"
-      >
-        <div className="text-center mb-4 flex flex-col items-center gap-2">
-          <Image src="/goalete_logo.jpeg" alt="Goalete Logo" className="w-24 h-24 rounded-full shadow border border-gray-200 bg-white object-cover" width={96} height={96} />
-          <h2 className="text-2xl font-bold text-gray-800 tracking-tight mb-1">GOALETE CLUB</h2>
-          <p className="text-gray-500 text-base font-medium">How to Achieve Any Goal in Life</p>
+      <div className="absolute inset-0 overflow-hidden z-0">
+        <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          <Image
+            src="/goalete_logo.jpeg"
+            alt="Goalete Watermark"
+            className="opacity-5 select-none"
+            aria-hidden="true"
+            width={800}
+            height={800}
+            priority
+          />
         </div>
-
-        {/* Primary User Information - FIRST */}
-        <div className="space-y-4">
-          <p className="font-semibold text-gray-700 mb-2">Your Information</p>          
-          <input
-            type="text"
-            name="firstName"
-            placeholder="First Name"
-            value={firstName}
-            onChange={(e) => handleInputChange(setFirstName, 'firstName', e.target.value)}
-            onBlur={() => validateField('firstName', firstName, validationRules.firstName)}
-            className={`w-full p-3 border ${fieldErrors.firstName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
-            autoComplete="given-name"
-            required
-          />
-          {fieldErrors.firstName && (
-            <p className="text-red-500 text-xs mt-1">{fieldErrors.firstName}</p>
-          )}
-            <input
-            type="text"
-            name="lastName"
-            placeholder="Last Name"
-            value={lastName}
-            onChange={(e) => handleInputChange(setLastName, 'lastName', e.target.value)}
-            onBlur={() => validateField('lastName', lastName, validationRules.lastName)}
-            className={`w-full p-3 border ${fieldErrors.lastName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
-            autoComplete="family-name"
-            required
-          />
-          {fieldErrors.lastName && (
-            <p className="text-red-500 text-xs mt-1">{fieldErrors.lastName}</p>
-          )}
-            <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => {
-              handleInputChange(setEmail, 'email', e.target.value);
-              setErrorMessage(null);
-              setSuccessMessage(null);
-            }}
-            onBlur={() => {
-              validateField('email', email, validationRules.email);
-              if (email && email.includes('@') && !fieldErrors.email) {
-                checkSubscriptionConflict();
-              }
-            }}
-            className={`w-full p-3 border ${fieldErrors.email ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
-            autoComplete="email"
-            required
-          />
-          {fieldErrors.email && (
-            <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
-          )}
-            <input
-            type="tel"
-            name="phone"
-            placeholder="Phone No."
-            value={phone}
-            onChange={(e) => {
-              // Only allow digits in phone number
-              const value = e.target.value.replace(/\D/g, '');
-              handleInputChange(setPhone, 'phone', value);
-            }}
-            onBlur={() => validateField('phone', phone, validationRules.phone)}
-            className={`w-full p-3 border ${fieldErrors.phone ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
-            autoComplete="tel"
-            required
-          />
-          {fieldErrors.phone && (
-            <p className="text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
-          )}
-        </div>        {/* Subscription Plan Section - SECOND */}
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-          <p className="font-semibold text-gray-700 mb-2">Subscription Plan</p>
-          <div className="flex flex-col sm:flex-row gap-4 w-full">
-            <label className="relative flex flex-col w-full sm:w-1/3 cursor-pointer gap-1 p-3 transition-all duration-200 rounded-lg hover:bg-gray-100">
-              <div className="flex items-center gap-2 w-full">
-                <input
-                  type="radio"
-                  name="plan"
-                  value="daily"
-                  checked={plan === "daily"}
-                  onChange={() => handlePlanChange("daily")}
-                  className="accent-blue-600"
-                />
-                <div>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 font-medium">Daily Session</span>
-                    <div className="group relative ml-1">
-                      <span className="cursor-help text-blue-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </span>
-                      <div className="absolute z-10 w-64 p-3 bg-blue-700 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 bottom-full left-1/2 transform -translate-x-1/2 mb-2">
-                        {PLAN_PRICING.daily.description}
-                        <div className="absolute w-3 h-3 bg-blue-700 transform rotate-45 left-1/2 -translate-x-1/2 -bottom-1.5"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-xs text-gray-500 font-medium">{PLAN_PRICING.daily.display}</span>
-                </div>
-              </div>
-            </label>
-            <label className="relative flex flex-col w-full sm:w-1/3 cursor-pointer gap-1 p-3 transition-all duration-200 rounded-lg hover:bg-gray-100">
-              <div className="flex items-center gap-2 w-full">
-                <input
-                  type="radio"
-                  name="plan"
-                  value="monthly"
-                  checked={plan === "monthly"}
-                  onChange={() => handlePlanChange("monthly")}
-                  className="accent-blue-600"
-                />
-                <div>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 font-medium">Monthly Plan</span>
-                    <div className="group relative ml-1">
-                      <span className="cursor-help text-blue-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </span>
-                      <div className="absolute z-10 w-64 p-3 bg-blue-700 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 bottom-full left-1/2 transform -translate-x-1/2 mb-2">
-                        {PLAN_PRICING.monthly.description}
-                        <div className="absolute w-3 h-3 bg-blue-700 transform rotate-45 left-1/2 -translate-x-1/2 -bottom-1.5"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-xs text-gray-500 font-medium">{PLAN_PRICING.monthly.display}</span>
-                </div>
-              </div>
-            </label>
-            <label className="relative flex flex-col w-full sm:w-1/3 cursor-pointer gap-1 p-3 transition-all duration-200 rounded-lg hover:bg-gray-100">
-              <div className="flex items-center gap-2 w-full">
-                <input
-                  type="radio"
-                  name="plan"
-                  value="monthlyFamily"
-                  checked={plan === "monthlyFamily"}
-                  onChange={() => handlePlanChange("monthlyFamily")}
-                  className="accent-blue-600"
-                />
-                <div>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 font-medium">Monthly Family</span>
-                    <div className="group relative ml-1">
-                      <span className="cursor-help text-blue-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </span>
-                      <div className="absolute z-10 w-64 p-3 bg-blue-700 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 bottom-full left-1/2 transform -translate-x-1/2 mb-2">
-                        {PLAN_PRICING.monthlyFamily.description}
-                        <div className="absolute w-3 h-3 bg-blue-700 transform rotate-45 left-1/2 -translate-x-1/2 -bottom-1.5"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-xs text-gray-500 font-medium">{PLAN_PRICING.monthlyFamily.display}</span>
-                </div>
-              </div>
-            </label>
+      </div>
+      
+      <div className="w-full max-w-4xl overflow-visible"><form
+          onSubmit={handleSubmit}
+          className="w-full bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200 space-y-6 relative z-10 overflow-visible"
+          autoComplete="on"
+        >
+          <div className="text-center mb-6 flex flex-col items-center gap-2">
+            <div className="relative w-24 h-24 mb-2">
+              <Image 
+                src="/goalete_logo.jpeg" 
+                alt="Goalete Logo" 
+                className="rounded-full shadow-md border border-gray-200 bg-white object-cover" 
+                fill
+                sizes="(max-width: 768px) 96px, 96px"
+                priority
+              />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800 tracking-tight mb-1">GOALETE CLUB</h1>
+            <p className="text-gray-500 text-lg font-medium">How to Achieve Any Goal in Life</p>
           </div>
-        </div>
-        
-        {/* Show second person fields if family plan is selected - THIRD (conditional) */}
-        {plan === "monthlyFamily" && (
-          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-            <p className="font-semibold text-yellow-700 mb-2">Second Person Details (Family Plan)</p>
-            <div className="space-y-4">              <input
-                type="text"
-                name="secondFirstName"
-                placeholder="Second Person First Name"
-                value={secondFirstName}
-                onChange={(e) => handleInputChange(setSecondFirstName, 'secondFirstName', e.target.value)}
-                onBlur={() => validateField('secondFirstName', secondFirstName, validationRules.firstName)}
-                className={`w-full p-3 border ${fieldErrors.secondFirstName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
-                autoComplete="off"
-                required={plan === "monthlyFamily"}
-              />
-              {fieldErrors.secondFirstName && (
-                <p className="text-red-500 text-xs mt-1">{fieldErrors.secondFirstName}</p>
-              )}              <input
-                type="text"
-                name="secondLastName"
-                placeholder="Second Person Last Name"
-                value={secondLastName}
-                onChange={(e) => handleInputChange(setSecondLastName, 'secondLastName', e.target.value)}
-                onBlur={() => validateField('secondLastName', secondLastName, validationRules.lastName)}
-                className={`w-full p-3 border ${fieldErrors.secondLastName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
-                autoComplete="off"
-                required={plan === "monthlyFamily"}
-              />
-              {fieldErrors.secondLastName && (
-                <p className="text-red-500 text-xs mt-1">{fieldErrors.secondLastName}</p>
-              )}              <input
-                type="email"
-                name="secondEmail"
-                placeholder="Second Person Email"
-                value={secondEmail}
-                onChange={(e) => {
-                  handleInputChange(setSecondEmail, 'secondEmail', e.target.value);
-                  // Clear the general error message if it was about duplicate emails
-                  if (errorMessage === "Primary and secondary users must have different email addresses" && 
-                      e.target.value !== email) {
-                    setErrorMessage(null);
+
+          {/* Primary User Information */}
+          <div className="rounded-xl shadow-md border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 py-3 px-4 border-b border-blue-200">
+              <p className="font-semibold text-blue-800 flex items-center">
+                <svg className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Your Information
+              </p>
+            </div>
+            <div className="p-5 bg-white">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    placeholder="First Name"
+                    value={firstName}
+                    onChange={(e) => handleInputChange(setFirstName, 'firstName', e.target.value)}
+                    onBlur={() => validateField('firstName', firstName, validationRules.firstName)}
+                    className={`w-full p-3 border ${fieldErrors.firstName ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                    autoComplete="given-name"
+                    required
+                  />
+                  {fieldErrors.firstName && (
+                    <p className="text-red-500 text-xs mt-1">{fieldErrors.firstName}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    placeholder="Last Name"
+                    value={lastName}
+                    onChange={(e) => handleInputChange(setLastName, 'lastName', e.target.value)}
+                    onBlur={() => validateField('lastName', lastName, validationRules.lastName)}
+                    className={`w-full p-3 border ${fieldErrors.lastName ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                    autoComplete="family-name"
+                    required
+                  />
+                  {fieldErrors.lastName && (
+                    <p className="text-red-500 text-xs mt-1">{fieldErrors.lastName}</p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="Email Address"
+                    value={email}
+                    onChange={(e) => {
+                      handleInputChange(setEmail, 'email', e.target.value);
+                      setErrorMessage(null);
+                      setSuccessMessage(null);
+                    }}
+                    onBlur={() => {
+                      validateField('email', email, validationRules.email);
+                      if (email && email.includes('@') && !fieldErrors.email) {
+                        checkSubscriptionConflict();
+                      }
+                    }}
+                    className={`w-full p-3 border ${fieldErrors.email ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                    autoComplete="email"
+                    required
+                  />
+                  {fieldErrors.email && (
+                    <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    placeholder="Phone Number"
+                    value={phone}
+                    onChange={(e) => {
+                      // Only allow digits in phone number
+                      const value = e.target.value.replace(/\D/g, '');
+                      handleInputChange(setPhone, 'phone', value);
+                    }}
+                    onBlur={() => validateField('phone', phone, validationRules.phone)}
+                    className={`w-full p-3 border ${fieldErrors.phone ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                    autoComplete="tel"
+                    required
+                  />
+                  {fieldErrors.phone && (
+                    <p className="text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>          {/* Subscription Plan Section */}
+          <div className="overflow-visible">
+            <div className="mb-4">
+              <p className="font-semibold text-gray-700 flex items-center before:content-[''] before:block before:w-2 before:h-5 before:mr-2 before:bg-blue-600 before:rounded-sm">
+                Choose Your Plan
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 max-w-full overflow-visible mb-12">              {/* Daily Plan */}              <div 
+                onClick={(e) => {
+                  // Don't handle click if info button was clicked
+                  if (!(e.target as HTMLElement).closest('.info-btn')) {
+                    handlePlanChange("daily");
                   }
-                }}
-                onBlur={() => validateField('secondEmail', secondEmail, validationRules.secondEmail, email)}
-                className={`w-full p-3 border ${fieldErrors.secondEmail ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
-                autoComplete="off"
-                required={plan === "monthlyFamily"}
-              />
-              {fieldErrors.secondEmail && (
-                <p className="text-red-500 text-xs mt-1">{fieldErrors.secondEmail}</p>
-              )}              <input
-                type="tel"
-                name="secondPhone"
-                placeholder="Second Person Phone No."
-                value={secondPhone}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '');
-                  handleInputChange(setSecondPhone, 'secondPhone', value);
-                }}
-                onBlur={() => validateField('secondPhone', secondPhone, validationRules.phone)}
-                className={`w-full p-3 border ${fieldErrors.secondPhone ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
-                autoComplete="off"
-                required={plan === "monthlyFamily"}
-              />
-              {fieldErrors.secondPhone && (
-                <p className="text-red-500 text-xs mt-1">{fieldErrors.secondPhone}</p>
+                }}                className={`                  relative rounded-xl shadow-md transition-all duration-300 cursor-pointer h-[420px] perspective-1000 max-w-full overflow-hidden
+                  ${plan === "daily" 
+                    ? "ring-2 ring-offset-2 ring-blue-500 transform scale-[1.02]" 
+                    : "hover:shadow-lg hover:translate-y-[-4px] border border-gray-200"
+                  }
+                `}>
+                {plan === "daily" && (
+                  <div className="absolute top-0 right-0 z-2">
+                    <div className="bg-blue-600 text-white py-1 px-4 text-xs font-bold shadow-md rounded-bl-md">
+                      SELECTED
+                    </div>
+                  </div>
+                )}
+                
+                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === 'daily' ? 'rotate-y-180' : ''}`}>
+                  {/* Card Front */}
+                  <div className="flip-card-front absolute w-full h-full backface-hidden">                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 border-b border-blue-200 rounded-t-xl">
+                      <div className="flex justify-between items-center mb-1">
+                        <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.daily.name}</h3>                        <button 
+                          className="text-blue-500 hover:text-blue-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFlippedCard(flippedCard === 'daily' ? null : 'daily');
+                          }}
+                          aria-label="More information"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="text-blue-600 font-bold text-lg sm:text-xl md:text-2xl mb-1">{PLAN_PRICING.daily.display}</div>
+                      <div className="text-gray-500 text-xs">Start your transformation journey</div>
+                    </div>
+                      <div className="p-4 bg-white rounded-b-xl h-[calc(100%-96px)] flex flex-col">                      <ul className="space-y-2 mb-4 flex-grow min-h-0">
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">Complete transformative single session</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">Powerful goal-setting techniques</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">Choose any available date</span>
+                        </li>
+                        <li className="flex items-start invisible">
+                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">Hidden spacer item</span>
+                        </li>
+                      </ul>
+                      
+                      <label className="flex items-center justify-center mt-auto">
+                        <input
+                          type="radio"
+                          name="plan"
+                          value="daily"
+                          checked={plan === "daily"}
+                          onChange={() => handlePlanChange("daily")}
+                          className="sr-only"
+                        />
+                        <div className={`
+                          w-full py-2 px-4 rounded-md font-medium text-center transition-colors
+                          ${plan === "daily" 
+                            ? "bg-blue-600 text-white" 
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }
+                        `}>
+                          {plan === "daily" ? "Selected" : "Select Plan"}
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                    {/* Card Back */}
+                  <div className="flip-card-back absolute w-full h-full backface-hidden rotate-y-180 bg-blue-600 text-white p-5 rounded-xl">
+                    <button 
+                      className="absolute top-4 right-4 text-white hover:text-blue-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFlippedCard(null);
+                      }}
+                      aria-label="Close details"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    
+                    <h3 className="font-bold text-xl mb-4 mt-4">Single Session Membership</h3>
+                    <p className="text-sm mb-6">{PLAN_PRICING.daily.description}</p>
+                    
+                    <div className="text-center mt-auto">
+                      <div className="text-2xl font-bold mb-4">{PLAN_PRICING.daily.display}</div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlanChange("daily");
+                          setFlippedCard(null);
+                        }} 
+                        className="bg-white text-blue-600 py-2 px-4 rounded-md font-medium hover:bg-blue-50 transition-colors"
+                      >
+                        {plan === "daily" ? "Already Selected" : "Select This Plan"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>                {/* Monthly Plan */}              <div 
+                onClick={(e) => {
+                  // Don't handle click if info button was clicked
+                  if (!(e.target as HTMLElement).closest('.info-btn')) {
+                    handlePlanChange("monthly");
+                  }
+                }}                className={`
+                  relative rounded-xl shadow-md transition-all duration-300 cursor-pointer h-[420px] perspective-1000 max-w-full overflow-hidden
+                  ${plan === "monthly" 
+                    ? "ring-2 ring-offset-2 ring-blue-500 transform scale-[1.02]"                    : "hover:shadow-lg hover:translate-y-[-4px] border border-gray-200"
+                  }
+                `}>
+                {/* SELECTED ribbon */}
+                {plan === "monthly" && (
+                  <div className="absolute top-0 right-0 z-2">
+                    <div className="bg-indigo-600 text-white py-1 px-4 text-xs font-bold shadow-md rounded-bl-md">
+                      SELECTED
+                    </div>
+                  </div>
+                )}
+                
+                {/* POPULAR ribbon */}
+                <div className="absolute top-0 left-0 z-2">
+                  <div className="bg-purple-600 text-white py-1 px-4 text-xs font-bold shadow-md rounded-br-md">
+                    POPULAR
+                  </div>
+                </div>
+                
+                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === 'monthly' ? 'rotate-y-180' : ''}`}>
+                  {/* Card Front */}
+                  <div className="flip-card-front absolute w-full h-full backface-hidden">                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 border-b border-indigo-200 rounded-t-xl">
+                      <div className="flex justify-between items-center mb-1">
+                        <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.monthly.name}</h3>                        <button 
+                          className="text-indigo-500 hover:text-indigo-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFlippedCard(flippedCard === 'monthly' ? null : 'monthly');
+                          }}
+                          aria-label="More information"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="text-indigo-600 font-bold text-lg sm:text-xl md:text-2xl mb-1">{PLAN_PRICING.monthly.display}</div>
+                      <div className="text-gray-500 text-xs">Sustained motivation for real change</div>
+                    </div>
+                    
+                    <div className="p-4 bg-white rounded-b-xl h-[calc(100%-96px)] flex flex-col">
+                      <ul className="space-y-2 mb-4 flex-grow">
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">Daily motivation for a full month</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">Consistent approach for better results</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">Save over 70% vs daily rate</span>
+                        </li>
+                      </ul>
+                      
+                      <label className="flex items-center justify-center mt-auto">
+                        <input
+                          type="radio"
+                          name="plan"
+                          value="monthly"
+                          checked={plan === "monthly"}
+                          onChange={() => handlePlanChange("monthly")}
+                          className="sr-only"
+                        />
+                        <div className={`
+                          w-full py-2 px-4 rounded-md font-medium text-center transition-colors
+                          ${plan === "monthly" 
+                            ? "bg-indigo-600 text-white" 
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }
+                        `}>
+                          {plan === "monthly" ? "Selected" : "Select Plan"}
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                    {/* Card Back */}
+                  <div className="flip-card-back absolute w-full h-full backface-hidden rotate-y-180 bg-indigo-600 text-white p-5 rounded-xl">
+                    <button 
+                      className="absolute top-4 right-4 text-white hover:text-indigo-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFlippedCard(null);
+                      }}
+                      aria-label="Close details"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    
+                    <h3 className="font-bold text-xl mb-4 mt-4">Monthly Sessions Membership</h3>
+                    <p className="text-sm mb-6">{PLAN_PRICING.monthly.description}</p>
+                    
+                    <div className="text-center mt-auto">
+                      <div className="text-2xl font-bold mb-4">{PLAN_PRICING.monthly.display}</div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlanChange("monthly");
+                          setFlippedCard(null);
+                        }} 
+                        className="bg-white text-indigo-600 py-2 px-4 rounded-md font-medium hover:bg-indigo-50 transition-colors"
+                      >
+                        {plan === "monthly" ? "Already Selected" : "Select This Plan"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>                {/* Family Plan */}              <div 
+                onClick={(e) => {
+                  // Don't handle click if info button was clicked
+                  if (!(e.target as HTMLElement).closest('.info-btn')) {
+                    handlePlanChange("monthlyFamily");                  }
+                }}                className={`
+                  relative rounded-xl shadow-md transition-all duration-300 cursor-pointer h-[420px] perspective-1000 max-w-full overflow-hidden
+                  ${plan === "monthlyFamily" 
+                    ? "ring-2 ring-offset-2 ring-blue-500 transform scale-[1.02]" 
+                    : "hover:shadow-lg hover:translate-y-[-4px] border border-gray-200"
+                  }                `}>
+                {/* SELECTED ribbon */}
+                {plan === "monthlyFamily" && (
+                  <div className="absolute top-0 right-0 z-2">
+                    <div className="bg-amber-600 text-white py-1 px-4 text-xs font-bold shadow-md rounded-bl-md">
+                      SELECTED
+                    </div>
+                  </div>
+                )}
+                
+                {/* BEST VALUE ribbon */}
+                <div className="absolute top-0 left-0 z-2">
+                  <div className="bg-amber-600 text-white py-1 px-4 text-xs font-bold shadow-md rounded-br-md">
+                    BEST VALUE
+                  </div>
+                </div>
+                
+                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === 'family' ? 'rotate-y-180' : ''}`}>
+                  {/* Card Front */}
+                  <div className="flip-card-front absolute w-full h-full backface-hidden">                    <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 border-b border-amber-200 rounded-t-xl">                      <div className="flex justify-between items-center mb-1">
+                        <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.monthlyFamily.name}</h3>                        <button 
+                          className="text-amber-500 hover:text-amber-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFlippedCard(flippedCard === 'family' ? null : 'family');
+                          }}
+                          aria-label="More information"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="text-amber-600 font-bold text-lg sm:text-xl md:text-2xl mb-1 flex items-center">{PLAN_PRICING.monthlyFamily.display} <span className="text-xs font-normal text-gray-500 ml-1 mt-1">• 2 users</span></div>
+                      <div className="text-gray-500 text-xs">Achieve more together, save more together</div>
+                    </div>
+                    
+                    <div className="p-4 bg-white rounded-b-xl h-[calc(100%-96px)] flex flex-col">
+                      <ul className="space-y-2 mb-4 flex-grow">
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">Full access for 2 people for 30 days</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">Achieve goals together with a partner</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">25% savings vs 2 monthly plans</span>
+                        </li>
+                      </ul>
+                      
+                      <label className="flex items-center justify-center mt-auto">
+                        <input
+                          type="radio"
+                          name="plan"
+                          value="monthlyFamily"
+                          checked={plan === "monthlyFamily"}
+                          onChange={() => handlePlanChange("monthlyFamily")}
+                          className="sr-only"
+                        />
+                        <div className={`
+                          w-full py-2 px-4 rounded-md font-medium text-center transition-colors
+                          ${plan === "monthlyFamily" 
+                            ? "bg-amber-600 text-white" 
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }
+                        `}>
+                          {plan === "monthlyFamily" ? "Selected" : "Select Plan"}
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                    {/* Card Back */}
+                  <div className="flip-card-back absolute w-full h-full backface-hidden rotate-y-180 bg-amber-600 text-white p-5 rounded-xl">
+                    <button 
+                      className="absolute top-4 right-4 text-white hover:text-amber-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFlippedCard(null);
+                      }}
+                      aria-label="Close details"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    
+                    <h3 className="font-bold text-xl mb-4 mt-4">Monthly Family Membership</h3>
+                    <p className="text-sm mb-6">{PLAN_PRICING.monthlyFamily.description}</p>
+                      <div className="text-center mt-auto">
+                      <div className="text-2xl font-bold mb-1">{PLAN_PRICING.monthlyFamily.display}</div>
+                      <div className="text-sm mb-3">For 2 users • 30 days access</div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlanChange("monthlyFamily");
+                          setFlippedCard(null);
+                        }} 
+                        className="bg-white text-amber-600 py-2 px-4 rounded-md font-medium hover:bg-amber-50 transition-colors"
+                      >
+                        {plan === "monthlyFamily" ? "Already Selected" : "Select This Plan"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Show second person fields if family plan is selected */}
+          {plan === "monthlyFamily" && (
+            <div className="mt-6 rounded-xl shadow-md border border-amber-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-amber-50 to-amber-100 py-3 px-4 border-b border-amber-200">
+                <p className="font-semibold text-amber-800 flex items-center">
+                  <svg className="h-5 w-5 mr-2 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" 
+                    />
+                  </svg>
+                  Second Person Details
+                </p>
+              </div>
+              <div className="p-5 bg-white">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                    <input
+                      type="text"
+                      name="secondFirstName"
+                      placeholder="First Name"
+                      value={secondFirstName}
+                      onChange={(e) => handleInputChange(setSecondFirstName, 'secondFirstName', e.target.value)}
+                      onBlur={() => validateField('secondFirstName', secondFirstName, validationRules.firstName)}
+                      className={`w-full p-3 border ${fieldErrors.secondFirstName ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                      autoComplete="off"
+                      required={plan === "monthlyFamily"}
+                    />
+                    {fieldErrors.secondFirstName && (
+                      <p className="text-red-500 text-xs mt-1">{fieldErrors.secondFirstName}</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      name="secondLastName"
+                      placeholder="Last Name"
+                      value={secondLastName}
+                      onChange={(e) => handleInputChange(setSecondLastName, 'secondLastName', e.target.value)}
+                      onBlur={() => validateField('secondLastName', secondLastName, validationRules.lastName)}
+                      className={`w-full p-3 border ${fieldErrors.secondLastName ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                      autoComplete="off"
+                      required={plan === "monthlyFamily"}
+                    />
+                    {fieldErrors.secondLastName && (
+                      <p className="text-red-500 text-xs mt-1">{fieldErrors.secondLastName}</p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      name="secondEmail"
+                      placeholder="Email Address"
+                      value={secondEmail}                
+                      onChange={(e) => {
+                        handleInputChange(setSecondEmail, 'secondEmail', e.target.value);
+                        // Clear the general error message if it was about duplicate emails
+                        if (errorMessage === "Primary and secondary users must have different email addresses" && 
+                            e.target.value !== email) {
+                          setErrorMessage(null);
+                        }
+                      }}
+                      onBlur={() => validateField('secondEmail', secondEmail, validationRules.secondEmail, email)}
+                      className={`w-full p-3 border ${fieldErrors.secondEmail ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                      autoComplete="off"
+                      required={plan === "monthlyFamily"}
+                    />
+                    {fieldErrors.secondEmail && (
+                      <p className="text-red-500 text-xs mt-1">{fieldErrors.secondEmail}</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                    <input
+                      type="tel"
+                      name="secondPhone"
+                      placeholder="Phone Number"
+                      value={secondPhone}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        handleInputChange(setSecondPhone, 'secondPhone', value);
+                      }}
+                      onBlur={() => validateField('secondPhone', secondPhone, validationRules.phone)}
+                      className={`w-full p-3 border ${fieldErrors.secondPhone ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
+                      autoComplete="off"
+                      required={plan === "monthlyFamily"}
+                    />
+                    {fieldErrors.secondPhone && (
+                      <p className="text-red-500 text-xs mt-1">{fieldErrors.secondPhone}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg mt-4 flex items-start">
+                  <svg className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Both users will receive access to all webinars for the next 30 days. The second person must have a different email address from the primary user.
+                </p>
+              </div>
+            </div>          )}          {/* Date Selector Section */}
+          <div className="mt-16 rounded-xl shadow-md border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 py-3 px-4 border-b border-gray-200">
+              <p className="font-semibold text-gray-700 flex items-center">
+                <svg className="h-5 w-5 mr-2 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" 
+                  />
+                </svg>
+                Select Start Date
+              </p>
+            </div>
+            <div className="p-5 bg-white">
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {plan === 'daily' 
+                    ? 'Session Date (IST)' 
+                    : `Plan Start Date (IST)`}
+                </label>                <input
+                  type="date"
+                  name="startDate"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setErrorMessage(null);
+                    setSuccessMessage(null);
+                  }}
+                  min={new Date().toISOString().split('T')[0]} // Set min to current date
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none bg-white text-gray-900 transition duration-200 text-sm sm:text-base"
+                  required
+                />
+              </div>
+              
+              <div className="flex items-start bg-blue-50 p-3 rounded-lg text-sm">
+                <svg className="h-5 w-5 mr-2 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="text-blue-700">
+                  {plan === 'daily' ? (
+                    <>Select the specific date for your single session. Access will be valid for this day only.</>
+                  ) : (
+                    <>Your {plan === 'monthlyFamily' ? 'family ' : ''}plan will start on the selected date and continue for 30 days. You'll have access to all sessions during this period.</>
+                  )}
+                </div>
+              </div>
+              
+              {successMessage && (
+                <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg">
+                  <p className="text-sm text-green-700 flex items-center">
+                    <svg className="h-5 w-5 mr-2 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {successMessage}
+                  </p>
+                </div>
               )}
             </div>
           </div>
-        )}
-        
-        {/* Date Selector Section - FOURTH */}
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-          <p className="font-semibold text-gray-700 mb-2">Select Start Date</p>
-          <div className="w-full">            <input
-              type="date"
-              name="startDate"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setErrorMessage(null);
-                setSuccessMessage(null);
-              }}
-              min={new Date().toISOString().split('T')[0]} // Set min to current date
-              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {plan === 'daily' 
-                ? 'Select the date for your daily session (IST)' 
-                : `Select start date for your ${plan === 'monthlyFamily' ? 'family ' : ''}plan (IST)`}
 
-            </p>
+          {/* Source (How did you hear about us) Section */}
+          <div className="mt-6 rounded-xl shadow-md border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 py-3 px-4 border-b border-gray-200">
+              <p className="font-semibold text-gray-700 flex items-center">
+                <svg className="h-5 w-5 mr-2 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                  />
+                </svg>
+                How did you hear about us?
+              </p>
+            </div>
+            <div className="p-5 bg-white">
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
+                <select
+                  name="source"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none bg-white text-gray-900 transition duration-200"
+                  required
+                >
+                  <option value="Instagram">Instagram</option>
+                  <option value="Facebook">Facebook</option>
+                  <option value="Twitter">Twitter</option>
+                  <option value="LinkedIn">LinkedIn</option>
+                  <option value="Google">Google</option>
+                  <option value="Friend">Friend</option>
+                  <option value="Reference">Reference/Referral</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              
+              {/* Reference field (shown only if source is "Reference") */}
+              {source === "Reference" && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reference Name</label>
+                  <input
+                    type="text"
+                    name="reference"
+                    placeholder="Enter reference name"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200"
+                    autoComplete="off"
+                  />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Source (How did you hear about us) Section - FIFTH */}
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-          <p className="font-semibold text-gray-700 mb-2">How did you hear about us?</p>
-          <div className="w-full">            <select
-              name="source"
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
-              required
-            >
-              <option value="Instagram">Instagram</option>
-              <option value="Facebook">Facebook</option>
-              <option value="Twitter">Twitter</option>
-              <option value="LinkedIn">LinkedIn</option>
-              <option value="Google">Google</option>
-              <option value="Friend">Friend</option>
-              <option value="Reference">Reference/Referral</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-        </div>
+          {/* Error or success message */}
+          {(errorMessage || successMessage) && (
+            <div className={`mt-6 p-4 rounded-xl shadow-md ${
+              errorMessage 
+                ? 'bg-red-50 border border-red-200' 
+                : 'bg-green-50 border border-green-200'
+            }`}>
+              <p className={`flex items-start ${
+                errorMessage ? 'text-red-700' : 'text-green-700'
+              }`}>
+                {errorMessage ? (
+                  <svg className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                    />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+                <span>{errorMessage || successMessage}</span>
+              </p>
+            </div>
+          )}
 
-        {/* Reference field (shown only if source is "Reference") */}
-        {source === "Reference" && (
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-            <p className="font-semibold text-gray-700 mb-2">Reference Name</p>
-            <input              type="text"
-              name="reference"
-              placeholder="Enter reference name"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
-              autoComplete="off"
-            />
+          {/* Submit button */}
+          <div className="mt-6">
+            <button
+              type="submit"
+              className={`w-full px-6 py-4 text-white font-medium rounded-xl shadow-lg focus:outline-none focus:ring-4 transition-all duration-300 ${
+                isLoading 
+                  ? 'bg-gray-500 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-300'
+              }`}
+              disabled={isLoading}
+            >              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center">
+                  Register & Pay {PLAN_PRICING[plan].display}
+                  <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </span>
+              )}
+            </button>
           </div>
-        )}
-        
-        {/* Error or success message */}
-        {(errorMessage || successMessage) && (
-          <div className={`p-4 rounded-lg ${errorMessage ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-            <p className={`text-sm ${errorMessage ? 'text-red-700' : 'text-green-700'}`}>
-              {errorMessage || successMessage}
-            </p>
-          </div>
-        )}
-
-        {/* Submit button */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <button
-            type="submit"
-            className="w-full px-4 py-3 text-white bg-gray-800 rounded-lg shadow hover:bg-gray-700 focus:outline-none transition-all duration-200"
-            disabled={isLoading}
-          >
-            {isLoading ? "Processing..." : "Register & Pay Now"}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
