@@ -7,85 +7,102 @@ const prisma = new PrismaClient();
 async function testSubscriptionValidation() {
   try {
     console.log('Testing subscription validation...');
-    
-    // Create a test user with no subscriptions
-    const testEmail = `test_${Date.now()}@example.com`;
-    const user = await prisma.user.create({
+    // Create 3 test users
+    const users = [];
+    for (let i = 0; i < 3; i++) {
+      const email = `testuser${i + 1}_${Date.now()}@example.com`;
+      const user = await prisma.user.create({
+        data: {
+          firstName: `User${i + 1}`,
+          lastName: 'Test',
+          email,
+          phone: '1234567890',
+          source: 'Test',
+        }
+      });
+      users.push(user);
+    }
+    const [userA, userB, userC] = users;
+    console.log(`Created users: ${userA.email}, ${userB.email}, ${userC.email}`);
+
+    // Helper to get date ranges
+    const today = new Date();
+    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+    const dayAfterTomorrow = new Date(today); dayAfterTomorrow.setDate(today.getDate() + 2);
+    const nextMonth = new Date(today); nextMonth.setDate(today.getDate() + 30);
+    const nextMonthEnd = new Date(nextMonth); nextMonthEnd.setDate(nextMonth.getDate() + 30);
+
+    // 1. A has monthly plan, B tries to join family plan with A (should fail for B overlap)
+    const aMonthly = await prisma.subscription.create({
       data: {
-        firstName: 'Test',
-        lastName: 'User',
-        email: testEmail,
-        phone: '1234567890',
-        source: 'Test',
+        userId: userA.id,
+        planType: 'monthly',
+        startDate: today,
+        endDate: nextMonth,
+        orderId: `orderA_${Date.now()}`,
+        paymentStatus: 'success',
+        status: 'active',
+        duration: 30
       }
     });
-    
-    console.log(`Created test user with email: ${testEmail}`);
-    
-    // Test 1: User with no subscriptions should be able to subscribe
-    let result = await canUserSubscribe(testEmail);
-    console.log('\nTest 1: User with no subscriptions');
-    console.log('Can subscribe:', result.canSubscribe);
-    console.log('Reason:', result.reason);
-    
-    // Create a daily subscription
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    
-    const dailySub = await prisma.subscription.create({
+    let result = await canUserSubscribeForDates(userB.email, today, nextMonth, 'monthlyFamily');
+    console.log('\nA has monthly, B tries family plan with A (should pass for B):', result.canSubscribe);
+    result = await canUserSubscribeForDates(userA.email, today, nextMonth, 'monthlyFamily');
+    console.log('A has monthly, A tries family plan (should fail for A):', result.canSubscribe, result.reason);
+
+    // 2. B has daily plan, A tries family plan with B (should fail for B overlap)
+    const bDaily = await prisma.subscription.create({
       data: {
-        userId: user.id,
+        userId: userB.id,
         planType: 'daily',
         startDate: today,
         endDate: tomorrow,
-        orderId: `test_order_${Date.now()}`,
+        orderId: `orderB_${Date.now()}`,
         paymentStatus: 'success',
         status: 'active',
         duration: 1
       }
     });
-    
-    console.log('\nCreated daily subscription for today');
-    
-    // Test 2: User with daily subscription should not be able to subscribe for the same day
-    result = await canUserSubscribeForDates(testEmail, today, tomorrow, 'daily');
-    console.log('\nTest 2: User with daily subscription trying to get another daily for same day');
-    console.log('Can subscribe:', result.canSubscribe);
-    console.log('Reason:', result.reason);
-    
-    // Test 3: User with daily subscription should not be able to get monthly that overlaps
-    const nextMonth = new Date(today);
-    nextMonth.setDate(today.getDate() + 30);
-    
-    result = await canUserSubscribeForDates(testEmail, today, nextMonth, 'monthly');
-    console.log('\nTest 3: User with daily subscription trying to get monthly that overlaps');
-    console.log('Can subscribe:', result.canSubscribe);
-    console.log('Reason:', result.reason);
-    
-    // Test 4: User should be able to subscribe for non-overlapping period
-    const dayAfterTomorrow = new Date(tomorrow);
-    dayAfterTomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const twoDaysAfter = new Date(dayAfterTomorrow);
-    twoDaysAfter.setDate(dayAfterTomorrow.getDate() + 1);
-    
-    result = await canUserSubscribeForDates(testEmail, dayAfterTomorrow, twoDaysAfter, 'daily');
-    console.log('\nTest 4: User subscribing for non-overlapping period');
-    console.log('Can subscribe:', result.canSubscribe);
-    console.log('Reason:', result.reason);
-    
+    result = await canUserSubscribeForDates(userA.email, today, tomorrow, 'monthlyFamily');
+    console.log('\nB has daily, A tries family plan with B (should fail for B):', result.canSubscribe);
+    result = await canUserSubscribeForDates(userB.email, today, tomorrow, 'monthlyFamily');
+    console.log('B has daily, B tries family plan (should fail for B):', result.canSubscribe, result.reason);
+
+    // 3. A and C have no overlap, try family plan (should succeed)
+    result = await canUserSubscribeForDates(userA.email, dayAfterTomorrow, nextMonth, 'monthlyFamily');
+    const resultC = await canUserSubscribeForDates(userC.email, dayAfterTomorrow, nextMonth, 'monthlyFamily');
+    console.log('\nA and C no overlap, family plan (should succeed):', result.canSubscribe && resultC.canSubscribe);
+
+    // 4. C gets daily plan, then tries monthly overlapping (should fail)
+    const cDaily = await prisma.subscription.create({
+      data: {
+        userId: userC.id,
+        planType: 'daily',
+        startDate: today,
+        endDate: tomorrow,
+        orderId: `orderC_${Date.now()}`,
+        paymentStatus: 'success',
+        status: 'active',
+        duration: 1
+      }
+    });
+    result = await canUserSubscribeForDates(userC.email, today, nextMonth, 'monthly');
+    console.log('\nC has daily, tries monthly overlapping (should fail):', result.canSubscribe, result.reason);
+
+    // 5. All users, non-overlapping periods (should succeed)
+    const farFuture = new Date(); farFuture.setDate(today.getDate() + 100);
+    const farFutureEnd = new Date(farFuture); farFutureEnd.setDate(farFuture.getDate() + 30);
+    for (const user of users) {
+      result = await canUserSubscribeForDates(user.email, farFuture, farFutureEnd, 'monthly');
+      console.log(`\n${user.email} can subscribe for far future (should succeed):`, result.canSubscribe);
+    }
+
     // Clean up test data
-    await prisma.subscription.delete({
-      where: { id: dailySub.id }
-    });
-    
-    await prisma.user.delete({
-      where: { id: user.id }
-    });
-    
+    await prisma.subscription.deleteMany({ where: { userId: { in: users.map(u => u.id) } } });
+    for (const user of users) {
+      await prisma.user.delete({ where: { id: user.id } });
+    }
     console.log('\nTest data cleaned up');
-    
   } catch (error) {
     console.error('Error during testing:', error);
   } finally {

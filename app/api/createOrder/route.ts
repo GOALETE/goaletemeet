@@ -125,10 +125,16 @@ export async function POST(request: NextRequest) {
         canUserSubscribeForDates(user2.email, subscriptionStartDate, subscriptionEndDate, planType)
       ]);
       if (!canSub1.canSubscribe) {
-        return NextResponse.json({ message: "Primary user cannot subscribe", details: canSub1.reason }, { status: 409 });
+        return NextResponse.json({ 
+          message: `Primary user (${user1.email}) cannot subscribe for the selected dates.`, 
+          details: canSub1.reason 
+        }, { status: 409 });
       }
       if (!canSub2.canSubscribe) {
-        return NextResponse.json({ message: "Second user cannot subscribe", details: canSub2.reason }, { status: 409 });
+        return NextResponse.json({ 
+          message: `Second user (${user2.email}) cannot subscribe for the selected dates.`, 
+          details: canSub2.reason 
+        }, { status: 409 });
       }
       // Create Razorpay order (single order for both subscriptions)
       let order;
