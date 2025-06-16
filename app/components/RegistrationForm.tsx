@@ -54,7 +54,6 @@ export default function RegistrationForm() {
     secondEmail: '',
     secondPhone: ''
   });
-  
   // Set today's date as the default start date when component mounts (using IST timezone)
   useEffect(() => {
     // Use IST timezone for date calculations
@@ -471,6 +470,35 @@ export default function RegistrationForm() {
     return `${day}/${month}/${year}`;
   }
 
+  // Create a wrapper component for form autofill detection
+  useEffect(() => {
+    // This workaround helps trigger browser autofill in some browsers
+    const autofillTrigger = () => {
+      // Create a hidden input to force autofill detection
+      const hiddenInput = document.createElement('input');
+      hiddenInput.style.display = 'none';
+      hiddenInput.name = 'hidden-trigger';
+      hiddenInput.setAttribute('autocomplete', 'on');
+      
+      // Append and remove to trigger autofill
+      const form = document.querySelector('form');
+      if (form) {
+        form.appendChild(hiddenInput);
+        setTimeout(() => {
+          hiddenInput.focus();
+          setTimeout(() => {
+            document.activeElement && (document.activeElement as HTMLElement).blur();
+            form.removeChild(hiddenInput);
+          }, 500);
+        }, 500);
+      }
+    };
+    
+    // Run the trigger after a delay
+    const timer = setTimeout(autofillTrigger, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8 relative overflow-hidden">
       {/* Load Razorpay script */}
@@ -492,10 +520,10 @@ export default function RegistrationForm() {
         width={600}
         height={600}
       />
-      
-      <form
+        <form
         onSubmit={handleSubmit}
         className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg border border-gray-200 space-y-8 relative z-10"
+        autoComplete="on"
       >
         <div className="text-center mb-4 flex flex-col items-center gap-2">
           <Image src="/goalete_logo.jpeg" alt="Goalete Logo" className="w-24 h-24 rounded-full shadow border border-gray-200 bg-white object-cover" width={96} height={96} />
@@ -505,35 +533,38 @@ export default function RegistrationForm() {
 
         {/* Primary User Information - FIRST */}
         <div className="space-y-4">
-          <p className="font-semibold text-gray-700 mb-2">Your Information</p>
+          <p className="font-semibold text-gray-700 mb-2">Your Information</p>          
           <input
             type="text"
+            name="firstName"
             placeholder="First Name"
             value={firstName}
             onChange={(e) => handleInputChange(setFirstName, 'firstName', e.target.value)}
             onBlur={() => validateField('firstName', firstName, validationRules.firstName)}
             className={`w-full p-3 border ${fieldErrors.firstName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
+            autoComplete="given-name"
             required
           />
           {fieldErrors.firstName && (
             <p className="text-red-500 text-xs mt-1">{fieldErrors.firstName}</p>
           )}
-          
-          <input
+            <input
             type="text"
+            name="lastName"
             placeholder="Last Name"
             value={lastName}
             onChange={(e) => handleInputChange(setLastName, 'lastName', e.target.value)}
             onBlur={() => validateField('lastName', lastName, validationRules.lastName)}
             className={`w-full p-3 border ${fieldErrors.lastName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
+            autoComplete="family-name"
             required
           />
           {fieldErrors.lastName && (
             <p className="text-red-500 text-xs mt-1">{fieldErrors.lastName}</p>
           )}
-          
-          <input
+            <input
             type="email"
+            name="email"
             placeholder="Email"
             value={email}
             onChange={(e) => {
@@ -548,14 +579,15 @@ export default function RegistrationForm() {
               }
             }}
             className={`w-full p-3 border ${fieldErrors.email ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
+            autoComplete="email"
             required
           />
           {fieldErrors.email && (
             <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
           )}
-          
-          <input
+            <input
             type="tel"
+            name="phone"
             placeholder="Phone No."
             value={phone}
             onChange={(e) => {
@@ -565,6 +597,7 @@ export default function RegistrationForm() {
             }}
             onBlur={() => validateField('phone', phone, validationRules.phone)}
             className={`w-full p-3 border ${fieldErrors.phone ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400`}
+            autoComplete="tel"
             required
           />
           {fieldErrors.phone && (
@@ -625,33 +658,35 @@ export default function RegistrationForm() {
         {plan === "monthlyFamily" && (
           <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
             <p className="font-semibold text-yellow-700 mb-2">Second Person Details (Family Plan)</p>
-            <div className="space-y-4">
-              <input
+            <div className="space-y-4">              <input
                 type="text"
+                name="secondFirstName"
                 placeholder="Second Person First Name"
                 value={secondFirstName}
                 onChange={(e) => handleInputChange(setSecondFirstName, 'secondFirstName', e.target.value)}
                 onBlur={() => validateField('secondFirstName', secondFirstName, validationRules.firstName)}
                 className={`w-full p-3 border ${fieldErrors.secondFirstName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
+                autoComplete="off"
                 required={plan === "monthlyFamily"}
               />
               {fieldErrors.secondFirstName && (
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.secondFirstName}</p>
-              )}
-              <input
+              )}              <input
                 type="text"
+                name="secondLastName"
                 placeholder="Second Person Last Name"
                 value={secondLastName}
                 onChange={(e) => handleInputChange(setSecondLastName, 'secondLastName', e.target.value)}
                 onBlur={() => validateField('secondLastName', secondLastName, validationRules.lastName)}
                 className={`w-full p-3 border ${fieldErrors.secondLastName ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
+                autoComplete="off"
                 required={plan === "monthlyFamily"}
               />
               {fieldErrors.secondLastName && (
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.secondLastName}</p>
-              )}
-              <input
+              )}              <input
                 type="email"
+                name="secondEmail"
                 placeholder="Second Person Email"
                 value={secondEmail}
                 onChange={(e) => {
@@ -664,13 +699,14 @@ export default function RegistrationForm() {
                 }}
                 onBlur={() => validateField('secondEmail', secondEmail, validationRules.secondEmail, email)}
                 className={`w-full p-3 border ${fieldErrors.secondEmail ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
+                autoComplete="off"
                 required={plan === "monthlyFamily"}
               />
               {fieldErrors.secondEmail && (
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.secondEmail}</p>
-              )}
-              <input
+              )}              <input
                 type="tel"
+                name="secondPhone"
                 placeholder="Second Person Phone No."
                 value={secondPhone}
                 onChange={(e) => {
@@ -679,6 +715,7 @@ export default function RegistrationForm() {
                 }}
                 onBlur={() => validateField('secondPhone', secondPhone, validationRules.phone)}
                 className={`w-full p-3 border ${fieldErrors.secondPhone ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-yellow-50 text-gray-900 placeholder:text-gray-400`}
+                autoComplete="off"
                 required={plan === "monthlyFamily"}
               />
               {fieldErrors.secondPhone && (
@@ -691,9 +728,9 @@ export default function RegistrationForm() {
         {/* Date Selector Section - FOURTH */}
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <p className="font-semibold text-gray-700 mb-2">Select Start Date</p>
-          <div className="w-full">
-            <input
+          <div className="w-full">            <input
               type="date"
+              name="startDate"
               value={startDate}
               onChange={(e) => {
                 setStartDate(e.target.value);
@@ -716,8 +753,8 @@ export default function RegistrationForm() {
         {/* Source (How did you hear about us) Section - FIFTH */}
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <p className="font-semibold text-gray-700 mb-2">How did you hear about us?</p>
-          <div className="w-full">
-            <select
+          <div className="w-full">            <select
+              name="source"
               value={source}
               onChange={(e) => setSource(e.target.value)}
               className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900"
@@ -739,12 +776,13 @@ export default function RegistrationForm() {
         {source === "Reference" && (
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
             <p className="font-semibold text-gray-700 mb-2">Reference Name</p>
-            <input
-              type="text"
+            <input              type="text"
+              name="reference"
               placeholder="Enter reference name"
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none bg-gray-50 text-gray-900 placeholder:text-gray-400"
+              autoComplete="off"
             />
           </div>
         )}
