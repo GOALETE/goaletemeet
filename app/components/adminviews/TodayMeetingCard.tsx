@@ -41,7 +41,8 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
         return;
       }
 
-      // Get today's date in IST      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      // Get today's date in IST
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
       const todayStr = format(today, 'yyyy-MM-dd');
       
       const response = await fetch(`/api/admin/today-active/meeting?date=${todayStr}`, {
