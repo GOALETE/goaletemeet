@@ -603,53 +603,96 @@ export default function RegistrationForm() {
           {fieldErrors.phone && (
             <p className="text-red-500 text-xs mt-1">{fieldErrors.phone}</p>
           )}
-        </div>
-
-        {/* Subscription Plan Section - SECOND */}
+        </div>        {/* Subscription Plan Section - SECOND */}
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <p className="font-semibold text-gray-700 mb-2">Subscription Plan</p>
           <div className="flex flex-col sm:flex-row gap-4 w-full">
-            <label className="flex flex-col items-start w-full sm:w-1/3 cursor-pointer gap-1">
-              <div className="flex items-center gap-2 w-full justify-start">
+            <label className="relative flex flex-col w-full sm:w-1/3 cursor-pointer gap-1 p-3 transition-all duration-200 rounded-lg hover:bg-gray-100">
+              <div className="flex items-center gap-2 w-full">
                 <input
                   type="radio"
                   name="plan"
                   value="daily"
                   checked={plan === "daily"}
                   onChange={() => handlePlanChange("daily")}
-                  className="accent-gray-600"
+                  className="accent-blue-600"
                 />
-                <span className="text-gray-800">Daily Session</span>
+                <div>
+                  <div className="flex items-center">
+                    <span className="text-gray-800 font-medium">Daily Session</span>
+                    <div className="group relative ml-1">
+                      <span className="cursor-help text-blue-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </span>
+                      <div className="absolute z-10 w-64 p-3 bg-blue-700 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 bottom-full left-1/2 transform -translate-x-1/2 mb-2">
+                        {PLAN_PRICING.daily.description}
+                        <div className="absolute w-3 h-3 bg-blue-700 transform rotate-45 left-1/2 -translate-x-1/2 -bottom-1.5"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-500 font-medium">{PLAN_PRICING.daily.display}</span>
+                </div>
               </div>
-              <span className="text-xs text-gray-400 font-medium pl-6">({PLAN_PRICING.daily.display})</span>
             </label>
-            <label className="flex flex-col items-center w-full sm:w-1/3 cursor-pointer gap-1">
-              <div className="flex items-center gap-2 w-full justify-center">
+            <label className="relative flex flex-col w-full sm:w-1/3 cursor-pointer gap-1 p-3 transition-all duration-200 rounded-lg hover:bg-gray-100">
+              <div className="flex items-center gap-2 w-full">
                 <input
                   type="radio"
                   name="plan"
                   value="monthly"
                   checked={plan === "monthly"}
                   onChange={() => handlePlanChange("monthly")}
-                  className="accent-gray-600"
+                  className="accent-blue-600"
                 />
-                <span className="text-gray-800">Monthly Plan</span>
+                <div>
+                  <div className="flex items-center">
+                    <span className="text-gray-800 font-medium">Monthly Plan</span>
+                    <div className="group relative ml-1">
+                      <span className="cursor-help text-blue-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </span>
+                      <div className="absolute z-10 w-64 p-3 bg-blue-700 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 bottom-full left-1/2 transform -translate-x-1/2 mb-2">
+                        {PLAN_PRICING.monthly.description}
+                        <div className="absolute w-3 h-3 bg-blue-700 transform rotate-45 left-1/2 -translate-x-1/2 -bottom-1.5"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-500 font-medium">{PLAN_PRICING.monthly.display}</span>
+                </div>
               </div>
-              <span className="text-xs text-gray-400 font-medium">({PLAN_PRICING.monthly.display})</span>
             </label>
-            <label className="flex flex-col items-end w-full sm:w-1/3 cursor-pointer gap-1">
-              <div className="flex items-center gap-2 w-full justify-end">
+            <label className="relative flex flex-col w-full sm:w-1/3 cursor-pointer gap-1 p-3 transition-all duration-200 rounded-lg hover:bg-gray-100">
+              <div className="flex items-center gap-2 w-full">
                 <input
                   type="radio"
                   name="plan"
                   value="monthlyFamily"
                   checked={plan === "monthlyFamily"}
                   onChange={() => handlePlanChange("monthlyFamily")}
-                  className="accent-gray-600"
+                  className="accent-blue-600"
                 />
-                <span className="text-gray-800">Monthly Family</span>
+                <div>
+                  <div className="flex items-center">
+                    <span className="text-gray-800 font-medium">Monthly Family</span>
+                    <div className="group relative ml-1">
+                      <span className="cursor-help text-blue-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </span>
+                      <div className="absolute z-10 w-64 p-3 bg-blue-700 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 bottom-full left-1/2 transform -translate-x-1/2 mb-2">
+                        {PLAN_PRICING.monthlyFamily.description}
+                        <div className="absolute w-3 h-3 bg-blue-700 transform rotate-45 left-1/2 -translate-x-1/2 -bottom-1.5"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-500 font-medium">{PLAN_PRICING.monthlyFamily.display}</span>
+                </div>
               </div>
-              <span className="text-xs text-gray-400 font-medium pr-6">({PLAN_PRICING.monthlyFamily.display})</span>
             </label>
           </div>
         </div>

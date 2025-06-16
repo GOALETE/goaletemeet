@@ -298,6 +298,7 @@ export async function PATCH(request: NextRequest) {
         amount: parseFloat(subscription.price.toString()),
         paymentId: subscription.paymentRef || undefined
       });
+      /*
       // Send meeting invite if subscription starts today
       const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
       today.setHours(0, 0, 0, 0);
@@ -320,6 +321,7 @@ export async function PATCH(request: NextRequest) {
           });
         }
       }
+        */
     }));
     // Send admin notification
     if (updatedSubs.length > 1) {

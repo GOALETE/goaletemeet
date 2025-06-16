@@ -233,25 +233,25 @@ export async function sendAdminNotificationEmail({
     : planType === 'monthly' 
       ? 'Monthly Plan' 
       : 'Monthly Family Plan';
-  
-  // Create HTML content
+    // Create HTML content
   const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>New Registration Notification</title>
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .header { background-color: #f5f5f5; padding: 20px; text-align: center; border-bottom: 2px solid #ddd; }
-        h1 { color: #2c3e50; margin: 0; }
-        .user-details, .subscription-details, .payment-details { 
-          margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 5px; 
-        }
+        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; background-color: #f5f5f5; padding: 20px; border-radius: 8px; }
+        h1 { color: #2c3e50; margin-bottom: 5px; }
         h2 { color: #3498db; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .section { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0; border-left: 4px solid #3498db; }
         table { width: 100%; border-collapse: collapse; }
         td { padding: 8px; border-bottom: 1px solid #eee; }
         td:first-child { font-weight: bold; width: 40%; }
         .amount { color: #27ae60; font-weight: bold; }
+        .footer { margin-top: 40px; font-size: 14px; color: #7f8c8d; text-align: center; }
       </style>
     </head>
     <body>
@@ -261,7 +261,7 @@ export async function sendAdminNotificationEmail({
       
       <p>A new registration and payment has been completed for a <b>${planDisplay}</b>.</p>
       
-      <div class="user-details">
+      <div class="section">
         <h2>User Details</h2>
         <table>
           <tr>
@@ -293,7 +293,7 @@ export async function sendAdminNotificationEmail({
         </table>
       </div>
       
-      <div class="subscription-details">
+      <div class="section">
         <h2>Subscription Details</h2>
         <table>
           <tr>
@@ -311,7 +311,7 @@ export async function sendAdminNotificationEmail({
         </table>
       </div>
       
-      <div class="payment-details">
+      <div class="section">
         <h2>Payment Details</h2>
         <table>
           <tr>
@@ -320,9 +320,13 @@ export async function sendAdminNotificationEmail({
           </tr>
           <tr>
             <td>Payment ID:</td>
-            <td>${paymentId}</td>
+            <td>${paymentId || 'Not available'}</td>
           </tr>
         </table>
+      </div>
+
+      <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} GOALETE CLUB. All rights reserved.</p>
       </div>
     </body>
     </html>
@@ -377,26 +381,26 @@ export async function sendFamilyAdminNotificationEmail({
   const formattedEndDate = endDate.toLocaleDateString('en-IN', { 
     day: '2-digit', month: '2-digit', year: 'numeric' 
   });
-  
-  // Create HTML content
+    // Create HTML content
   const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>New Family Registration Notification</title>
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .header { background-color: #f5f5f5; padding: 20px; text-align: center; border-bottom: 2px solid #ddd; }
-        h1 { color: #2c3e50; margin: 0; }
-        .user-details, .subscription-details, .payment-details { 
-          margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 5px; 
-        }
+        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; background-color: #f5f5f5; padding: 20px; border-radius: 8px; }
+        h1 { color: #2c3e50; margin-bottom: 5px; }
         h2 { color: #3498db; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .section { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0; border-left: 4px solid #3498db; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
         th { background-color: #f9f9f9; }
         .amount { color: #27ae60; font-weight: bold; }
         .member-label { background-color: #e8f4fd; padding: 5px 10px; border-radius: 3px; margin-right: 10px; }
+        .footer { margin-top: 40px; font-size: 14px; color: #7f8c8d; text-align: center; }
       </style>
     </head>
     <body>
@@ -406,7 +410,7 @@ export async function sendFamilyAdminNotificationEmail({
       
       <p>A new <b>Monthly Family Plan</b> registration and payment has been completed.</p>
       
-      <div class="user-details">
+      <div class="section">
         <h2>Family Members</h2>
         <table>
           <thead>
@@ -432,7 +436,7 @@ export async function sendFamilyAdminNotificationEmail({
         </table>
       </div>
       
-      <div class="subscription-details">
+      <div class="section">
         <h2>Subscription Details</h2>
         <table>
           <tr>
@@ -450,7 +454,7 @@ export async function sendFamilyAdminNotificationEmail({
         </table>
       </div>
       
-      <div class="payment-details">
+      <div class="section">
         <h2>Payment Details</h2>
         <table>
           <tr>
@@ -459,9 +463,13 @@ export async function sendFamilyAdminNotificationEmail({
           </tr>
           <tr>
             <td>Payment ID:</td>
-            <td>${paymentId}</td>
+            <td>${paymentId || 'Not available'}</td>
           </tr>
         </table>
+      </div>
+
+      <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} GOALETE CLUB. All rights reserved.</p>
       </div>
     </body>
     </html>
@@ -513,219 +521,79 @@ export async function sendWelcomeEmail({
       : planType === 'monthly' 
         ? 'Monthly Plan' 
         : 'Monthly Family Plan';
-    
-    // Create HTML content with modern, elegant design
+      // Create HTML content with modern, elegant design
     const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
-        <meta charset="UTF-8">
+        <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to GOALETE CLUB!</title>
+        <title>Welcome to GOALETE Club!</title>
         <style>
-          /* Base styles */
-          body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f9f9f9;
-            margin: 0;
-            padding: 0;
-          }
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          }
-          .header {
-            background-color: #2c3e50;
-            color: white;
-            padding: 30px 20px;
-            text-align: center;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 600;
-          }
-          .header p {
-            margin: 10px 0 0;
-            opacity: 0.9;
-          }
-          .content {
-            padding: 30px 20px;
-          }
-          .welcome-message {
-            margin-bottom: 25px;
-            font-size: 16px;
-          }
-          .section {
-            background-color: #f5f7fa;
-            border-radius: 6px;
-            padding: 20px;
-            margin-bottom: 20px;
-          }
-          .section h2 {
-            color: #2c3e50;
-            font-size: 18px;
-            margin-top: 0;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #e1e8ed;
-            padding-bottom: 10px;
-          }
-          .details {
-            display: table;
-            width: 100%;
-          }
-          .details-row {
-            display: table-row;
-          }
-          .details-label {
-            display: table-cell;
-            font-weight: 600;
-            padding: 8px 0;
-            width: 40%;
-            color: #596880;
-          }
-          .details-value {
-            display: table-cell;
-            padding: 8px 0;
-          }
-          .amount {
-            font-weight: 600;
-            color: #27ae60;
-          }
-          .footer {
-            background-color: #f5f7fa;
-            padding: 20px;
-            text-align: center;
-            color: #596880;
-            font-size: 14px;
-            border-top: 1px solid #e1e8ed;
-          }
-          .contact-us {
-            margin-top: 25px;
-            text-align: center;
-          }
-          .social-links {
-            margin: 15px 0;
-            text-align: center;
-          }
-          .social-links a {
-            display: inline-block;
-            margin: 0 10px;
-            color: #3498db;
-            text-decoration: none;
-          }
-          .button {
-            display: inline-block;
-            background-color: #3498db;
-            color: white;
-            text-decoration: none;
-            padding: 12px 25px;
-            border-radius: 4px;
-            font-weight: 600;
-            margin-top: 10px;
-            text-align: center;
-          }
-          .note {
-            font-size: 14px;
-            color: #596880;
-            font-style: italic;
-            margin-top: 20px;
-          }
-          /* Responsive adjustments */
-          @media only screen and (max-width: 480px) {
-            .header {
-              padding: 20px 15px;
-            }
-            .header h1 {
-              font-size: 24px;
-            }
-            .content {
-              padding: 20px 15px;
-            }
-            .details-label, .details-value {
-              display: block;
-              width: 100%;
-            }
-            .details-label {
-              padding-bottom: 0;
-            }
-          }
+          body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .logo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; }
+          h1 { color: #2c3e50; margin-bottom: 5px; }
+          .plan-details { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0; border-left: 4px solid #27ae60; }
+          .highlight { font-weight: bold; color: #27ae60; }
+          .instructions { background-color: #eafaf1; padding: 15px; border-radius: 8px; margin: 20px 0; }
+          .contact-us { margin-top: 20px; }
+          .button { display: inline-block; background-color: #3498db; color: white; text-decoration: none; padding: 10px 20px; border-radius: 4px; font-weight: 600; }
+          .social-links { margin: 15px 0; }
+          .social-links a { color: #3498db; text-decoration: none; margin: 0 10px; }
+          .footer { margin-top: 40px; font-size: 14px; color: #7f8c8d; text-align: center; }
+          .note { font-size: 14px; color: #596880; font-style: italic; margin-top: 20px; }
         </style>
       </head>
       <body>
-        <div class="container">
-          <div class="header">
-            <h1>Welcome to GOALETE CLUB!</h1>
-            <p>How to Achieve Any Goal in Life</p>
-          </div>
-          
-          <div class="content">
-            <div class="welcome-message">
-              <p>Dear ${recipient.name},</p>
-              <p>Thank you for joining GOALETE CLUB! We're thrilled to have you as a member and look forward to helping you achieve your goals.</p>
-              <p>Your subscription has been successfully activated. Here are your subscription details:</p>
-            </div>
-            
-            <div class="section">
-              <h2>Subscription Details</h2>
-              <div class="details">
-                <div class="details-row">
-                  <div class="details-label">Plan Type:</div>
-                  <div class="details-value"><strong>${planDisplay}</strong></div>
-                </div>
-                <div class="details-row">
-                  <div class="details-label">Start Date:</div>
-                  <div class="details-value">${formattedStartDate}</div>
-                </div>
-                <div class="details-row">
-                  <div class="details-label">End Date:</div>
-                  <div class="details-value">${formattedEndDate}</div>
-                </div>
-                <div class="details-row">
-                  <div class="details-label">Amount Paid:</div>
-                  <div class="details-value"><span class="amount">₹${amount.toFixed(2)}</span></div>
-                </div>
-                ${paymentId ? `
-                <div class="details-row">
-                  <div class="details-label">Payment Reference:</div>
-                  <div class="details-value">${paymentId}</div>
-                </div>
-                ` : ''}
-              </div>
-            </div>
-            
-            <div class="section">
-              <h2>What's Next?</h2>
-              <p>Our team will be in touch with you shortly to schedule your ${planType === 'daily' ? 'session' : 'first session'}.</p>
-              <p>You will receive a calendar invitation via email with the meeting details.</p>
-              ${planType === 'daily' ? `
-                <p>Your session will be conducted online via Google Meet on the selected date.</p>
-              ` : `
-                <p>Your sessions will be conducted online via Google Meet according to the schedule we will establish together.</p>
-              `}
-            </div>
-            
-            <div class="contact-us">
-              <p>If you have any questions or need assistance, please don't hesitate to contact us.</p>
-              <a href="mailto:${process.env.EMAIL_USER || 'info@goaleteclub.com'}" class="button">Contact Support</a>
-            </div>
-            
-            <p class="note">Note: Please keep this email for your records. It serves as confirmation of your subscription.</p>
-          </div>
-          
-          <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} GOALETE CLUB. All rights reserved.</p>
-            <div class="social-links">
-              <a href="https://instagram.com/goaleteclub">Instagram</a> | 
-              <a href="https://twitter.com/goaleteclub">Twitter</a> | 
-              <a href="https://facebook.com/goaleteclub">Facebook</a>
-            </div>
+        <div class="header">
+          <img src="https://goaletemeet.vercel.app/goalete_logo.jpeg" alt="GOALETE Club" class="logo">
+          <h1>Welcome to GOALETE Club!</h1>
+          <p>Your journey to achieving your goals starts now</p>
+        </div>
+        
+        <p>Dear ${recipient.name},</p>
+        
+        <p>Thank you for joining GOALETE Club! Your payment has been successfully processed, and your subscription is now active.</p>
+        
+        <div class="plan-details">
+          <p><strong>Plan:</strong> ${planDisplay}</p>
+          <p><strong>Amount Paid:</strong> ₹${amount.toFixed(2)}</p>
+          ${paymentId ? `<p><strong>Payment ID:</strong> ${paymentId}</p>` : ''}
+          <p><strong>Start Date:</strong> ${formattedStartDate}</p>
+          <p><strong>End Date:</strong> ${formattedEndDate}</p>
+        </div>
+        
+        <div class="instructions">
+          <p><strong>What's Next?</strong></p>
+          <p>Our team will be in touch with you shortly to schedule your ${planType === 'daily' ? 'session' : 'first session'}.</p>
+          <p>You will receive a calendar invitation via email with the meeting details.</p>
+          ${planType === 'daily' ? `
+            <p>Your session will be conducted online via Google Meet on the selected date.</p>
+          ` : `
+            <p>Your sessions will be conducted online via Google Meet according to the schedule we will establish together.</p>
+          `}
+          <p>Sessions are typically held at <span class="highlight">9:00 PM (IST)</span>.</p>
+          <p>Please ensure you join the session on time for the best experience.</p>
+        </div>
+        
+        <div class="contact-us">
+          <p>If you have any questions or need assistance, please don't hesitate to contact us.</p>
+          <a href="mailto:${process.env.EMAIL_USER || 'info@goaleteclub.com'}" class="button">Contact Support</a>
+        </div>
+        
+        <p class="note">Note: Please keep this email for your records. It serves as confirmation of your subscription.</p>
+        
+        <p>We're excited to have you with us and look forward to helping you achieve your goals!</p>
+        
+        <p>Best regards,<br>GOALETE Club Team</p>
+        
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} GOALETE CLUB. All rights reserved.</p>
+          <div class="social-links">
+            <a href="https://instagram.com/goaleteclub">Instagram</a> | 
+            <a href="https://twitter.com/goaleteclub">Twitter</a> | 
+            <a href="https://facebook.com/goaleteclub">Facebook</a>
           </div>
         </div>
       </body>
@@ -823,149 +691,71 @@ STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
 END:VCALENDAR`;
-    
-    // Create HTML content with modern, elegant design
+      // Create HTML content with modern, elegant design
     const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
-        <meta charset="UTF-8">
+        <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${meetingTitle}</title>
         <style>
-          /* Base styles */
-          body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f9f9f9;
-            margin: 0;
-            padding: 0;
-          }
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          }
-          .header {
-            background-color: ${platform === 'Zoom' ? '#2D8CFF' : '#1a73e8'};
-            color: white;
-            padding: 30px 20px;
-            text-align: center;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-          }
-          .content {
-            padding: 30px 20px;
-          }
-          .meeting-details {
-            background-color: #f5f7fa;
-            border-radius: 6px;
-            padding: 20px;
-            margin-bottom: 20px;
-          }
-          .meeting-link {
-            background-color: #e8f4fd;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: center;
-          }
-          .meeting-link a {
-            display: inline-block;
-            background-color: ${platform === 'Zoom' ? '#2D8CFF' : '#1a73e8'};
-            color: white;
-            text-decoration: none;
-            padding: 12px 25px;
-            border-radius: 4px;
-            font-weight: 600;
-            margin-top: 10px;
-          }
-          .details-row {
-            margin-bottom: 10px;
-          }
-          .details-label {
-            font-weight: 600;
-            color: #596880;
-          }
-          .host-link {
-            margin-top: 15px;
-            font-size: 14px;
-            color: #666;
-            border-top: 1px solid #eee;
-            padding-top: 15px;
-          }
-          .host-link a {
-            color: #1a73e8;
-            text-decoration: underline;
-          }
-          .footer {
-            background-color: #f5f7fa;
-            padding: 20px;
-            text-align: center;
-            color: #596880;
-            font-size: 14px;
-            border-top: 1px solid #e1e8ed;
-          }
-          .calendar-info {
-            font-style: italic;
-            margin-top: 20px;
-            color: #666;
-          }
+          body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { text-align: center; margin-bottom: 30px; background-color: ${platform === 'Zoom' ? '#2D8CFF' : '#1a73e8'}; padding: 20px; border-radius: 8px; color: white; }
+          h1 { margin-bottom: 5px; }
+          .meeting-details { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0; border-left: 4px solid ${platform === 'Zoom' ? '#2D8CFF' : '#1a73e8'}; }
+          .details-row { margin-bottom: 10px; }
+          .details-label { font-weight: 600; color: #596880; }
+          .meeting-link { background-color: #e8f4fd; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; }
+          .meeting-link a { display: inline-block; background-color: ${platform === 'Zoom' ? '#2D8CFF' : '#1a73e8'}; color: white; text-decoration: none; padding: 10px 20px; border-radius: 4px; font-weight: 600; margin-top: 10px; }
+          .host-link { margin-top: 15px; font-size: 14px; color: #666; border-top: 1px solid #eee; padding-top: 15px; }
+          .host-link a { color: #1a73e8; text-decoration: underline; }
+          .calendar-info { font-style: italic; margin-top: 20px; color: #666; }
+          .footer { margin-top: 40px; font-size: 14px; color: #7f8c8d; text-align: center; }
         </style>
       </head>
       <body>
-        <div class="container">
-          <div class="header">
-            <h1>${platformIcon} ${meetingTitle}</h1>
+        <div class="header">
+          <h1>${platformIcon} ${meetingTitle}</h1>
+        </div>
+        
+        <p>Dear ${recipient.name},</p>
+        <p>You're invited to a GOALETE CLUB session on ${platformName}.</p>
+        
+        <div class="meeting-details">
+          <div class="details-row">
+            <div class="details-label">Date:</div>
+            <div>${formattedDate}</div>
           </div>
-          
-          <div class="content">
-            <p>Dear ${recipient.name},</p>
-            <p>You're invited to a GOALETE CLUB session on ${platformName}.</p>
-            
-            <div class="meeting-details">
-              <div class="details-row">
-                <div class="details-label">Date:</div>
-                <div>${formattedDate}</div>
-              </div>
-              <div class="details-row">
-                <div class="details-label">Time:</div>
-                <div>${formattedStartTime} - ${formattedEndTime} (IST)</div>
-              </div>
-              <div class="details-row">
-                <div class="details-label">Platform:</div>
-                <div>${platformName}</div>
-              </div>
-            </div>
-            
-            <p>${meetingDescription}</p>
-            <p>${platformInstructions}</p>
-            
-            <div class="meeting-link">
-              <p>Click the button below to join the meeting:</p>
-              <a href="${meetingLink}" target="_blank">Join ${platformName} Meeting</a>
-            </div>
-            
-            ${hostLink ? `
-            <div class="host-link">
-              <p><strong>For hosts only:</strong> If you are the host, use <a href="${hostLink}">this link</a> to start the meeting.</p>
-            </div>
-            ` : ''}
-            
-            <p class="calendar-info">This invitation includes a calendar attachment. Add it to your calendar to receive a reminder.</p>
+          <div class="details-row">
+            <div class="details-label">Time:</div>
+            <div>${formattedStartTime} - ${formattedEndTime} (IST)</div>
           </div>
-          
-          <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} GOALETE CLUB. All rights reserved.</p>
-            <p>If you have any questions, please contact us at ${process.env.EMAIL_USER || 'info@goaleteclub.com'}</p>
+          <div class="details-row">
+            <div class="details-label">Platform:</div>
+            <div>${platformName}</div>
           </div>
+        </div>
+        
+        <p>${meetingDescription}</p>
+        <p>${platformInstructions}</p>
+        
+        <div class="meeting-link">
+          <p>Click the button below to join the meeting:</p>
+          <a href="${meetingLink}" target="_blank">Join ${platformName} Meeting</a>
+        </div>
+        
+        ${hostLink ? `
+        <div class="host-link">
+          <p><strong>For hosts only:</strong> If you are the host, use <a href="${hostLink}">this link</a> to start the meeting.</p>
+        </div>
+        ` : ''}
+        
+        <p class="calendar-info">This invitation includes a calendar attachment. Add it to your calendar to receive a reminder.</p>
+
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} GOALETE CLUB. All rights reserved.</p>
+          <p>If you have any questions, please contact us at ${process.env.EMAIL_USER || 'info@goaleteclub.com'}</p>
         </div>
       </body>
       </html>

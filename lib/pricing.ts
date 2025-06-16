@@ -8,19 +8,22 @@ export const PLAN_PRICING = {
     amount: 299,         // Price in INR
     display: "Rs. 299",  // Formatted display price
     duration: 1,         // Duration in days
-    name: "Daily Session"
+    name: "Daily Session",
+    description: "Join the legendary Goalete webinar on any one date convenient to you and kickstart the journey of infinite possibilities in life"
   },
   monthly: {
     amount: 2999,        // Price in INR
     display: "Rs. 2999", // Formatted display price
     duration: 30,        // Duration in days
-    name: "Monthly Plan"
+    name: "Monthly Plan",
+    description: "Get daily webinar access for a month at a super discounted fee and keep yourself motivated every day"
   },
   monthlyFamily: {
     amount: 4499,        // Price in INR
     display: "Rs. 4499 (Family, 2 users)", // Formatted display price
     duration: 30,        // Duration in days
-    name: "Monthly Family Plan"
+    name: "Monthly Family Plan",
+    description: "Get 2 monthly memberships at a further massive discount. Keep one for yourself and gift the other to a parent, partner, coach, friend or colleague"
   }
 };
 
