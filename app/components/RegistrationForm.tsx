@@ -710,6 +710,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 border-b border-blue-200 rounded-t-xl flex-shrink-0" style={{ minHeight: 80 }}>
                       <div className="flex justify-between items-center mb-1">
                         <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.daily.name}</h3>                        <button 
+                          type="button"
                           className="text-blue-500 hover:text-blue-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -776,6 +777,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                       {/* Close button at the top */}
                       <div className="flex-shrink-0 flex justify-end p-2">
                         <button 
+                          type="button"
                           className="text-white hover:text-blue-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -845,6 +847,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                     <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 border-b border-indigo-200 rounded-t-xl flex-shrink-0" style={{ minHeight: 80 }}>
                       <div className="flex justify-between items-center mb-1">
                         <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.monthly.name}</h3>                        <button 
+                          type="button"
                           className="text-indigo-500 hover:text-indigo-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -911,6 +914,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                       {/* Close button at the top */}
                       <div className="flex-shrink-0 flex justify-end p-2">
                         <button 
+                          type="button"
                           className="text-white hover:text-indigo-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -978,6 +982,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                     {/* Header (fixed height) */}
                     <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 border-b border-amber-200 rounded-t-xl flex-shrink-0" style={{ minHeight: 80 }}>                      <div className="flex justify-between items-center mb-1">
                         <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.monthlyFamily.name}</h3>                        <button 
+                          type="button"
                           className="text-amber-500 hover:text-amber-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1044,6 +1049,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                       {/* Close button at the top */}
                       <div className="flex-shrink-0 flex justify-end p-2">
                         <button 
+                          type="button"
                           className="text-white hover:text-amber-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
                           onClick={(e) => {
                             e.stopPropagation();
