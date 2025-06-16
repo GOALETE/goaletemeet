@@ -29,6 +29,14 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
       .rotate-y-180 {
         transform: rotateY(180deg);
       }
+      .flip-card-back {
+        transform: rotateY(180deg);
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
       @keyframes shimmer {
         0% {
           transform: translateX(-100%);
@@ -697,7 +705,9 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                 
                 <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === 'daily' ? 'rotate-y-180' : ''}`}>
                   {/* Card Front */}
-                  <div className="flip-card-front absolute w-full h-full backface-hidden">                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 border-b border-blue-200 rounded-t-xl">
+                  <div className="flex flex-col h-[420px]">
+                    {/* Header (fixed height) */}
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 border-b border-blue-200 rounded-t-xl flex-shrink-0" style={{ minHeight: 80 }}>
                       <div className="flex justify-between items-center mb-1">
                         <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.daily.name}</h3>                        <button 
                           className="text-blue-500 hover:text-blue-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
@@ -715,7 +725,9 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                       <div className="text-blue-600 font-bold text-lg sm:text-xl md:text-2xl mb-1">{PLAN_PRICING.daily.display}</div>
                       <div className="text-gray-500 text-xs">Start your transformation journey</div>
                     </div>
-                      <div className="p-4 bg-white rounded-b-xl h-[calc(100%-96px)] flex flex-col">                      <ul className="space-y-2 mb-4 flex-grow min-h-0">
+                    {/* Content (flex-grow) */}
+                    <div className="flex-grow flex flex-col justify-start px-4 py-2 bg-white">
+                      <ul className="space-y-2 mb-2">
                         <li className="flex items-start">
                           <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
@@ -734,15 +746,11 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                           </svg>
                           <span className="text-xs sm:text-sm text-gray-600 leading-tight">Choose any available date</span>
                         </li>
-                        <li className="flex items-start invisible">
-                          <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span className="text-xs sm:text-sm text-gray-600 leading-tight">Hidden spacer item</span>
-                        </li>
                       </ul>
-                      
-                      <label className="flex items-center justify-center mt-auto">
+                    </div>
+                    {/* Button (fixed height) */}
+                    <div className="px-4 pb-4 pt-2 flex-shrink-0">
+                      <label className="flex items-center justify-center">
                         <input
                           type="radio"
                           name="plan"
@@ -762,37 +770,43 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                         </div>
                       </label>
                     </div>
-                  </div>
-                    {/* Card Back */}
-                  <div className="flip-card-back absolute w-full h-full backface-hidden rotate-y-180 bg-blue-600 text-white p-5 rounded-xl">
-                    <button 
-                      className="absolute top-4 right-4 text-white hover:text-blue-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFlippedCard(null);
-                      }}
-                      aria-label="Close details"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                    
-                    <h3 className="font-bold text-xl mb-4 mt-4">Single Session Membership</h3>
-                    <p className="text-sm mb-6">{PLAN_PRICING.daily.description}</p>
-                    
-                    <div className="text-center mt-auto">
-                      <div className="text-2xl font-bold mb-4">{PLAN_PRICING.daily.display}</div>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePlanChange("daily");
-                          setFlippedCard(null);
-                        }} 
-                        className="bg-white text-blue-600 py-2 px-4 rounded-md font-medium hover:bg-blue-50 transition-colors"
-                      >
-                        {plan === "daily" ? "Already Selected" : "Select This Plan"}
-                      </button>
+                  </div>                    {/* Card Back */}
+                  <div className="flip-card-back absolute w-full h-full backface-hidden bg-blue-600 text-white p-5 rounded-xl">
+                    <div className="flex flex-col h-full">
+                      {/* Close button at the top */}
+                      <div className="flex-shrink-0 flex justify-end p-2">
+                        <button 
+                          className="text-white hover:text-blue-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFlippedCard(null);
+                          }}
+                          aria-label="Close details"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                        {/* Description/content area */}
+                      <div className="flex-grow flex flex-col justify-start px-4 py-2">
+                        <h3 className="font-bold text-xl mb-4 mt-2">{PLAN_PRICING.daily.name}</h3>
+                        <p className="text-sm mb-6">{PLAN_PRICING.daily.description}</p>
+                      </div>
+                      
+                      {/* Button at the bottom - fixed positioning */}
+                      <div className="mt-auto px-4 pb-4 flex-shrink-0">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlanChange("daily");
+                            setFlippedCard(null);
+                          }} 
+                          className="bg-white text-blue-600 py-2 px-4 rounded-md font-medium hover:bg-blue-50 transition-colors w-full"
+                        >
+                          {plan === "daily" ? "Already Selected" : "Select This Plan"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -826,7 +840,9 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                 
                 <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === 'monthly' ? 'rotate-y-180' : ''}`}>
                   {/* Card Front */}
-                  <div className="flip-card-front absolute w-full h-full backface-hidden">                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 border-b border-indigo-200 rounded-t-xl">
+                  <div className="flex flex-col h-[420px]">
+                    {/* Header (fixed height) */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 border-b border-indigo-200 rounded-t-xl flex-shrink-0" style={{ minHeight: 80 }}>
                       <div className="flex justify-between items-center mb-1">
                         <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.monthly.name}</h3>                        <button 
                           className="text-indigo-500 hover:text-indigo-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
@@ -844,9 +860,9 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                       <div className="text-indigo-600 font-bold text-lg sm:text-xl md:text-2xl mb-1">{PLAN_PRICING.monthly.display}</div>
                       <div className="text-gray-500 text-xs">Sustained motivation for real change</div>
                     </div>
-                    
-                    <div className="p-4 bg-white rounded-b-xl h-[calc(100%-96px)] flex flex-col">
-                      <ul className="space-y-2 mb-4 flex-grow">
+                    {/* Content (flex-grow) */}
+                    <div className="flex-grow flex flex-col justify-start px-4 py-2 bg-white">
+                      <ul className="space-y-2 mb-2">
                         <li className="flex items-start">
                           <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
@@ -866,8 +882,10 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                           <span className="text-xs sm:text-sm text-gray-600 leading-tight">Save over 70% vs daily rate</span>
                         </li>
                       </ul>
-                      
-                      <label className="flex items-center justify-center mt-auto">
+                    </div>
+                    {/* Button (fixed height) */}
+                    <div className="px-4 pb-4 pt-2 flex-shrink-0">
+                      <label className="flex items-center justify-center">
                         <input
                           type="radio"
                           name="plan"
@@ -888,36 +906,42 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                       </label>
                     </div>
                   </div>
-                    {/* Card Back */}
-                  <div className="flip-card-back absolute w-full h-full backface-hidden rotate-y-180 bg-indigo-600 text-white p-5 rounded-xl">
-                    <button 
-                      className="absolute top-4 right-4 text-white hover:text-indigo-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFlippedCard(null);
-                      }}
-                      aria-label="Close details"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                    
-                    <h3 className="font-bold text-xl mb-4 mt-4">Monthly Sessions Membership</h3>
-                    <p className="text-sm mb-6">{PLAN_PRICING.monthly.description}</p>
-                    
-                    <div className="text-center mt-auto">
-                      <div className="text-2xl font-bold mb-4">{PLAN_PRICING.monthly.display}</div>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePlanChange("monthly");
-                          setFlippedCard(null);
-                        }} 
-                        className="bg-white text-indigo-600 py-2 px-4 rounded-md font-medium hover:bg-indigo-50 transition-colors"
-                      >
-                        {plan === "monthly" ? "Already Selected" : "Select This Plan"}
-                      </button>
+                    {/* Card Back */}                  <div className="flip-card-back absolute w-full h-full backface-hidden bg-indigo-600 text-white p-5 rounded-xl">
+                    <div className="flex flex-col h-full">
+                      {/* Close button at the top */}
+                      <div className="flex-shrink-0 flex justify-end p-2">
+                        <button 
+                          className="text-white hover:text-indigo-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFlippedCard(null);
+                          }}
+                          aria-label="Close details"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                        {/* Description/content area */}
+                      <div className="flex-grow flex flex-col justify-start px-4 py-2">
+                        <h3 className="font-bold text-xl mb-4 mt-2">{PLAN_PRICING.monthly.name}</h3>
+                        <p className="text-sm mb-6">{PLAN_PRICING.monthly.description}</p>
+                      </div>
+                      
+                      {/* Button at the bottom - fixed positioning */}
+                      <div className="mt-auto px-4 pb-4 flex-shrink-0">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlanChange("monthly");
+                            setFlippedCard(null);
+                          }} 
+                          className="bg-white text-indigo-600 py-2 px-4 rounded-md font-medium hover:bg-indigo-50 transition-colors w-full"
+                        >
+                          {plan === "monthly" ? "Already Selected" : "Select This Plan"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -948,14 +972,16 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                   </div>
                 </div>
                 
-                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === 'family' ? 'rotate-y-180' : ''}`}>
+                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === 'monthlyFamily' ? 'rotate-y-180' : ''}`}>
                   {/* Card Front */}
-                  <div className="flip-card-front absolute w-full h-full backface-hidden">                    <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 border-b border-amber-200 rounded-t-xl">                      <div className="flex justify-between items-center mb-1">
+                  <div className="flex flex-col h-[420px]">
+                    {/* Header (fixed height) */}
+                    <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 border-b border-amber-200 rounded-t-xl flex-shrink-0" style={{ minHeight: 80 }}>                      <div className="flex justify-between items-center mb-1">
                         <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.monthlyFamily.name}</h3>                        <button 
                           className="text-amber-500 hover:text-amber-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setFlippedCard(flippedCard === 'family' ? null : 'family');
+                            setFlippedCard(flippedCard === 'monthlyFamily' ? null : 'monthlyFamily');
                           }}
                           aria-label="More information"
                         >
@@ -967,9 +993,9 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                       <div className="text-amber-600 font-bold text-lg sm:text-xl md:text-2xl mb-1 flex items-center">{PLAN_PRICING.monthlyFamily.display} <span className="text-xs font-normal text-gray-500 ml-1 mt-1">• 2 users</span></div>
                       <div className="text-gray-500 text-xs">Achieve more together, save more together</div>
                     </div>
-                    
-                    <div className="p-4 bg-white rounded-b-xl h-[calc(100%-96px)] flex flex-col">
-                      <ul className="space-y-2 mb-4 flex-grow">
+                    {/* Content (flex-grow) */}
+                    <div className="flex-grow flex flex-col justify-start px-4 py-2 bg-white">
+                      <ul className="space-y-2 mb-2">
                         <li className="flex items-start">
                           <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
@@ -989,8 +1015,10 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                           <span className="text-xs sm:text-sm text-gray-600 leading-tight">25% savings vs 2 monthly plans</span>
                         </li>
                       </ul>
-                      
-                      <label className="flex items-center justify-center mt-auto">
+                    </div>
+                    {/* Button (fixed height) */}
+                    <div className="px-4 pb-4 pt-2 flex-shrink-0">
+                      <label className="flex items-center justify-center">
                         <input
                           type="radio"
                           name="plan"
@@ -1011,150 +1039,49 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                       </label>
                     </div>
                   </div>
-                    {/* Card Back */}
-                  <div className="flip-card-back absolute w-full h-full backface-hidden rotate-y-180 bg-amber-600 text-white p-5 rounded-xl">
-                    <button 
-                      className="absolute top-4 right-4 text-white hover:text-amber-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFlippedCard(null);
-                      }}
-                      aria-label="Close details"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                    
-                    <h3 className="font-bold text-xl mb-4 mt-4">Monthly Family Membership</h3>
-                    <p className="text-sm mb-6">{PLAN_PRICING.monthlyFamily.description}</p>
-                      <div className="text-center mt-auto">
-                      <div className="text-2xl font-bold mb-1">{PLAN_PRICING.monthlyFamily.display}</div>
-                      <div className="text-sm mb-3">For 2 users • 30 days access</div>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePlanChange("monthlyFamily");
-                          setFlippedCard(null);
-                        }} 
-                        className="bg-white text-amber-600 py-2 px-4 rounded-md font-medium hover:bg-amber-50 transition-colors"
-                      >
-                        {plan === "monthlyFamily" ? "Already Selected" : "Select This Plan"}
-                      </button>
+                    {/* Card Back */}                  <div className="flip-card-back absolute w-full h-full backface-hidden bg-amber-600 text-white p-5 rounded-xl">
+                    <div className="flex flex-col h-full">
+                      {/* Close button at the top */}
+                      <div className="flex-shrink-0 flex justify-end p-2">
+                        <button 
+                          className="text-white hover:text-amber-100 focus:outline-none info-btn z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 transition-all duration-200"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFlippedCard(null);
+                          }}
+                          aria-label="Close details"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                        {/* Description/content area */}
+                      <div className="flex-grow flex flex-col justify-start px-4 py-2">
+                        <h3 className="font-bold text-xl mb-4 mt-2">{PLAN_PRICING.monthlyFamily.name}</h3>
+                        <p className="text-sm mb-6">{PLAN_PRICING.monthlyFamily.description}</p>
+                      </div>
+                      
+                      {/* Button at the bottom - fixed positioning */}
+                      <div className="mt-auto px-4 pb-4 flex-shrink-0">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlanChange("monthlyFamily");
+                            setFlippedCard(null);
+                          }} 
+                          className="bg-white text-amber-600 py-2 px-4 rounded-md font-medium hover:bg-amber-50 transition-colors w-full"
+                        >
+                          {plan === "monthlyFamily" ? "Already Selected" : "Select This Plan"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Show second person fields if family plan is selected */}
-          {plan === "monthlyFamily" && (
-            <div className="mt-6 rounded-xl shadow-md border border-amber-200 overflow-hidden">
-              <div className="bg-gradient-to-r from-amber-50 to-amber-100 py-3 px-4 border-b border-amber-200">
-                <p className="font-semibold text-amber-800 flex items-center">
-                  <svg className="h-5 w-5 mr-2 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" 
-                    />
-                  </svg>
-                  Second Person Details
-                </p>
-              </div>
-              <div className="p-5 bg-white">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                    <input
-                      type="text"
-                      name="secondFirstName"
-                      placeholder="First Name"
-                      value={secondFirstName}
-                      onChange={(e) => handleInputChange(setSecondFirstName, 'secondFirstName', e.target.value)}
-                      onBlur={() => validateField('secondFirstName', secondFirstName, validationRules.firstName)}
-                      className={`w-full p-3 border ${fieldErrors.secondFirstName ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
-                      autoComplete="off"
-                      required={plan === "monthlyFamily"}
-                    />
-                    {fieldErrors.secondFirstName && (
-                      <p className="text-red-500 text-xs mt-1">{fieldErrors.secondFirstName}</p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                    <input
-                      type="text"
-                      name="secondLastName"
-                      placeholder="Last Name"
-                      value={secondLastName}
-                      onChange={(e) => handleInputChange(setSecondLastName, 'secondLastName', e.target.value)}
-                      onBlur={() => validateField('secondLastName', secondLastName, validationRules.lastName)}
-                      className={`w-full p-3 border ${fieldErrors.secondLastName ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
-                      autoComplete="off"
-                      required={plan === "monthlyFamily"}
-                    />
-                    {fieldErrors.secondLastName && (
-                      <p className="text-red-500 text-xs mt-1">{fieldErrors.secondLastName}</p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                      type="email"
-                      name="secondEmail"
-                      placeholder="Email Address"
-                      value={secondEmail}                
-                      onChange={(e) => {
-                        handleInputChange(setSecondEmail, 'secondEmail', e.target.value);
-                        // Clear the general error message if it was about duplicate emails
-                        if (errorMessage === "Primary and secondary users must have different email addresses" && 
-                            e.target.value !== email) {
-                          setErrorMessage(null);
-                        }
-                      }}
-                      onBlur={() => validateField('secondEmail', secondEmail, validationRules.secondEmail, email)}
-                      className={`w-full p-3 border ${fieldErrors.secondEmail ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
-                      autoComplete="off"
-                      required={plan === "monthlyFamily"}
-                    />
-                    {fieldErrors.secondEmail && (
-                      <p className="text-red-500 text-xs mt-1">{fieldErrors.secondEmail}</p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                    <input
-                      type="tel"
-                      name="secondPhone"
-                      placeholder="Phone Number"
-                      value={secondPhone}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '');
-                        handleInputChange(setSecondPhone, 'secondPhone', value);
-                      }}
-                      onBlur={() => validateField('secondPhone', secondPhone, validationRules.phone)}
-                      className={`w-full p-3 border ${fieldErrors.secondPhone ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
-                      autoComplete="off"
-                      required={plan === "monthlyFamily"}
-                    />
-                    {fieldErrors.secondPhone && (
-                      <p className="text-red-500 text-xs mt-1">{fieldErrors.secondPhone}</p>
-                    )}
-                  </div>
-                </div>
-                <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg mt-4 flex items-start">
-                  <svg className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Both users will receive access to all webinars for the next 30 days. The second person must have a different email address from the primary user.
-                </p>
-              </div>
-            </div>          )}          {/* Date Selector Section */}
+{/* Date Selector Section */}
           <div className="mt-16 rounded-xl shadow-md border border-gray-200 overflow-hidden">
             <div className="bg-gradient-to-r from-gray-50 to-gray-100 py-3 px-4 border-b border-gray-200">
               <p className="font-semibold text-gray-700 flex items-center">

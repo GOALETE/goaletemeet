@@ -20,7 +20,7 @@ export const PLAN_PRICING = {  daily: {
     display: "Rs. 4499", // Formatted display price
     duration: 30,        // Duration in days
     name: "Monthly Family Plan",
-    description: "Share the journey with someone important in your life! This plan offers full access for two people, with 25% savings over two individual memberships. Perfect for couples, friends, family members, or colleagues who want to achieve goals together."
+    description: "Share the journey with someone important in your life! This plan offers full access for two people, with savings over two individual memberships. Perfect for couples, friends, or colleagues who want to achieve goals together."
   }
 };
 
