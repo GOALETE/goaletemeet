@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": " next dev --turbopack",
-    "preinstall": "prisma migrate dev --name init",
     "build": "prisma generate --no-engine && next build",
     "start": "next start",
     "lint": "next lint",
