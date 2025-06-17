@@ -30,17 +30,17 @@ async function runTests() {
       console.log(await usersResponse.text());
       return;
     }
+      const usersData = await usersResponse.json();
+    // Direct array is returned from the API
+    console.log(`✅ GET /api/admin/users returned ${usersData.length || 0} users`);
     
-    const usersData = await usersResponse.json();
-    console.log(`✅ GET /api/admin/users returned ${usersData.users?.length || 0} users`);
-    
-    if (!usersData.users || usersData.users.length === 0) {
+    if (!usersData || usersData.length === 0) {
       console.log('No users found, skipping user-specific tests');
       return;
     }
     
     // Test 2: Get user by ID
-    const firstUser = usersData.users[0];
+    const firstUser = usersData[0];
     console.log(`Testing GET /api/admin/users/${firstUser.id}...`);
     const userResponse = await callApi(`/api/admin/users/${firstUser.id}`);
     
@@ -49,10 +49,8 @@ async function runTests() {
       console.log(await userResponse.text());
       return;
     }
-    
-    const userData = await userResponse.json();
-    console.log(`✅ GET /api/admin/users/${firstUser.id} returned user: ${userData.name || userData.email}`);
-    
+      const userData = await userResponse.json();
+    console.log(`✅ GET /api/admin/users/${firstUser.id} returned user: ${userData.firstName || userData.email}`);
     // Test 3: Update user to grant superuser status
     console.log(`Testing PATCH /api/admin/users/${firstUser.id} to grant superuser status...`);
     const updateResponse = await callApi(

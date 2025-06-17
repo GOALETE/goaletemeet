@@ -66,7 +66,7 @@ function checkEnvVars() {
   return true;
 }
 
-function runTest(scriptName, description) {
+function runTest(scriptName: string, description: string): boolean {
   console.log(`\n====== Running: ${description} ======\n`);
   try {
     execSync(`npm run ${scriptName}`, { stdio: 'inherit' });
@@ -74,7 +74,7 @@ function runTest(scriptName, description) {
     return true;
   } catch (error) {
     console.error(`\n❌ ${description} failed\n`);
-    console.error(error.message);
+    console.error(error instanceof Error ? error.message : String(error));
     return false;
   }
 }
