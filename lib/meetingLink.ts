@@ -15,6 +15,18 @@ interface ApiError extends Error {
 }
 
 /**
+ * Gets special email addresses that should be included in every meeting
+ * These emails are set in the SPECIAL_EMAILS environment variable as a comma-separated list
+ * @returns Array of email addresses
+ */
+export function getSpecialEmails(): string[] {
+  const specialEmailsStr = process.env.SPECIAL_EMAILS || '';
+  if (!specialEmailsStr) return [];
+  
+  return specialEmailsStr.split(',').map(email => email.trim()).filter(email => email !== '');
+}
+
+/**
  * Create a meeting link for the given platform, date, and timeslot.
  * This is a simple function that only returns the URL string.
  * For more functionality use createMeeting or other higher-level functions.
@@ -299,7 +311,6 @@ export async function createMeeting({
   const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
   const endDateTime = new Date(startDateTime);
   endDateTime.setMinutes(endDateTime.getMinutes() + duration);
-
   const meeting = await prisma.meeting.create({
     data: {
       meetingDate: new Date(date),
@@ -316,6 +327,63 @@ export async function createMeeting({
     },
     include: { users: true }
   });
+  
+  // Add special emails from env variables to the meeting
+  const specialEmails = getSpecialEmails();
+  if (specialEmails.length > 0) {
+    try {
+      // First, check if these users exist, otherwise create them
+      for (const email of specialEmails) {
+        // Find user with this email
+        const existingUser = await prisma.user.findUnique({
+          where: { email }
+        });
+        
+        // If user doesn't exist, create a placeholder user
+        if (!existingUser) {
+          await prisma.user.create({
+            data: {
+              email,
+              firstName: 'Special',
+              lastName: 'User',
+              phone: '0000000000',
+              source: 'system',
+              role: 'admin'
+            }
+          });
+        }
+      }
+      
+      // Get users for these emails
+      const specialUsers = await prisma.user.findMany({
+        where: {
+          email: {
+            in: specialEmails
+          }
+        }
+      });
+      
+      // Add these users to the meeting
+      if (specialUsers.length > 0) {
+        const specialUserIds = specialUsers.map(user => user.id);
+        await updateMeetingWithUsers(meeting.id, specialUserIds);
+        
+        // Fetch the updated meeting to return
+        const updatedMeeting = await prisma.meeting.findUnique({
+          where: { id: meeting.id },
+          include: { users: true }
+        });
+        
+        if (updatedMeeting) {
+          return updatedMeeting;
+        }
+      }
+    } catch (error) {
+      console.error('Error adding special users to meeting:', error);
+      // Continue even if special users couldn't be added
+    }
+  }
+  
   return meeting;
 }
 

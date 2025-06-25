@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import AdminCalendar from './AdminCalendar';
@@ -7,6 +9,8 @@ import SessionUsersView from './adminviews/SessionUsersView';
 import SubscriptionsView from './adminviews/SubscriptionsView';
 import UpcomingRegistrationsView from './adminviews/UpcomingRegistrationsView';
 import TodayMeetingCard from './adminviews/TodayMeetingCard';
+import UserManagementView from './adminviews/UserManagementView';
+import EarningsAnalyticsView from './adminviews/EarningsAnalyticsView';
 
 type UserData = {
   id: string;
@@ -74,12 +78,13 @@ function useToast() {
 }
 
 export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'sessionUsers'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'sessionUsers' | 'userManagement' | 'analytics'>('users');
   const [subscriptionView, setSubscriptionView] = useState<'all' | 'thisWeek' | 'upcoming'>('all');
   const [users, setUsers] = useState<UserData[]>(initialUsers);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>(initialUsers);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');  const [selectedUser, setSelectedUser] = useState<UserWithSubscriptions | null>(null);
+  const [error, setError] = useState('');
+  const [selectedUser, setSelectedUser] = useState<UserWithSubscriptions | null>(null);
   const [showUserDetail, setShowUserDetail] = useState(false);
   const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
   const [upcomingRegistrations, setUpcomingRegistrations] = useState<any[]>([]);
@@ -89,7 +94,8 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     const today = new Date();
     return format(today, 'yyyy-MM-dd');
   });
-  const [sessionUsers, setSessionUsers] = useState<any[]>([]);  const [sessionUsersLoading, setSessionUsersLoading] = useState(false);
+  const [sessionUsers, setSessionUsers] = useState<any[]>([]);
+  const [sessionUsersLoading, setSessionUsersLoading] = useState(false);
   const [refreshMeetingTrigger, setRefreshMeetingTrigger] = useState(0);
   
   // Filter states - simplified
@@ -348,13 +354,16 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   return (
     <div className="admin-dashboard-container p-6">
       <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+      
       {/* Tab Navigation */}
-      <div className="flex space-x-4 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6">
         <button className={`px-4 py-2 rounded ${activeTab === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('users')}>Users</button>
         <button className={`px-4 py-2 rounded ${activeTab === 'calendar' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('calendar')}>Calendar</button>
         <button className={`px-4 py-2 rounded ${activeTab === 'upcoming' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('upcoming')}>Upcoming Registrations</button>
         <button className={`px-4 py-2 rounded ${activeTab === 'subscriptions' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('subscriptions')}>Subscriptions</button>
         <button className={`px-4 py-2 rounded ${activeTab === 'sessionUsers' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('sessionUsers')}>Session Users</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'userManagement' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('userManagement')}>User Management</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'analytics' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('analytics')}>Earnings Analytics</button>
       </div>
 
       {/* Tab Content */}
@@ -373,8 +382,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             page={page}
             pageSize={pageSize}
             total={total}
-            updateFilter={(key, value) => setFilterState((prev: any) => ({ ...prev, [key]: value }))
-            }
+            updateFilter={(key, value) => setFilterState((prev: any) => ({ ...prev, [key]: value }))}
             setSortBy={setSortBy}
             setSortOrder={setSortOrder}
             setPage={setPage}
@@ -384,9 +392,11 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             downloadFullDBExport={() => {}}
           />
         )}
+        
         {activeTab === 'calendar' && (
           <AdminCalendar />
         )}
+        
         {activeTab === 'upcoming' && (
           <UpcomingRegistrationsView
             loading={loading}
@@ -396,6 +406,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             setActiveTab={(tab: string) => setActiveTab(tab as typeof activeTab)}
           />
         )}
+        
         {activeTab === 'subscriptions' && (
           <SubscriptionsView
             subscriptionView={subscriptionView}
@@ -406,6 +417,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
           />
         )}
+        
         {activeTab === 'sessionUsers' && (
           <SessionUsersView
             sessionDate={sessionDate}
@@ -413,6 +425,14 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             sessionUsers={sessionUsers}
             sessionUsersLoading={sessionUsersLoading}
           />
+        )}
+        
+        {activeTab === 'userManagement' && (
+          <UserManagementView />
+        )}
+        
+        {activeTab === 'analytics' && (
+          <EarningsAnalyticsView />
         )}
       </div>
 

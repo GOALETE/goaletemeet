@@ -26,7 +26,7 @@ export default function AdminCalendar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-    // Form state
+  // Form state
   const [platform, setPlatform] = useState('google-meet');
   const [startTime, setStartTime] = useState('20:00');
   const [duration, setDuration] = useState(60);
@@ -37,6 +37,7 @@ export default function AdminCalendar() {
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: format(addDays(new Date(), 7), 'yyyy-MM-dd')
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calendar navigation
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
