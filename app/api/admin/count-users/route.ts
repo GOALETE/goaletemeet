@@ -3,6 +3,17 @@ import prisma from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   try {
+    // Verify admin authentication
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    
+    const token = authHeader.split(" ")[1];
+    if (token !== process.env.ADMIN_PASSCODE) {
+      return NextResponse.json({ message: "Invalid admin credentials" }, { status: 401 });
+    }
+
     const url = new URL(req.url);
     const date = url.searchParams.get('date');
     const planType = url.searchParams.get('planType');

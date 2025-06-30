@@ -171,17 +171,24 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     queryParams.set('pageSize', String(pageSize));
     
     try {
-      // Log query parameters for debugging
-      console.log('Fetching users with query params:', Object.fromEntries(queryParams.entries()));
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        setError('Admin authentication required');
+        setLoading(false);
+        return;
+      }
       
-      const response = await fetch(`/api/admin/users?${queryParams.toString()}`);
+      const response = await fetch(`/api/admin/users?${queryParams.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Error response from API:', errorData);
         throw new Error(errorData.message || 'Failed to fetch users');
       }
       const data = await response.json();
-      console.log('User data received:', data);
       setUsers(data.users);
       setFilteredUsers(data.users);
       setTotal(data.total);
@@ -196,22 +203,46 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   // Only one fetchStatistics function
   const fetchStatistics = async () => {
     try {
-      const response = await fetch('/api/admin/statistics');
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        setError('Admin authentication required. Please refresh and login again.');
+        return;
+      }
+      
+      const response = await fetch('/api/admin/statistics', {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch statistics');
+        const errorData = await response.text();
+        console.error('Statistics API error:', response.status, errorData);
+        throw new Error(`Failed to fetch statistics: ${response.status}`);
       }
       const data = await response.json();
-      setUserStats({
-        total: data.stats.total,
-        active: data.stats.active,
-        expired: data.stats.expired,
-        upcoming: data.stats.upcoming,
-      });
-      setRevenue(data.revenue);
-      setPaymentStats(data.paymentStats);
-      setPlanStats(data.planStats);
+      
+      // Defensive programming - check if data structure exists
+      if (data.stats) {
+        setUserStats({
+          total: data.stats.total || 0,
+          active: data.stats.active || 0,
+          expired: data.stats.expired || 0,
+          upcoming: data.stats.upcoming || 0,
+        });
+      }
+      
+      setRevenue(data.revenue || 0);
+      setPaymentStats(Array.isArray(data.paymentStats) ? data.paymentStats : []);
+      setPlanStats(Array.isArray(data.planStats) ? data.planStats : []);
     } catch (error) {
-      setError('Error fetching statistics');
+      console.error('Error fetching statistics:', error);
+      setError(`Error fetching statistics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Set default values to prevent crashes
+      setUserStats({ total: 0, active: 0, expired: 0, upcoming: 0 });
+      setRevenue(0);
+      setPaymentStats([]);
+      setPlanStats([]);
     }
   };
 
@@ -245,6 +276,9 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   // Only one fetchUpcomingRegistrations function
   const fetchUpcomingRegistrations = async () => {
     try {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) return;
+      
       // Get active subscriptions for upcoming dates (in IST)
       const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
       const startDateStr = format(today, 'yyyy-MM-dd');
@@ -254,7 +288,11 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       queryParams.set('status', 'active');
       queryParams.set('startDate', startDateStr);
       
-      const response = await fetch(`/api/admin/users?${queryParams.toString()}`);
+      const response = await fetch(`/api/admin/users?${queryParams.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
       if (!response.ok) throw new Error('Failed to fetch upcoming registrations');
       
       const data = await response.json();
@@ -268,6 +306,12 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   const fetchSubscriptionData = async (viewType: 'all' | 'thisWeek' | 'upcoming') => {
     setSubscriptionsLoading(true);
     try {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        setSubscriptionsLoading(false);
+        return;
+      }
+      
       const queryParams = new URLSearchParams();
       queryParams.set('viewType', viewType);
       if (viewType === 'thisWeek') {
@@ -282,8 +326,18 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         const today = new Date();
         queryParams.set('startDate', format(today, 'yyyy-MM-dd'));
       }
-      const response = await fetch(`/api/admin/subscriptions?${queryParams.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch subscription data');
+      
+      const response = await fetch(`/api/admin/subscriptions?${queryParams.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Subscriptions API error:', response.status, errorText);
+        throw new Error('Failed to fetch subscription data');
+      }
       const data = await response.json();
       setSubscriptionUsers(data.users);
       setRevenue(data.revenue); // Update revenue based on the current view
@@ -298,7 +352,18 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   const fetchSessionUsers = async (date: string) => {
     setSessionUsersLoading(true);
     try {
-      const response = await fetch(`/api/admin/session-users?date=${date}`);
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        setSessionUsers([]);
+        setSessionUsersLoading(false);
+        return;
+      }
+      
+      const response = await fetch(`/api/admin/session-users?date=${date}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
       if (!response.ok) throw new Error('Failed to fetch session users');
       const data = await response.json();
       setSessionUsers(data.users);
@@ -309,19 +374,32 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   };
 
   useEffect(() => {
-    fetchUsers();
-    fetchStatistics();
-    fetchUpcomingMeetings();
-    fetchUpcomingRegistrations();
-    // Store admin passcode in session storage for API calls
-    const adminAuthenticated = sessionStorage.getItem('adminAuthenticated');
-    if (adminAuthenticated === 'true') {
-      const adminPasscode = process.env.ADMIN_PASSCODE || 'adminGoaleteM33t2025!';
-      sessionStorage.setItem('adminPasscode', adminPasscode);
-    }
+    // Check if admin is authenticated before making any API calls
+    const checkAuthAndFetch = async () => {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      const adminAuthenticated = sessionStorage.getItem('adminAuthenticated');
+      
+      if (!adminAuthenticated || !adminPasscode) {
+        setError('Please ensure you are logged in as admin');
+        return;
+      }
+
+      fetchUsers();
+      fetchStatistics();
+      fetchUpcomingMeetings();
+      fetchUpcomingRegistrations();
+    };
+
+    checkAuthAndFetch();
   }, [fetchUsers]);
 
   useEffect(() => {
+    // Only make API calls if admin is authenticated
+    const adminPasscode = sessionStorage.getItem('adminPasscode');
+    if (!adminPasscode) {
+      return;
+    }
+
     if (activeTab === 'users') {
       fetchUsers();
     } else if (activeTab === 'upcoming') {

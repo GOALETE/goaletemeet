@@ -27,6 +27,7 @@ export default function AdminAuth({ onAuthenticated }: AdminAuthProps) {
       if (response.ok) {
         // Set session storage to maintain auth state during the session
         sessionStorage.setItem('adminAuthenticated', 'true');
+        sessionStorage.setItem('adminPasscode', passcode);
         onAuthenticated();
       } else {
         setError(data.message || 'Invalid passcode');

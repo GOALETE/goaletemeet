@@ -4,6 +4,17 @@ import prisma from '@/lib/prisma';
 // GET /api/admin/user - Get a user by ID via query parameter
 export async function GET(request: NextRequest) {
   try {
+    // Verify admin authentication
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    
+    const token = authHeader.split(" ")[1];
+    if (token !== process.env.ADMIN_PASSCODE) {
+      return NextResponse.json({ message: "Invalid admin credentials" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('id');
     
@@ -36,6 +47,17 @@ export async function GET(request: NextRequest) {
 // PATCH /api/admin/user - Update user, includes handling superuser status
 export async function PATCH(request: NextRequest) {
   try {
+    // Verify admin authentication
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    
+    const token = authHeader.split(" ")[1];
+    if (token !== process.env.ADMIN_PASSCODE) {
+      return NextResponse.json({ message: "Invalid admin credentials" }, { status: 401 });
+    }
+
     const data = await request.json();
     const { userId, grantSuperUser, createInfiniteSubscription } = data;
 
