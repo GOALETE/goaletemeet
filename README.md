@@ -120,11 +120,18 @@ npm run test:family-plan           # Test family plan registration
 ### Admin Endpoints
 
 - `POST /api/admin/auth` - Authenticate admin access
-- `GET /api/admin/users` - Get all users
-- `GET /api/admin/user` - Get user details
-- `GET /api/admin/subscriptions` - Get all subscriptions
-- `GET /api/admin/today-active` - Get today's active users
-- `GET /api/admin/statistics` - Get admin dashboard statistics
+- `GET /api/admin/users` - Get all users with filtering and pagination
+- `POST /api/admin/users` - Create a new user
+- `GET /api/admin/user` - Get user details by ID
+- `PATCH /api/admin/user` - Update user details and permissions
+- `GET /api/admin/subscriptions` - Get subscription data with filtering
+- `GET /api/admin/session-users` - Get users for a specific session date
+- `GET /api/admin/statistics` - Get comprehensive dashboard statistics
+- `GET /api/admin/export` - Export user and subscription data as CSV
+- `GET /api/admin/count-users` - Count active users for a specific date
+- `GET /api/admin/meetings` - Get meeting data with filtering
+- `POST /api/admin/meetings` - Create new meetings
+- `GET /api/admin/today-active/meeting` - Get today's active meeting details
 
 ## 🛡️ Next.js 15 Compliance
 

@@ -281,12 +281,11 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       
       // Get active subscriptions for upcoming dates (in IST)
       const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      const startDateStr = format(today, 'yyyy-MM-dd');
       
-      // Use the existing API to get upcoming registrations
+      // Use the existing API to get all active users (including single day plans)
       const queryParams = new URLSearchParams();
       queryParams.set('status', 'active');
-      queryParams.set('startDate', startDateStr);
+      // Don't filter by startDate - we want all currently active subscriptions
       
       const response = await fetch(`/api/admin/users?${queryParams.toString()}`, {
         headers: {
@@ -296,7 +295,16 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       if (!response.ok) throw new Error('Failed to fetch upcoming registrations');
       
       const data = await response.json();
-      setUpcomingRegistrations(data.users);
+      
+      // Filter for users whose subscriptions are currently active (startDate <= today <= endDate)
+      const activeUsers = data.users.filter((user: any) => {
+        if (!user.start || !user.end) return false;
+        const startDate = new Date(user.start);
+        const endDate = new Date(user.end);
+        return startDate <= today && endDate >= today;
+      });
+      
+      setUpcomingRegistrations(activeUsers);
     } catch (error) {
       console.error('Error fetching upcoming registrations:', error);
     }

@@ -260,11 +260,12 @@ export default function AdminCalendar() {
         days.push(
           <div
             key={day.toString()}
-            className={`relative h-24 border p-1 
+            className={`relative h-24 border p-1 select-none
               ${!isCurrentMonth ? 'text-gray-300 bg-gray-50' : 'text-gray-700 cursor-pointer hover:bg-gray-100'} 
               ${isSelected ? 'bg-blue-100 border-blue-300' : ''}
             `}
             onClick={() => isCurrentMonth && handleDateClick(cloneDay)}
+            onMouseDown={(e) => e.preventDefault()} // Prevent text selection
           >
             <div className="flex justify-between items-start">
               <span className={`text-sm p-1 ${hasMeeting ? 'bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center' : ''}`}>
@@ -430,6 +431,7 @@ export default function AdminCalendar() {
                       className="w-full p-2 border border-gray-300 rounded"
                       value={dateRange.startDate}
                       onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                      autoComplete="off"
                     />
                   </div>
                   <div>
@@ -441,6 +443,7 @@ export default function AdminCalendar() {
                       className="w-full p-2 border border-gray-300 rounded"
                       value={dateRange.endDate}
                       onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                      autoComplete="off"
                     />
                   </div>
                 </div>

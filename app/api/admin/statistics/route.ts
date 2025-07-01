@@ -142,18 +142,35 @@ export async function GET(req: NextRequest) {
     // Advanced analytics for the dashboard
     const today = new Date();
     
-    // Calculate active subscriptions (current)
-    const activeSubscriptions = subscriptions.filter(sub => 
-      sub.startDate <= today && sub.endDate >= today
-    ).length;
+    // Calculate active subscriptions (current) - subscriptions that are currently valid
+    const activeSubscriptions = subscriptions.filter(sub => {
+      const startDate = new Date(sub.startDate);
+      const endDate = new Date(sub.endDate);
+      return startDate <= today && endDate >= today && sub.status === 'active';
+    }).length;
     
     // Total subscriptions count
     const totalSubscriptions = subscriptions.length;
     
-    // New subscriptions (within the date range)
-    const newSubscriptions = subscriptions.filter(sub => 
-      sub.startDate >= startDate && sub.startDate <= endDate
-    ).length;
+    // Expired subscriptions
+    const expiredSubscriptions = subscriptions.filter(sub => {
+      const endDate = new Date(sub.endDate);
+      return endDate < today || sub.status === 'expired';
+    }).length;
+    
+    // Upcoming subscriptions (start in the future)
+    const upcomingSubscriptions = subscriptions.filter(sub => {
+      const startDate = new Date(sub.startDate);
+      return startDate > today && sub.status === 'active';
+    }).length;
+    
+    // Recalculate stats using the correct logic
+    const correctedStats = {
+      total: totalSubscriptions,
+      active: activeSubscriptions,
+      expired: expiredSubscriptions,
+      upcoming: upcomingSubscriptions
+    };
     
     // Group subscriptions by plan type for earnings analytics
     const subscriptionsByPlan: Record<string, number> = {};
@@ -212,14 +229,15 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({
-      stats,
+      stats: correctedStats,
       paymentStats,
       revenue,
       planStats,
       totalRevenue: revenue,
       activeSubscriptions,
       totalSubscriptions,
-      newSubscriptions,
+      expiredSubscriptions,
+      upcomingSubscriptions,
       subscriptionsByPlan,
       revenueByPlan,
       revenueByDay,
