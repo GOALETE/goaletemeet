@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
-import { canUserSubscribeForDates, getOrCreateDailyMeetingLink } from "@/lib/subscription";
+import { canUserSubscribeForDates } from "@/lib/subscription";
+import { addUserToTodaysMeeting } from "@/lib/meetingLink";
 import { toPaise, fromPaise } from "@/lib/pricing";
 import { sendAdminNotificationEmail, sendFamilyAdminNotificationEmail } from "@/lib/email";
+import { sendImmediateInviteViaMessaging } from "@/lib/messaging";
 
 // Get Razorpay keys from environment variables
 const key_id = process.env.RAZORPAY_KEY_ID;
@@ -309,30 +311,48 @@ export async function PATCH(request: NextRequest) {
         amount: parseFloat(subscription.price.toString()),
         paymentId: subscription.paymentRef || undefined
       });
-      /*
-      // Send meeting invite if subscription starts today
+      
+      // Send meeting invite if subscription starts today (using new messaging service)
       const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
       today.setHours(0, 0, 0, 0);
       const subscriptionStartDate = new Date(subscription.startDate);
       subscriptionStartDate.setHours(0, 0, 0, 0);
+      
       if (subscriptionStartDate.getTime() === today.getTime()) {
-        const todayMeeting = await getOrCreateDailyMeetingLink();
-        if (todayMeeting) {
-          await sendMeetingInvite({
-            recipient: {
-              name: `${subscription.user.firstName} ${subscription.user.lastName}`,
-              email: subscription.user.email
-            },
-            meetingTitle: "GOALETE Club Session - Today",
-            meetingDescription: "Join us for today's GOALETE Club session to learn how to achieve any goal in life.",
-            meetingLink: todayMeeting.meetingLink,
-            startTime: todayMeeting.startTime,
-            endTime: todayMeeting.endTime,
-            platform: todayMeeting.platform === "zoom" ? "Zoom" : "Google Meet"
-          });
+        try {
+          console.log(`Subscription starts today for ${subscription.user.email}, sending immediate invite`);
+          
+          // Add user to today's meeting and get the meeting details
+          const todayMeeting = await addUserToTodaysMeeting(subscription.userId);
+          
+          if (todayMeeting && todayMeeting.meetingLink) {
+            const inviteSent = await sendImmediateInviteViaMessaging({
+              recipient: {
+                name: `${subscription.user.firstName} ${subscription.user.lastName}`,
+                email: subscription.user.email
+              },
+              meetingTitle: todayMeeting.meetingTitle || "GOALETE Club Session - Today",
+              meetingDescription: todayMeeting.meetingDesc || "Join us for today's GOALETE Club session to learn how to achieve any goal in life.",
+              meetingLink: todayMeeting.meetingLink,
+              startTime: todayMeeting.startTime,
+              endTime: todayMeeting.endTime,
+              platform: todayMeeting.platform === "zoom" ? "Zoom" : "Google Meet",
+              hostLink: todayMeeting.zoomStartUrl || undefined
+            });
+            
+            if (inviteSent) {
+              console.log(`Successfully sent immediate invite to ${subscription.user.email}`);
+            } else {
+              console.error(`Failed to send immediate invite to ${subscription.user.email}`);
+            }
+          } else {
+            console.log(`No meeting available for today, skipping immediate invite for ${subscription.user.email}`);
+          }
+        } catch (inviteError) {
+          console.error(`Error sending immediate invite to ${subscription.user.email}:`, inviteError);
+          // Don't fail the entire transaction for invite errors
         }
       }
-        */
     }));
     // Send admin notification
     if (updatedSubs.length > 1) {

@@ -27,7 +27,13 @@ export default function AdminCalendar() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   // Form state
-  const [platform, setPlatform] = useState('google-meet');
+  const [platform, setPlatform] = useState(() => {
+    // Use environment default or fallback to google-meet
+    if (typeof window !== 'undefined') {
+      return 'google-meet'; // Default for client-side
+    }
+    return 'google-meet';
+  });
   const [startTime, setStartTime] = useState('20:00');
   const [duration, setDuration] = useState(60);
   const [meetingTitle, setMeetingTitle] = useState('GOALETE Club Session');
@@ -113,7 +119,8 @@ export default function AdminCalendar() {
         startTime,
         duration: Number(duration),
         meetingTitle,
-        meetingDesc
+        meetingDesc,
+        addActiveUsers: false // Always false now - users added by cron job
       };
 
       // Add either dates array or date range
@@ -390,6 +397,20 @@ export default function AdminCalendar() {
                 <option value="google-meet">Google Meet</option>
                 <option value="zoom">Zoom</option>
               </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Default platform from environment: Google Meet
+              </p>
+            </div>
+            
+            <div className="bg-blue-50 p-4 rounded border border-blue-200">
+              <h4 className="font-semibold text-blue-800 mb-2">Optimized Meeting Creation:</h4>
+              <ul className="text-blue-700 text-sm space-y-1">
+                <li>• <strong>Create Meetings:</strong> Admin creates meetings in advance with meeting links stored in database</li>
+                <li>• <strong>Daily Cron (10 AM):</strong> Automatically adds active users to meetings and sends invites</li>
+                <li>• <strong>Immediate Invites:</strong> Users registering after cron but before meeting get instant invites</li>
+                <li>• <strong>Default Fallback:</strong> If no admin meeting exists, system creates one with default settings</li>
+                <li>• <strong>Efficient Process:</strong> Meeting creation is separate from user management for better performance</li>
+              </ul>
             </div>
             
             <div>

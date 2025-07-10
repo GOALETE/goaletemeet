@@ -14,7 +14,6 @@ All API endpoints are relative to the base URL of your deployment:
 Some API endpoints require authentication:
 
 - **Admin API Routes**: Require an admin session or API key
-- **Cron Jobs**: Require the `CRON_API_KEY` environment variable
 
 ## Error Handling
 

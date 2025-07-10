@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { sendMeetingInvite } from "@/lib/email";
-import { getOrCreateDailyMeetingLink } from "@/lib/subscription";
+import { sendMeetingInviteViaMessaging } from "@/lib/messaging";
+import { getOrCreateDailyMeeting } from "@/lib/meetingLink";
 import { InviteResult, MeetingWithUsers } from "@/types/meeting";
-import { z } from "zod";
-
-// Validation schema for request parameters (if any)
-const requestParamsSchema = z.object({
-  apiKey: z.string().optional(),
-  testMode: z.boolean().optional()
-});
+import { getCronJobConfig } from "@/lib/cronConfig";
 
 // This function will be triggered by a CRON job (e.g., using Vercel Cron)
 export async function GET(request: NextRequest) {
@@ -19,33 +13,26 @@ export async function GET(request: NextRequest) {
     invitesSent: 0,
     invitesFailed: 0,
     totalDuration: 0,
-    errors: [] as string[]
+    errors: [] as string[],
+    skippedOperations: [] as string[]
   };
 
   try {
-    // Validate request parameters if any
-    const params = requestParamsSchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
-    if (!params.success) {
-      return NextResponse.json({ 
-        success: false,
-        message: "Invalid request parameters",
-        details: params.error.flatten(),
+    // Get cron job configuration
+    const cronConfig = getCronJobConfig();
+    
+    // Check if cron job is enabled
+    if (!cronConfig.cronJobsEnabled) {
+      console.log("Cron job execution is disabled via ENABLE_CRON_JOBS environment variable");
+      return NextResponse.json({
+        success: true,
+        message: "Cron job execution is disabled",
+        enabled: false,
         timestamp: new Date().toISOString()
-      }, { status: 400 });
+      }, { status: 200 });
     }
 
-    // Check API key if provided and required
-    const apiKey = params.data.apiKey;
-    const expectedApiKey = process.env.CRON_API_KEY;
-    
-    if (expectedApiKey && apiKey !== expectedApiKey) {
-      console.warn("Unauthorized cron job attempt with invalid API key");
-      return NextResponse.json({ 
-        success: false,
-        message: "Unauthorized access",
-        timestamp: new Date().toISOString()
-      }, { status: 401 });
-    }
+    console.log(`Cron job is enabled: ${cronConfig.cronJobsEnabled}`);
 
     // Get current date in IST
     const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
@@ -56,21 +43,33 @@ export async function GET(request: NextRequest) {
     
     console.log(`Running daily invite cron job for ${today.toISOString().split('T')[0]}`);
     
-    // Get or create today's meeting with retry
+    // Get or create today's meeting
     let todayMeeting: MeetingWithUsers | null = null;
-    try {
-      todayMeeting = await getOrCreateDailyMeetingLink();
-    } catch (meetingError) {
-      const errorMessage = meetingError instanceof Error ? meetingError.message : String(meetingError);
-      console.error("Failed to create or get meeting:", { error: errorMessage });
-      metrics.errors.push(`Meeting creation failed: ${errorMessage}`);
-      
-      return NextResponse.json({ 
-        success: false,
-        message: "Failed to get or create meeting for today",
-        error: errorMessage,
-        timestamp: new Date().toISOString() 
-      }, { status: 500 });
+    
+    if (cronConfig.cronJobsEnabled) {
+      try {
+        // Use the optimized function that handles everything efficiently
+        todayMeeting = await getOrCreateDailyMeeting();
+      } catch (meetingError) {
+        const errorMessage = meetingError instanceof Error ? meetingError.message : String(meetingError);
+        console.error("Failed to create or get meeting:", { error: errorMessage });
+        metrics.errors.push(`Meeting creation failed: ${errorMessage}`);
+        
+        return NextResponse.json({ 
+          success: false,
+          message: "Failed to get or create meeting for today",
+          error: errorMessage,
+          timestamp: new Date().toISOString() 
+        }, { status: 500 });
+      }
+    } else {
+      console.log("Cron jobs are disabled");
+      return NextResponse.json({
+        success: true,
+        message: "Cron jobs are disabled",
+        enabled: false,
+        timestamp: new Date().toISOString()
+      }, { status: 200 });
     }
 
     if (!todayMeeting) {
@@ -122,7 +121,9 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
         invitesSent: []
       }, { status: 200 });
-    }    // Use the meeting details
+    }
+    
+    // Use the meeting details
     const meetingLink = todayMeeting.meetingLink;
     const platform = todayMeeting.platform;
     const meetingTitle = todayMeeting.meetingTitle || "GOALETE Club Daily Session";
@@ -159,8 +160,8 @@ export async function GET(request: NextRequest) {
       try {
         console.log(`Processing invite ${processedCount}/${totalSubscriptions} for user ${userEmail}`);
         
-        // Send calendar invite with retry mechanism from the email library
-        const success = await sendMeetingInvite({
+        // Send calendar invite using the new messaging service
+        const success = await sendMeetingInviteViaMessaging({
           recipient: {
             name: `${subscription.user.firstName} ${subscription.user.lastName}`,
             email: userEmail
@@ -237,7 +238,8 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       metrics: {
         duration: metrics.totalDuration,
-        successRate: totalSubscriptions > 0 ? (successful / totalSubscriptions) * 100 : 0
+        successRate: totalSubscriptions > 0 ? (successful / totalSubscriptions) * 100 : 0,
+        skippedOperations: metrics.skippedOperations
       },
       meetingDetails: {
         id: todayMeeting.id,
@@ -270,7 +272,8 @@ export async function GET(request: NextRequest) {
         duration: metrics.totalDuration,
         invitesSent: metrics.invitesSent,
         invitesFailed: metrics.invitesFailed,
-        errors: metrics.errors.slice(0, 5) // Only include first 5 errors
+        errors: metrics.errors.slice(0, 5), // Only include first 5 errors
+        skippedOperations: metrics.skippedOperations
       },
       timestamp: new Date().toISOString()
     }, { status: 500 });

@@ -11,6 +11,7 @@ import UpcomingRegistrationsView from './adminviews/UpcomingRegistrationsView';
 import TodayMeetingCard from './adminviews/TodayMeetingCard';
 import UserManagementView from './adminviews/UserManagementView';
 import EarningsAnalyticsView from './adminviews/EarningsAnalyticsView';
+import CronManagementView from './adminviews/CronManagementView';
 
 type UserData = {
   id: string;
@@ -78,7 +79,7 @@ function useToast() {
 }
 
 export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'sessionUsers' | 'userManagement' | 'analytics'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'sessionUsers' | 'userManagement' | 'analytics' | 'cronManagement'>('users');
   const [subscriptionView, setSubscriptionView] = useState<'all' | 'thisWeek' | 'upcoming'>('all');
   const [users, setUsers] = useState<UserData[]>(initialUsers);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>(initialUsers);
@@ -445,6 +446,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       <div className="flex flex-wrap gap-2 mb-6">
         <button className={`px-4 py-2 rounded ${activeTab === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('users')}>Users</button>
         <button className={`px-4 py-2 rounded ${activeTab === 'calendar' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('calendar')}>Calendar</button>
+        <button className={`px-4 py-2 rounded ${activeTab === 'cronManagement' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('cronManagement')}>Cron Jobs</button>
         <button className={`px-4 py-2 rounded ${activeTab === 'upcoming' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('upcoming')}>Upcoming Registrations</button>
         <button className={`px-4 py-2 rounded ${activeTab === 'subscriptions' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('subscriptions')}>Subscriptions</button>
         <button className={`px-4 py-2 rounded ${activeTab === 'sessionUsers' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setActiveTab('sessionUsers')}>Session Users</button>
@@ -519,6 +521,10 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         
         {activeTab === 'analytics' && (
           <EarningsAnalyticsView />
+        )}
+        
+        {activeTab === 'cronManagement' && (
+          <CronManagementView />
         )}
       </div>
 

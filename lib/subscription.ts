@@ -458,6 +458,7 @@ export async function getTodayActiveSubscriptions() {
 /**
  /**
  * Gets or creates a meeting link for today
+ * Enhanced version that prioritizes admin-created meetings
  * @returns The meeting object for today
  */
 export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | null> {
@@ -473,11 +474,16 @@ export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | 
           gte: new Date(istDate.getFullYear(), istDate.getMonth(), istDate.getDate(), 0, 0, 0),
           lt: new Date(istDate.getFullYear(), istDate.getMonth(), istDate.getDate() + 1, 0, 0, 0)
         }
-      }
+      },
+      include: { users: true }
     });
+    
     if (existingMeeting) {
+      console.log(`Found existing meeting for today: ${existingMeeting.id} (${existingMeeting.createdBy})`);
       return existingMeeting;
     }
+
+    console.log(`No existing meeting found for today, creating default meeting`);
 
     // Get all users with active subscriptions for today
     const activeSubscriptions = await prisma.subscription.findMany({
@@ -488,11 +494,15 @@ export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | 
       },
       select: { userId: true }
     });
-    const userIds = activeSubscriptions.map(sub => sub.userId);    // Get default meeting settings from environment variables
+    const userIds = activeSubscriptions.map(sub => sub.userId);
+
+    // Get default meeting settings from environment variables
     const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || 'google-meet';
     const defaultTime = process.env.DEFAULT_MEETING_TIME || '21:00';
     const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || '60');
     const todayStr = istDate.toISOString().split('T')[0];
+
+    console.log(`Creating default meeting with platform: ${defaultPlatform}, time: ${defaultTime}, duration: ${defaultDuration} minutes`);
 
     // Create the meeting with all users for today
     const meeting = await createCompleteMeeting({
@@ -504,6 +514,16 @@ export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | 
       meetingDesc: 'Join us for a GOALETE Club session to learn how to achieve any goal in life.',
       userIds
     });
+    
+    // Mark this as a system-generated default meeting
+    await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: { 
+        createdBy: 'system-default',
+        isDefault: true 
+      }
+    });
+    
     return meeting;
   } catch (error) {
     console.error('Error creating daily meeting link:', error);

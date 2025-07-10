@@ -67,8 +67,7 @@ export function isNonProductionEnvironment(): boolean {
   return nodeEnv === 'development' || 
          nodeEnv === 'test' || 
          vercelEnv === 'development' ||
-         vercelEnv === 'preview' ||
-         process.env.IS_DEVELOPMENT === 'true';
+         vercelEnv === 'preview';
 }
 
 /**
