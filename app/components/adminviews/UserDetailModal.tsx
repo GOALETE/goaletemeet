@@ -214,27 +214,53 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
         </div>
         
         {/* Action Buttons */}
-        <div className="px-6 py-3 bg-gray-50 border-b flex justify-between items-center">
-          <div>
+        <div className="px-8 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200/50 flex justify-between items-center">
+          <div className="flex items-center space-x-3">
             {user.role !== 'superuser' && (
               <button 
                 onClick={handleGrantSuperuser}
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg disabled:opacity-50 disabled:transform-none flex items-center space-x-2"
               >
-                {loading ? 'Processing...' : 'Grant Superuser Status'}
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <span>Grant Superuser Status</span>
+                  </>
+                )}
               </button>
             )}
+            <button 
+              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg flex items-center space-x-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <span>Edit User</span>
+            </button>
           </div>
-          <div>
+          <div className="flex items-center space-x-3">
             {successMessage && (
-              <div className="px-4 py-2 bg-green-100 text-green-800 rounded">
-                {successMessage}
+              <div className="px-4 py-2 bg-gradient-to-r from-emerald-100 to-green-100 border border-emerald-300 text-emerald-800 rounded-xl font-medium flex items-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{successMessage}</span>
               </div>
             )}
             {errorMessage && (
-              <div className="px-4 py-2 bg-red-100 text-red-800 rounded">
-                {errorMessage}
+              <div className="px-4 py-2 bg-gradient-to-r from-red-100 to-pink-100 border border-red-300 text-red-800 rounded-xl font-medium flex items-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{errorMessage}</span>
               </div>
             )}
           </div>
@@ -243,16 +269,24 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
         {/* Subscription Filters */}
         {user.subscriptions?.length > 0 && (
           <>
-            <div className="px-6 py-3 bg-gray-50 border-b">
+            <div className="px-8 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200/50">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z" />
+                  </svg>
+                </div>
+                <h4 className="text-lg font-bold text-gray-800">Subscription Filters</h4>
+              </div>
               <div className="flex flex-wrap items-center gap-4">
                 <div>
-                  <label className="text-sm text-gray-600 mr-2">Status:</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Status:</label>
                   <select 
                     value={modalFilterStatus}
                     onChange={(e) => setModalFilterStatus(e.target.value)}
-                    className="p-1 border rounded text-sm"
+                    className="p-2 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 bg-white text-sm font-medium"
                   >
-                    <option value="all">All</option>
+                    <option value="all">All Status</option>
                     <option value="active">Active</option>
                     <option value="expired">Expired</option>
                     <option value="pending">Pending</option>
@@ -260,13 +294,13 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600 mr-2">Payment:</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Payment:</label>
                   <select 
                     value={modalFilterPayment}
                     onChange={(e) => setModalFilterPayment(e.target.value)}
-                    className="p-1 border rounded text-sm"
+                    className="p-2 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 bg-white text-sm font-medium"
                   >
-                    <option value="all">All</option>
+                    <option value="all">All Payments</option>
                     <option value="completed">Completed</option>
                     <option value="pending">Pending</option>
                     <option value="failed">Failed</option>
@@ -276,159 +310,228 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
             </div>
             
             {/* Subscriptions Table */}
-            <div className="px-6 py-4 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th 
-                      scope="col" 
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleModalSort('planType')}
-                    >
-                      Plan Type
-                      {modalSortBy === 'planType' && (
-                        <span className="ml-1">{modalSortOrder === 'asc' ? '▲' : '▼'}</span>
-                      )}
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleModalSort('startDate')}
-                    >
-                      Start Date
-                      {modalSortBy === 'startDate' && (
-                        <span className="ml-1">{modalSortOrder === 'asc' ? '▲' : '▼'}</span>
-                      )}
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleModalSort('endDate')}
-                    >
-                      End Date
-                      {modalSortBy === 'endDate' && (
-                        <span className="ml-1">{modalSortOrder === 'asc' ? '▲' : '▼'}</span>
-                      )}
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleModalSort('status')}
-                    >
-                      Status
-                      {modalSortBy === 'status' && (
-                        <span className="ml-1">{modalSortOrder === 'asc' ? '▲' : '▼'}</span>
-                      )}
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleModalSort('paymentStatus')}
-                    >
-                      Payment
-                      {modalSortBy === 'paymentStatus' && (
-                        <span className="ml-1">{modalSortOrder === 'asc' ? '▲' : '▼'}</span>
-                      )}
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleModalSort('price')}
-                    >
-                      Price
-                      {modalSortBy === 'price' && (
-                        <span className="ml-1">{modalSortOrder === 'asc' ? '▲' : '▼'}</span>
-                      )}
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Order ID
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {user.subscriptions
-                    ?.filter(sub => 
-                      (modalFilterStatus === 'all' || sub.status === modalFilterStatus) &&
-                      (modalFilterPayment === 'all' || sub.paymentStatus === modalFilterPayment)
-                    )
-                    .sort((a, b) => {
-                      // Add sorting logic based on modalSortBy and modalSortOrder
-                      let comparison = 0;
-                      if (modalSortBy === 'startDate' || modalSortBy === 'endDate') {
-                        comparison = new Date(a[modalSortBy]).getTime() - new Date(b[modalSortBy]).getTime();
-                      } else if (modalSortBy === 'price' || modalSortBy === 'duration') {
-                        comparison = (a[modalSortBy] || 0) - (b[modalSortBy] || 0);
-                      } else {
-                        comparison = String(a[modalSortBy]).localeCompare(String(b[modalSortBy]));
-                      }
-                      return modalSortOrder === 'asc' ? comparison : -comparison;
-                    })
-                    .map((sub) => (
-                      <tr key={sub.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                          {sub.planType}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                          {formatDate(sub.startDate)}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                          {formatDate(sub.endDate)}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            ${sub.status === 'active' ? 'bg-green-100 text-green-800' : 
+            <div className="px-8 py-6">
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                <table className="min-w-full">
+                  <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                    <tr>
+                      <th 
+                        scope="col" 
+                        className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-all duration-200"
+                        onClick={() => handleModalSort('planType')}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                          <span>Plan Type</span>
+                          {modalSortBy === 'planType' && (
+                            <span className="text-indigo-600">{modalSortOrder === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        scope="col" 
+                        className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-all duration-200"
+                        onClick={() => handleModalSort('startDate')}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>Start Date</span>
+                          {modalSortBy === 'startDate' && (
+                            <span className="text-indigo-600">{modalSortOrder === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        scope="col" 
+                        className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-all duration-200"
+                        onClick={() => handleModalSort('endDate')}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>End Date</span>
+                          {modalSortBy === 'endDate' && (
+                            <span className="text-indigo-600">{modalSortOrder === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        scope="col" 
+                        className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-all duration-200"
+                        onClick={() => handleModalSort('status')}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Status</span>
+                          {modalSortBy === 'status' && (
+                            <span className="text-indigo-600">{modalSortOrder === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        scope="col" 
+                        className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-all duration-200"
+                        onClick={() => handleModalSort('paymentStatus')}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                          </svg>
+                          <span>Payment</span>
+                          {modalSortBy === 'paymentStatus' && (
+                            <span className="text-indigo-600">{modalSortOrder === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        scope="col" 
+                        className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-all duration-200"
+                        onClick={() => handleModalSort('price')}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                          </svg>
+                          <span>Price</span>
+                          {modalSortBy === 'price' && (
+                            <span className="text-indigo-600">{modalSortOrder === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        scope="col" 
+                        className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                          </svg>
+                          <span>Order ID</span>
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {user.subscriptions
+                      ?.filter(sub => 
+                        (modalFilterStatus === 'all' || sub.status === modalFilterStatus) &&
+                        (modalFilterPayment === 'all' || sub.paymentStatus === modalFilterPayment)
+                      )
+                      .sort((a, b) => {
+                        // Add sorting logic based on modalSortBy and modalSortOrder
+                        let comparison = 0;
+                        if (modalSortBy === 'startDate' || modalSortBy === 'endDate') {
+                          comparison = new Date(a[modalSortBy]).getTime() - new Date(b[modalSortBy]).getTime();
+                        } else if (modalSortBy === 'price' || modalSortBy === 'duration') {
+                          comparison = (a[modalSortBy] || 0) - (b[modalSortBy] || 0);
+                        } else {
+                          comparison = String(a[modalSortBy]).localeCompare(String(b[modalSortBy]));
+                        }
+                        return modalSortOrder === 'asc' ? comparison : -comparison;
+                      })
+                      .map((sub, index) => (
+                        <tr key={sub.id} className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-300">
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                              sub.planType === 'monthly' ? 'bg-blue-100 text-blue-800' :
+                              sub.planType === 'single-day' ? 'bg-emerald-100 text-emerald-800' :
+                              'bg-purple-100 text-purple-800'
+                            }`}>
+                              {sub.planType}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {formatDate(sub.startDate)}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {formatDate(sub.endDate)}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className={`px-3 py-1 text-xs font-semibold rounded-full flex items-center space-x-1 w-fit ${
+                              sub.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 
                               sub.status === 'expired' ? 'bg-gray-100 text-gray-800' : 
                               sub.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                              'bg-red-100 text-red-800'}`}>
-                            {sub.status}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            ${sub.paymentStatus === 'completed' ? 'bg-green-100 text-green-800' : 
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              <div className={`w-2 h-2 rounded-full ${
+                                sub.status === 'active' ? 'bg-emerald-500' : 
+                                sub.status === 'expired' ? 'bg-gray-500' : 
+                                sub.status === 'pending' ? 'bg-yellow-500' : 
+                                'bg-red-500'
+                              }`}></div>
+                              <span>{sub.status}</span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className={`px-3 py-1 text-xs font-semibold rounded-full flex items-center space-x-1 w-fit ${
+                              sub.paymentStatus === 'completed' ? 'bg-emerald-100 text-emerald-800' : 
                               sub.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                              'bg-red-100 text-red-800'}`}>
-                            {sub.paymentStatus}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                          ₹{sub.price || 0}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                          {sub.orderId}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-              {user.subscriptions?.filter(sub => 
-                (modalFilterStatus === 'all' || sub.status === modalFilterStatus) &&
-                (modalFilterPayment === 'all' || sub.paymentStatus === modalFilterPayment)
-              ).length === 0 && (
-                <div className="py-4 text-center text-gray-500">
-                  No subscriptions match the current filters
-                </div>
-              )}
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              <div className={`w-2 h-2 rounded-full ${
+                                sub.paymentStatus === 'completed' ? 'bg-emerald-500' : 
+                                sub.paymentStatus === 'pending' ? 'bg-yellow-500' : 
+                                'bg-red-500'
+                              }`}></div>
+                              <span>{sub.paymentStatus}</span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                            ₹{sub.price || 0}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-mono">
+                            {sub.orderId}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+                {user.subscriptions?.filter(sub => 
+                  (modalFilterStatus === 'all' || sub.status === modalFilterStatus) &&
+                  (modalFilterPayment === 'all' || sub.paymentStatus === modalFilterPayment)
+                ).length === 0 && (
+                  <div className="py-8 text-center">
+                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <p className="text-gray-500 font-medium">No subscriptions match the current filters</p>
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
         
         {user.subscriptions?.length === 0 && (
-          <div className="px-6 py-4 text-center text-gray-500">
-            This user has no subscriptions
+          <div className="px-8 py-12 text-center">
+            <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            <h3 className="text-lg font-semibold text-gray-600 mb-2">No Subscriptions Found</h3>
+            <p className="text-gray-500">This user has not purchased any subscriptions yet.</p>
           </div>
         )}
         
         {/* Footer */}
-        <div className="px-6 py-3 bg-gray-50 border-t text-right">
+        <div className="px-8 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200/50 flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            User ID: <span className="font-mono text-gray-800">{user.id}</span>
+          </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-gray-800"
+            className="px-6 py-3 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 rounded-xl text-gray-800 font-semibold transform hover:scale-[1.02] transition-all duration-300 shadow-lg flex items-center space-x-2"
           >
-            Close
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <span>Close</span>
           </button>
         </div>
         </div>

@@ -330,12 +330,12 @@ export default function UserManagementView() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Last Name*
                 </label>
                 <input
                   type="text"
-                  className="w-full p-2 border border-gray-300 rounded"
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   required
@@ -344,73 +344,124 @@ export default function UserManagementView() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Email*
               </label>
-              <input
-                type="email"
-                className="w-full p-2 border border-gray-300 rounded"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <input
+                  type="email"
+                  className="w-full p-3 pl-10 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="user@example.com"
+                />
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Phone*
               </label>
-              <input
-                type="tel"
-                className="w-full p-2 border border-gray-300 rounded"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <input
+                  type="tel"
+                  className="w-full p-3 pl-10 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  placeholder="+91 9876543210"
+                />
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+              </div>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Source
               </label>
-              <select
-                className="w-full p-2 border border-gray-300 rounded"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-              >
-                <option value="admin">Admin</option>
-                <option value="website">Website</option>
-                <option value="referral">Referral</option>
-                <option value="instagram">Instagram</option>
-                <option value="facebook">Facebook</option>
-                <option value="other">Other</option>
-              </select>
+              <div className="relative">
+                <select
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 bg-white appearance-none"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                >
+                  <option value="admin">Admin</option>
+                  <option value="website">Website</option>
+                  <option value="referral">Referral</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="linkedin">LinkedIn</option>
+                  <option value="twitter">Twitter</option>
+                  <option value="other">Other</option>
+                </select>
+                <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
             
-            <div className="pt-4">
-              <h4 className="font-medium mb-2">Selected Meetings ({selectedMeetingIds.length})</h4>
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h4 className="font-bold text-gray-800">Selected Meetings ({selectedMeetingIds.length})</h4>
+              </div>
               {selectedMeetingIds.length === 0 ? (
-                <p className="text-sm text-gray-500">No meetings selected. Please select meetings from the list.</p>
+                <div className="text-center py-6">
+                  <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-gray-500 font-medium">No meetings selected</p>
+                  <p className="text-sm text-gray-400 mt-1">Please select meetings from the list to assign to the user</p>
+                </div>
               ) : (
-                <div className="max-h-40 overflow-y-auto p-2 border border-gray-200 rounded">
+                <div className="max-h-48 overflow-y-auto space-y-2">
                   {selectedMeetingIds.map(id => {
                     const meeting = meetings.find(m => m.id === id);
                     if (!meeting) return null;
                     
                     return (
-                      <div key={id} className="flex justify-between items-center py-1 px-2 text-sm border-b last:border-0">
-                        <div>
-                          <span className="font-medium">{format(new Date(meeting.meetingDate), 'MMM d, yyyy')}</span>
-                          <span className="text-gray-500 ml-2">
-                            {format(new Date(meeting.startTimeIST || meeting.startTime), 'h:mm a')}
-                          </span>
+                      <div key={id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <div>
+                            <div className="font-semibold text-gray-800">
+                              {format(new Date(meeting.meetingDate), 'MMM d, yyyy')}
+                            </div>
+                            <div className="text-sm text-gray-500 flex items-center space-x-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span>{format(new Date(meeting.startTimeIST || meeting.startTime), 'h:mm a')}</span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                meeting.platform === 'google-meet' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-purple-100 text-purple-800'
+                              }`}>
+                                {meeting.platform === 'google-meet' ? 'Google Meet' : 'Zoom'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                         <button
                           type="button"
-                          className="text-red-500 hover:text-red-700"
+                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200"
                           onClick={() => handleMeetingSelect(id)}
+                          title="Remove meeting"
                         >
-                          ×
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
                         </button>
                       </div>
                     );
@@ -421,77 +472,117 @@ export default function UserManagementView() {
             
             <button
               type="submit"
-              className={`w-full py-2 rounded transition ${
+              className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center space-x-3 ${
                 formLoading 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  ? 'bg-gray-400 cursor-not-allowed opacity-75' 
+                  : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
               }`}
               disabled={formLoading}
             >
-              {formLoading ? 'Creating...' : 'Create User & Add to Meetings'}
+              {formLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
+                  <span>Creating User...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Create User & Add to Meetings</span>
+                </>
+              )}
             </button>
           </form>
         </div>
         
         {/* Meeting Selection */}
-        <div>
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold mb-2">Select Meetings</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  className="w-full p-2 border border-gray-300 rounded"
-                  value={dateRange.startDate}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  className="w-full p-2 border border-gray-300 rounded"
-                  value={dateRange.endDate}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                />
-              </div>
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
             </div>
-            <button
-              className="mt-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm"
-              onClick={fetchMeetings}
-            >
-              Refresh Meetings
-            </button>
+            <h3 className="text-xl font-bold text-gray-800">Select Meetings</h3>
           </div>
           
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Start Date
+              </label>
+              <input
+                type="date"
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
+                value={dateRange.startDate}
+                onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                End Date
+              </label>
+              <input
+                type="date"
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
+                value={dateRange.endDate}
+                onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+              />
+            </div>
+          </div>
+          
+          <button
+            className="mb-6 px-6 py-3 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 rounded-xl text-gray-700 font-semibold transition-all duration-300 transform hover:scale-[1.02] flex items-center space-x-2"
+            onClick={fetchMeetings}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-500 border-t-transparent"></div>
+                <span>Loading...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Refresh Meetings</span>
+              </>
+            )}
+          </button>
+          
           {loading ? (
-            <div className="py-20 flex justify-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-700"></div>
+            <div className="py-20 flex flex-col items-center justify-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600"></div>
+              <p className="text-gray-600 font-medium">Loading meetings...</p>
             </div>
           ) : error ? (
-            <div className="p-4 text-red-600 bg-red-50 rounded">
-              {error}
+            <div className="p-6 text-center bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl">
+              <svg className="w-12 h-12 text-red-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-red-800 font-semibold text-lg mb-2">Error Loading Meetings</p>
+              <p className="text-red-600">{error}</p>
             </div>
           ) : meetings.length === 0 ? (
-            <div className="p-6 text-center bg-yellow-50 rounded-lg">
-              <h3 className="text-lg font-medium text-yellow-800 mb-2">No meetings found</h3>
-              <p className="text-yellow-600">
+            <div className="p-8 text-center bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-2xl">
+              <svg className="w-16 h-16 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h3 className="text-xl font-bold text-yellow-800 mb-2">No Meetings Found</h3>
+              <p className="text-yellow-700 mb-4">
                 No meetings available in the selected date range. Try adjusting the dates or create new meetings first.
               </p>
               <button
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold hover:from-indigo-600 hover:to-purple-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg"
                 onClick={() => window.location.href = '/admin?tab=calendar'}
               >
                 Go to Calendar
               </button>
             </div>
           ) : (
-            <div className="max-h-[600px] overflow-y-auto">
+            <div className="max-h-[500px] overflow-y-auto">
               {sortedDates.map(date => {
                 const isDateSelected = selectedDates.includes(date);
                 const today = new Date();
@@ -499,64 +590,107 @@ export default function UserManagementView() {
                 const isPastDate = !isAfter(meetingDate, today);
                 
                 return (
-                  <div key={date} className="mb-4">
+                  <div key={date} className="mb-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div 
-                      className={`flex justify-between items-center p-2 rounded-t cursor-pointer ${
-                        isDateSelected ? 'bg-blue-100' : isPastDate ? 'bg-gray-100' : 'bg-green-50'
+                      className={`flex justify-between items-center p-4 cursor-pointer transition-all duration-300 ${
+                        isDateSelected 
+                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-l-blue-500' 
+                          : isPastDate 
+                            ? 'bg-gray-50 hover:bg-gray-100' 
+                            : 'bg-white hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50'
                       }`}
                       onClick={() => handleDateSelect(date)}
                     >
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={isDateSelected}
-                          onChange={() => {}}
-                          className="mr-2"
-                        />
-                        <span className="font-medium">
-                          {format(new Date(date), 'EEEE, MMMM d, yyyy')}
-                        </span>
-                      </div>
-                      <span className="text-sm">
-                        {groupedMeetings[date].length} meeting{groupedMeetings[date].length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    
-                    {groupedMeetings[date].map(meeting => (
-                      <div 
-                        key={meeting.id}
-                        className={`p-3 border-t border-x last:border-b last:rounded-b ${
-                          selectedMeetingIds.includes(meeting.id) 
-                            ? 'bg-blue-50' 
-                            : isPastDate ? 'bg-gray-50' : 'bg-white'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedMeetingIds.includes(meeting.id)}
-                              onChange={() => handleMeetingSelect(meeting.id)}
-                              className="mr-3"
-                            />
-                            <div>
-                              <div className="font-medium">{meeting.meetingTitle}</div>
-                              <div className="text-sm text-gray-500">
-                                {format(new Date(meeting.startTimeIST || meeting.startTime), 'h:mm a')} - 
-                                {format(new Date(meeting.endTimeIST || meeting.endTime), 'h:mm a')} IST
-                              </div>
-                            </div>
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-300 ${
+                          isDateSelected 
+                            ? 'bg-blue-500 border-blue-500' 
+                            : 'border-gray-300 hover:border-blue-400'
+                        }`}>
+                          {isDateSelected && (
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-800">
+                            {format(new Date(date), 'EEEE, MMMM d, yyyy')}
                           </div>
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            meeting.platform === 'google-meet' 
-                              ? 'bg-blue-100 text-blue-800' 
-                              : 'bg-purple-100 text-purple-800'
-                          }`}>
-                            {meeting.platform === 'google-meet' ? 'Google Meet' : 'Zoom'}
-                          </span>
+                          <div className="text-sm text-gray-500 flex items-center space-x-1">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <span>{groupedMeetings[date].length} meeting{groupedMeetings[date].length !== 1 ? 's' : ''}</span>
+                          </div>
                         </div>
                       </div>
-                    ))}
+                      <div className="flex items-center space-x-2">
+                        {isPastDate && (
+                          <span className="px-2 py-1 bg-gray-200 text-gray-600 rounded-full text-xs font-medium">
+                            Past
+                          </span>
+                        )}
+                        <svg className={`w-5 h-5 text-gray-400 transform transition-transform duration-300 ${
+                          isDateSelected ? 'rotate-90' : ''
+                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 p-4 pt-0">
+                      {groupedMeetings[date].map(meeting => (
+                        <div 
+                          key={meeting.id}
+                          className={`p-4 border-2 rounded-xl transition-all duration-300 ${
+                            selectedMeetingIds.includes(meeting.id) 
+                              ? 'border-blue-300 bg-blue-50' 
+                              : isPastDate 
+                                ? 'border-gray-200 bg-gray-50' 
+                                : 'border-gray-200 bg-white hover:border-blue-200 hover:bg-blue-50'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-300 ${
+                                selectedMeetingIds.includes(meeting.id) 
+                                  ? 'bg-blue-500 border-blue-500' 
+                                  : 'border-gray-300 hover:border-blue-400'
+                              }`}>
+                                {selectedMeetingIds.includes(meeting.id) && (
+                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </div>
+                              <div
+                                className="cursor-pointer"
+                                onClick={() => handleMeetingSelect(meeting.id)}
+                              >
+                                <div className="font-semibold text-gray-800">{meeting.meetingTitle}</div>
+                                <div className="text-sm text-gray-500 flex items-center space-x-2">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span>
+                                    {format(new Date(meeting.startTimeIST || meeting.startTime), 'h:mm a')} - 
+                                    {format(new Date(meeting.endTimeIST || meeting.endTime), 'h:mm a')} IST
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
+                              meeting.platform === 'google-meet' 
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                                : 'bg-purple-100 text-purple-800 border border-purple-200'
+                            }`}>
+                              {meeting.platform === 'google-meet' ? 'Google Meet' : 'Zoom'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
@@ -565,44 +699,97 @@ export default function UserManagementView() {
         </div>
       </div>
       
-      {/* Existing Users List */}
-      <div className="mt-8">
-        <h3 className="text-lg font-semibold mb-3">Recent Users</h3>
+      {/* Recent Users Section */}
+      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-gray-800">Recent Users</h3>
+          </div>
+          <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium">
+            {users.length} total users
+          </span>
+        </div>
         
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-600 uppercase tracking-wider">Name</th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-600 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-600 uppercase tracking-wider">Phone</th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-600 uppercase tracking-wider">Source</th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-600 uppercase tracking-wider">Created</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.slice(0, 5).map(user => (
-                <tr key={user.id}>
+            <tbody className="divide-y divide-gray-200">
+              {users.slice(0, 10).map((user, index) => (
+                <tr key={user.id} className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-300">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{user.firstName} {user.lastName}</div>
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                        index % 4 === 0 ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
+                        index % 4 === 1 ? 'bg-gradient-to-r from-emerald-500 to-green-600' :
+                        index % 4 === 2 ? 'bg-gradient-to-r from-purple-500 to-violet-600' :
+                        'bg-gradient-to-r from-pink-500 to-rose-600'
+                      }`}>
+                        {(user.firstName?.charAt(0) || user.email?.charAt(0))?.toUpperCase() || 'U'}
+                      </div>
+                      <div className="text-sm font-semibold text-gray-900">
+                        {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'N/A'}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{user.email}</div>
+                    <div className="text-sm text-gray-700 flex items-center space-x-2">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span>{user.email}</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{user.phone}</div>
+                    <div className="text-sm text-gray-700 flex items-center space-x-2">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                      <span>{user.phone}</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{user.source}</div>
+                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                      user.source === 'admin' ? 'bg-indigo-100 text-indigo-800' :
+                      user.source === 'website' ? 'bg-green-100 text-green-800' :
+                      user.source === 'instagram' ? 'bg-pink-100 text-pink-800' :
+                      user.source === 'facebook' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {user.source}
+                    </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{format(new Date(user.createdAt), 'MMM d, yyyy')}</div>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                    {format(new Date(user.createdAt), 'MMM d, yyyy')}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        
+        {users.length > 10 && (
+          <div className="mt-4 text-center">
+            <button
+              className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold hover:from-indigo-600 hover:to-purple-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg"
+              onClick={() => window.location.href = '/admin?tab=users'}
+            >
+              View All Users ({users.length})
+            </button>
+          </div>
+        )}
       </div>
       </div>
     </div>
