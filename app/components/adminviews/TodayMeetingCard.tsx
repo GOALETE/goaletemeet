@@ -83,29 +83,55 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4 h-48 flex items-center justify-center">
-        <div className="animate-pulse text-gray-400">Loading today&apos;s meeting...</div>
+      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 h-48 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-3 border-indigo-200 border-t-indigo-600"></div>
+          <div className="text-gray-600 font-medium">Loading today's meeting...</div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-        <div className="text-red-500">{error}</div>
+      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
+        <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl border border-red-200">
+          <div className="p-2 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <h4 className="font-bold text-red-800">Error</h4>
+            <p className="text-red-600">{error}</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!meeting) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-        <h3 className="text-lg font-semibold mb-2">Today&apos;s Meeting</h3>
-        <div className="text-gray-500">No meeting scheduled for today</div>
-        <div className="mt-2">
+      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="p-2 bg-gradient-to-r from-gray-400 to-gray-500 rounded-xl">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold text-gray-800">Today's Meeting</h3>
+        </div>
+        
+        <div className="text-center py-8">
+          <div className="p-4 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full inline-block mb-4">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div className="text-gray-500 mb-4">No meeting scheduled for today</div>
           <button 
             onClick={fetchTodayMeeting}
-            className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+            className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
           >
             Refresh
           </button>
@@ -115,37 +141,61 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-      <h3 className="text-lg font-semibold mb-2">Today&apos;s Meeting</h3>
-      
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-4 text-sm">
-        <div className="text-gray-600">Platform:</div>
-        <div className="font-medium capitalize">{meeting.platform}</div>
-        
-        <div className="text-gray-600">Time:</div>
-        <div className="font-medium">
-          {meeting.startTimeIST ? format(new Date(meeting.startTimeIST), 'h:mm a') : 'N/A'} - 
-          {meeting.endTimeIST ? format(new Date(meeting.endTimeIST), 'h:mm a') : 'N/A'}
+    <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold text-gray-800">Today's Meeting</h3>
         </div>
-        
-        <div className="text-gray-600">Title:</div>
-        <div className="font-medium">{meeting.meetingTitle}</div>
+        <span className="px-3 py-1 bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-sm font-bold rounded-full border border-emerald-200 capitalize">
+          {meeting.platform}
+        </span>
       </div>
       
-      <div className="mt-4 flex justify-between">
+      <div className="space-y-4 mb-6">
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-200/50">
+          <h4 className="text-lg font-bold text-indigo-800 mb-2">{meeting.meetingTitle}</h4>
+          {meeting.meetingDesc && (
+            <p className="text-indigo-600 text-sm">{meeting.meetingDesc}</p>
+          )}
+        </div>
+        
+        <div className="grid grid-cols-1 gap-3">
+          <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200/50">
+            <div className="p-1 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-sm text-blue-600 font-medium">Time:</span>
+              <span className="ml-2 font-bold text-blue-800">
+                {meeting.startTimeIST ? format(new Date(meeting.startTimeIST), 'h:mm a') : 'N/A'} - 
+                {meeting.endTimeIST ? format(new Date(meeting.endTimeIST), 'h:mm a') : 'N/A'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex justify-between items-center">
         <button 
           onClick={handleJoinMeeting}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 flex items-center"
+          className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
         >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
-          Join as Host
+          <span>Join as Host</span>
         </button>
         
         <button 
           onClick={fetchTodayMeeting}
-          className="px-3 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 ml-2"
+          className="px-4 py-2 bg-white/70 backdrop-blur-sm border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all duration-300"
         >
           Refresh
         </button>
