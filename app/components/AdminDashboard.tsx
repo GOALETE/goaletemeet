@@ -80,17 +80,28 @@ function useToast() {
 export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'analytics' | 'cronManagement'>('users');
   const [subscriptionView, setSubscriptionView] = useState<'all' | 'thisWeek' | 'upcoming'>('all');
-  const [users, setUsers] = useState<UserData[]>(initialUsers);
-  const [filteredUsers, setFilteredUsers] = useState<UserData[]>(initialUsers);
-  const [loading, setLoading] = useState(true);
+  
+  // Tab-specific data states
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
+  const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
+  const [upcomingRegistrations, setUpcomingRegistrations] = useState<any[]>([]);
+  const [subscriptionUsers, setSubscriptionUsers] = useState<any[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  
+  // Tab-specific loading states
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [upcomingLoading, setUpcomingLoading] = useState(false);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [cronLoading, setCronLoading] = useState(false);
+  
+  // General states
   const [error, setError] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserWithSubscriptions | null>(null);
   const [showUserDetail, setShowUserDetail] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
-  const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
-  const [upcomingRegistrations, setUpcomingRegistrations] = useState<any[]>([]);
-  const [subscriptionUsers, setSubscriptionUsers] = useState<any[]>([]); // Changed to handle subscription records
-  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [refreshMeetingTrigger, setRefreshMeetingTrigger] = useState(0);
   
   // Filter states - simplified
@@ -113,7 +124,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
 
-  // Stats
+  // Stats and analytics data
   const [userStats, setUserStats] = useState({
     total: 0,
     active: 0,
@@ -128,7 +139,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
 
   // Only one fetchUsers function, wrapped in useCallback
   const fetchUsers = useCallback(async () => {
-    setLoading(true);
+    setUsersLoading(true);
     // Build query parameters based on current filters
     const queryParams = new URLSearchParams();
     if (filterState.plan !== 'all') queryParams.set('planType', filterState.plan);
@@ -169,7 +180,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       const adminPasscode = sessionStorage.getItem('adminPasscode');
       if (!adminPasscode) {
         setError('Admin authentication required');
-        setLoading(false);
+        setUsersLoading(false);
         return;
       }
       
@@ -187,15 +198,166 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       setUsers(data.users);
       setFilteredUsers(data.users);
       setTotal(data.total);
-      setLoading(false);
+      setUsersLoading(false);
     } catch (error) {
       console.error('Error fetching users data:', error);
       setError('Error fetching users data');
-      setLoading(false);
+      setUsersLoading(false);
     }
   }, [filterState, sortBy, sortOrder, page, pageSize]);
 
-  // Only one fetchStatistics function
+  // Tab-specific fetch functions
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        setError('Admin authentication required');
+        setAnalyticsLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/admin/statistics', {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch analytics: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setAnalyticsData(data);
+      setAnalyticsLoading(false);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      setError(`Error fetching analytics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setAnalyticsLoading(false);
+    }
+  }, []);
+
+  const fetchCalendarData = useCallback(async () => {
+    setCalendarLoading(true);
+    try {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        setError('Admin authentication required');
+        setCalendarLoading(false);
+        return;
+      }
+
+      const today = new Date();
+      const startDate = format(today, 'yyyy-MM-dd');
+      
+      const response = await fetch(`/api/admin/meetings?startDate=${startDate}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch upcoming meetings');
+      }
+
+      const data = await response.json();
+      setUpcomingMeetings(data.meetings || []);
+      setCalendarLoading(false);
+    } catch (error) {
+      console.error('Error fetching calendar data:', error);
+      setError('Error fetching calendar data');
+      setCalendarLoading(false);
+    }
+  }, [refreshMeetingTrigger]);
+
+  const fetchUpcomingData = useCallback(async () => {
+    setUpcomingLoading(true);
+    try {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        setError('Admin authentication required');
+        setUpcomingLoading(false);
+        return;
+      }
+      
+      // Get active subscriptions for upcoming dates (in IST)
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      
+      // Use the existing API to get all active users (including single day plans)
+      const queryParams = new URLSearchParams();
+      queryParams.set('status', 'active');
+      
+      const response = await fetch(`/api/admin/users?${queryParams.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch upcoming registrations');
+      
+      const data = await response.json();
+      
+      // Filter for users whose subscriptions are currently active (startDate <= today <= endDate)
+      const activeUsers = data.users.filter((user: any) => {
+        if (!user.start || !user.end) return false;
+        const startDate = new Date(user.start);
+        const endDate = new Date(user.end);
+        return startDate <= today && endDate >= today;
+      });
+      
+      setUpcomingRegistrations(activeUsers);
+      setUpcomingLoading(false);
+    } catch (error) {
+      console.error('Error fetching upcoming registrations:', error);
+      setError('Error fetching upcoming data');
+      setUpcomingLoading(false);
+    }
+  }, []);
+
+  const fetchNewSubscriptionData = useCallback(async (viewType: 'all' | 'thisWeek' | 'upcoming' = subscriptionView) => {
+    setSubscriptionsLoading(true);
+    try {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        setSubscriptionsLoading(false);
+        return;
+      }
+      
+      const queryParams = new URLSearchParams();
+      queryParams.set('viewType', viewType);
+      if (viewType === 'thisWeek') {
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        queryParams.set('startDate', format(startOfWeek, 'yyyy-MM-dd'));
+        queryParams.set('endDate', format(endOfWeek, 'yyyy-MM-dd'));
+      } else if (viewType === 'upcoming') {
+        const today = new Date();
+        queryParams.set('startDate', format(today, 'yyyy-MM-dd'));
+      }
+      
+      const response = await fetch(`/api/admin/subscriptions?${queryParams.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Subscriptions API error:', response.status, errorText);
+        throw new Error('Failed to fetch subscription data');
+      }
+      const data = await response.json();
+      setSubscriptionUsers(data.subscriptions || []);
+      setSubscriptionsLoading(false);
+    } catch (error) {
+      console.error('Error fetching subscription data:', error);
+      setError('Error fetching subscription data');
+      setSubscriptionsLoading(false);
+    }
+  }, [subscriptionView]);
+
   const fetchStatistics = async () => {
     try {
       const adminPasscode = sessionStorage.getItem('adminPasscode');
@@ -241,116 +403,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     }
   };
 
-  // Only one fetchUpcomingMeetings function
-  const fetchUpcomingMeetings = async () => {
-    try {
-      const adminPasscode = sessionStorage.getItem('adminPasscode');
-      if (!adminPasscode) return;
-      
-      // Get today's date in IST
-      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      const startDate = format(today, 'yyyy-MM-dd');
-      
-      const response = await fetch(`/api/admin/meetings?startDate=${startDate}`, {
-        headers: {
-          'Authorization': `Bearer ${adminPasscode}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch upcoming meetings');
-      }
-      
-      const data = await response.json();
-      setUpcomingMeetings(data.meetings);
-    } catch (error) {
-      console.error('Error fetching upcoming meetings:', error);
-    }
-  };
-
-  // Only one fetchUpcomingRegistrations function
-  const fetchUpcomingRegistrations = async () => {
-    try {
-      const adminPasscode = sessionStorage.getItem('adminPasscode');
-      if (!adminPasscode) return;
-      
-      // Get active subscriptions for upcoming dates (in IST)
-      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      
-      // Use the existing API to get all active users (including single day plans)
-      const queryParams = new URLSearchParams();
-      queryParams.set('status', 'active');
-      // Don't filter by startDate - we want all currently active subscriptions
-      
-      const response = await fetch(`/api/admin/users?${queryParams.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${adminPasscode}`
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch upcoming registrations');
-      
-      const data = await response.json();
-      
-      // Filter for users whose subscriptions are currently active (startDate <= today <= endDate)
-      const activeUsers = data.users.filter((user: any) => {
-        if (!user.start || !user.end) return false;
-        const startDate = new Date(user.start);
-        const endDate = new Date(user.end);
-        return startDate <= today && endDate >= today;
-      });
-      
-      setUpcomingRegistrations(activeUsers);
-    } catch (error) {
-      console.error('Error fetching upcoming registrations:', error);
-    }
-  };
-
-  // Fetch subscription data based on view type
-  const fetchSubscriptionData = async (viewType: 'all' | 'thisWeek' | 'upcoming') => {
-    setSubscriptionsLoading(true);
-    try {
-      const adminPasscode = sessionStorage.getItem('adminPasscode');
-      if (!adminPasscode) {
-        setSubscriptionsLoading(false);
-        return;
-      }
-      
-      const queryParams = new URLSearchParams();
-      queryParams.set('viewType', viewType);
-      if (viewType === 'thisWeek') {
-        const today = new Date();
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay());
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        queryParams.set('startDate', format(startOfWeek, 'yyyy-MM-dd'));
-        queryParams.set('endDate', format(endOfWeek, 'yyyy-MM-dd'));
-      } else if (viewType === 'upcoming') {
-        const today = new Date();
-        queryParams.set('startDate', format(today, 'yyyy-MM-dd'));
-      }
-      
-      const response = await fetch(`/api/admin/subscriptions?${queryParams.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${adminPasscode}`
-        }
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Subscriptions API error:', response.status, errorText);
-        throw new Error('Failed to fetch subscription data');
-      }
-      const data = await response.json();
-      setSubscriptionUsers(data.subscriptions); // Changed from data.users to data.subscriptions
-      setRevenue(data.revenue); // Update revenue based on the current view
-      setSubscriptionsLoading(false);
-    } catch (error) {
-      console.error('Error fetching subscription data:', error);
-      setSubscriptionsLoading(false);
-    }
-  };
-
   useEffect(() => {
     // Check if admin is authenticated before making any API calls
     const checkAuthAndFetch = async () => {
@@ -362,31 +414,50 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         return;
       }
 
-      fetchUsers();
-      fetchStatistics();
-      fetchUpcomingMeetings();
-      fetchUpcomingRegistrations();
+      // Only fetch data for the current active tab
+      if (activeTab === 'users') {
+        fetchUsers();
+      }
     };
 
     checkAuthAndFetch();
-  }, [fetchUsers]);
+  }, [fetchUsers, activeTab]);
 
+  // Tab-specific data fetching when switching tabs
   useEffect(() => {
-    // Only make API calls if admin is authenticated
     const adminPasscode = sessionStorage.getItem('adminPasscode');
     if (!adminPasscode) {
       return;
     }
 
+    switch (activeTab) {
+      case 'users':
+        fetchUsers();
+        break;
+      case 'calendar':
+        fetchCalendarData();
+        break;
+      case 'upcoming':
+        fetchUpcomingData();
+        break;
+      case 'subscriptions':
+        fetchNewSubscriptionData(subscriptionView);
+        break;
+      case 'analytics':
+        fetchAnalytics();
+        break;
+      case 'cronManagement':
+        // No specific fetch needed for cron management
+        break;
+    }
+  }, [activeTab, subscriptionView, fetchUsers, fetchCalendarData, fetchUpcomingData, fetchNewSubscriptionData, fetchAnalytics]);
+
+  // Filter-specific effect only for users tab
+  useEffect(() => {
     if (activeTab === 'users') {
       fetchUsers();
-    } else if (activeTab === 'upcoming') {
-      fetchUpcomingRegistrations();
-    } else if (activeTab === 'subscriptions') {
-      fetchSubscriptionData(subscriptionView);
     }
   }, [
-    activeTab,
     filterState.plan, 
     filterState.dateRange, 
     filterState.startDate, 
@@ -399,8 +470,8 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     sortOrder, 
     page, 
     pageSize,
-    subscriptionView,
-    fetchUsers
+    fetchUsers,
+    activeTab
   ]);
 
   // Add the actual dashboard UI here
@@ -459,7 +530,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
               onClick={() => setActiveTab('users')}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               <span>Users</span>
             </button>
@@ -472,7 +543,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
               onClick={() => setActiveTab('calendar')}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h2a2 2 0 002-2z" />
               </svg>
               <span>Calendar</span>
             </button>
@@ -539,7 +610,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
           <UsersView
             users={users}
             filteredUsers={filteredUsers}
-            loading={loading}
+            loading={usersLoading}
             error={error}
             userStats={userStats}
             revenue={revenue}
@@ -567,7 +638,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         
         {activeTab === 'upcoming' && (
           <UpcomingRegistrationsView
-            loading={loading}
+            loading={upcomingLoading}
             upcomingMeetings={upcomingMeetings}
             upcomingRegistrations={upcomingRegistrations}
             handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
@@ -578,7 +649,10 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         {activeTab === 'subscriptions' && (
           <SubscriptionsView
             subscriptionView={subscriptionView}
-            setSubscriptionView={setSubscriptionView}
+            setSubscriptionView={(view) => {
+              setSubscriptionView(view);
+              fetchNewSubscriptionData(view);
+            }}
             subscriptionUsers={subscriptionUsers}
             subscriptionsLoading={subscriptionsLoading}
             revenue={revenue}
