@@ -51,6 +51,11 @@ ADMIN_EMAIL="admin@yourdomain.com"
 # Cron Configuration
 CRON_SECRET="your-cron-secret-for-vercel"
 VERCEL_CRON_SECRET="vercel-specific-cron-secret"
+
+# Meeting Defaults
+DEFAULT_MEETING_TIME=21:00               # 9 PM IST (daily meeting time)
+DEFAULT_MEETING_DURATION=60              # Meeting duration in minutes  
+DEFAULT_MEETING_PLATFORM=google-meet     # Default meeting platform
 ```
 
 ## Service Configuration Details
@@ -185,7 +190,7 @@ Create `vercel.json`:
 ```
 
 #### Cron Endpoints
-- `/api/cron/daily-invites`: Send daily meeting invitations (9 AM IST)
+- `/api/cron/daily-invites`: Send daily meeting invitations (8 AM IST)
 - `/api/cron/status-updates`: Update subscription statuses (midnight)
 
 #### Security

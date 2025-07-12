@@ -224,8 +224,8 @@ ENABLE_CRON_JOBS=true                    # Master toggle for all cron jobs
 
 # Meeting Configuration
 DEFAULT_MEETING_PLATFORM=google-meet
-DEFAULT_MEETING_TIME=21:00
-DEFAULT_MEETING_DURATION=60
+DEFAULT_MEETING_TIME=21:00               # 9 PM IST (default daily meeting time)
+DEFAULT_MEETING_DURATION=60              # 60 minutes duration
 ```
 
 See [Environment Configuration](./docs/environment-configuration.md) for complete details.

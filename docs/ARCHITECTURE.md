@@ -97,19 +97,21 @@ model Subscription {
 ```prisma
 model Meeting {
   id           String   @id @default(cuid())
-  meetingDate  DateTime
+  meetingDate  DateTime @unique
   platform     String   @default("google-meet")
   meetingLink  String?
-  startTime    String
-  endTime      String
-  startTimeIST String?
-  endTimeIST   String?
+  startTime    DateTime  // Stored in UTC
+  endTime      DateTime  // Stored in UTC
   createdBy    String?
   isDefault    Boolean  @default(false)
   meetingDesc  String?
   meetingTitle String?
+  googleEventId String? // Google Calendar event ID
+  zoomMeetingId String? // Zoom meeting ID
+  zoomStartUrl  String? // Zoom start URL (for host)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  users        User[]   @relation("MeetingUsers")
   
   @@map("meetings")
 }
@@ -117,7 +119,15 @@ model Meeting {
 
 ### Key Architectural Decisions
 
-#### 1. Subscription-Centric Data Display
+#### 1. Timezone Handling
+- **Storage**: All meeting times stored in UTC in the database
+- **Display**: Frontend converts UTC to IST (Asia/Kolkata) for user interface
+- **Input**: Admin creates meetings in IST (21:00 = 9 PM), converted to UTC for storage
+- **API**: Returns UTC timestamps with field names `startTimeUTC`, `endTimeUTC`
+- **Google Calendar**: Receives IST times with proper timezone metadata
+- **Benefits**: Eliminates double conversion bugs, consistent storage, proper handling of 21:00 IST = 9 PM
+
+#### 2. Subscription-Centric Data Display
 **Problem**: Users with multiple subscriptions were only showing their most recent subscription in admin views.
 
 **Solution**: 
