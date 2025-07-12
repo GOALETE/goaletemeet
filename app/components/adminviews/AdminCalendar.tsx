@@ -171,6 +171,16 @@ export default function AdminCalendar() {
   const handleDateClick = (dateString: string) => {
     console.log('Clicked on date:', dateString);
     
+    // Check if the date is in the past
+    const clickedDate = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+    
+    if (clickedDate < today) {
+      showToast('Cannot select past dates', 'error');
+      return;
+    }
+    
     if (selectedDates.includes(dateString)) {
       // Remove date if already selected
       console.log('Removing date from selection');
@@ -207,15 +217,26 @@ export default function AdminCalendar() {
       const dayMeetings = meetingsByDate[dateString] || [];
       const hasMeetings = dayMeetings.length > 0;
       
+      // Check if date is in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isPastDate = new Date(dateString) < today;
+      
       days.push(
         <div
           key={dateString}
-          className={`relative h-16 sm:h-20 p-1 sm:p-2 cursor-pointer select-none transition-all duration-200 ease-out group ${
+          className={`relative h-16 sm:h-20 p-1 sm:p-2 select-none transition-all duration-200 ease-out group ${
             !isCurrentMonth 
               ? 'text-gray-300 bg-gray-50/50 hover:bg-gray-100/50' 
-              : 'text-gray-800 bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 hover:scale-[1.02] hover:shadow-md'
+              : isPastDate
+                ? 'text-gray-400 bg-gray-100/70 cursor-not-allowed opacity-60'
+                : 'text-gray-800 bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 hover:scale-[1.02] hover:shadow-md cursor-pointer'
           } ${isSelected ? 'bg-gradient-to-br from-indigo-100 to-purple-100 border-2 border-indigo-300 shadow-md scale-[1.02]' : 'border border-gray-200/50'} rounded-xl`}
-          onClick={() => isCurrentMonth && handleDateClick(dateString)}
+          onClick={() => {
+            if (isCurrentMonth && !isPastDate) {
+              handleDateClick(dateString);
+            }
+          }}
         >
           <div className="flex justify-between items-start h-full">
             <div className="flex flex-col justify-between h-full w-full">
@@ -225,13 +246,22 @@ export default function AdminCalendar() {
                     ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg transform scale-110' 
                     : isSelected 
                       ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white'
-                      : 'text-gray-700 group-hover:text-indigo-600'
+                      : isPastDate
+                        ? 'text-gray-500'
+                        : 'text-gray-700 group-hover:text-indigo-600'
                 }`}>
                   {dayNumber}
                 </span>
                 {hasMeetings && (
                   <span className="text-xs bg-emerald-100 text-emerald-700 px-1 sm:px-2 py-1 rounded-full font-medium">
                     {dayMeetings.length}
+                  </span>
+                )}
+                {isPastDate && (
+                  <span className="text-xs text-gray-400">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </span>
                 )}
               </div>
@@ -405,7 +435,7 @@ export default function AdminCalendar() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span className="text-sm text-blue-800 font-medium">
-                    Click on dates to select them for meeting creation. Selected dates will be highlighted.
+                    Click on future dates to select them for meeting creation. Past dates are blocked and cannot be selected.
                   </span>
                 </div>
               </div>
@@ -433,31 +463,32 @@ export default function AdminCalendar() {
               </h3>
             </div>
             
-            <div className="space-y-4 sm:space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Platform
-                </label>
-                <div className="relative">
-                  <select
-                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 appearance-none bg-white"
-                    value={platform}
-                    onChange={(e) => setPlatform(e.target.value)}
-                  >
-                    <option value="google-meet">🎥 Google Meet</option>
-                    <option value="zoom">📹 Zoom</option>
-                  </select>
-                  <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-                <p className="text-xs text-gray-500 mt-2 flex items-center">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Default platform from environment: Google Meet
-                </p>
+            <div className="space-y-4 sm:space-y-6">            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Platform
+              </label>
+              <div className="relative">
+                <select
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 appearance-none bg-white"
+                  value={platform}
+                  onChange={(e) => setPlatform(e.target.value)}
+                >
+                  <option value="google-meet">🎥 Google Meet</option>
+                  <option value="zoom" disabled className="text-gray-400">📹 Zoom (Coming Soon)</option>
+                  <option value="teams" disabled className="text-gray-400">📺 Microsoft Teams (Coming Soon)</option>
+                  <option value="webex" disabled className="text-gray-400">🎯 Cisco Webex (Coming Soon)</option>
+                </select>
+                <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </div>
+              <p className="text-xs text-gray-500 mt-2 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Currently only Google Meet is available. Other platforms coming soon.
+              </p>
+            </div>
               
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl border border-blue-200/50">
                 <h4 className="font-bold text-indigo-800 mb-3 flex items-center">
@@ -539,6 +570,7 @@ export default function AdminCalendar() {
                       type="date"
                       className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200"
                       value={dateRange.startDate}
+                      min={format(new Date(), 'yyyy-MM-dd')} // Prevent past dates
                       onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
                       autoComplete="off"
                     />
@@ -551,6 +583,7 @@ export default function AdminCalendar() {
                       type="date"
                       className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200"
                       value={dateRange.endDate}
+                      min={dateRange.startDate || format(new Date(), 'yyyy-MM-dd')} // Prevent past dates and dates before start date
                       onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
                       autoComplete="off"
                     />
