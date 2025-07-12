@@ -85,7 +85,7 @@ export async function PATCH(request: NextRequest) {
           userId: userId,
           planType: 'UNLIMITED',
           status: 'active',
-          paymentStatus: 'completed',
+          paymentStatus: 'admin-created',
           startDate,
           endDate,
           duration: 36500, // ~100 years in days

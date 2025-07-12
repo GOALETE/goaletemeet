@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 
-// Schema for adding user to meeting
-const addUserToMeetingSchema = z.object({
+// Schema for adding user to subscription
+const createSubscriptionSchema = z.object({
   userId: z.string(),
-  meetingId: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  planType: z.enum(['daily', 'monthly']),
   sendInvite: z.boolean().optional().default(true)
 });
 
@@ -65,9 +67,9 @@ export async function POST(request: NextRequest) {
         meeting: meeting || null
       });
 
-    } else if (action === 'addUserToMeeting') {
-      // Add user to existing meeting
-      const parsed = addUserToMeetingSchema.safeParse(body);
+    } else if (action === 'createSubscription') {
+      // Create subscription for user
+      const parsed = createSubscriptionSchema.safeParse(body);
       if (!parsed.success) {
         return NextResponse.json({ 
           error: "Invalid request", 
@@ -75,7 +77,7 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      const { userId, meetingId, sendInvite } = parsed.data;
+      const { userId, startDate, endDate, planType, sendInvite } = parsed.data;
 
       // Verify user exists
       const user = await prisma.user.findUnique({
@@ -95,57 +97,16 @@ export async function POST(request: NextRequest) {
         }, { status: 404 });
       }
 
-      // Verify meeting exists
-      const meeting = await prisma.meeting.findUnique({
-        where: { id: meetingId },
-        select: {
-          id: true,
-          meetingDate: true,
-          platform: true,
-          meetingTitle: true,
-          meetingDesc: true,
-          startTime: true,
-          endTime: true,
-          meetingLink: true
-        }
-      });
-
-      if (!meeting) {
-        return NextResponse.json({ 
-          error: "Meeting not found" 
-        }, { status: 404 });
-      }
-
-      // Check if user already has a subscription for this meeting date
-      const meetingDate = new Date(meeting.meetingDate);
-      const existingSubscription = await prisma.subscription.findFirst({
-        where: {
-          userId: userId,
-          startDate: { lte: meetingDate },
-          endDate: { gte: meetingDate },
-          status: 'active'
-        }
-      });
-
-      if (existingSubscription) {
-        return NextResponse.json({ 
-          message: "User already has access to this meeting through existing subscription",
-          subscription: existingSubscription,
-          user: user,
-          meeting: meeting
-        });
-      }
-
-      // Create a single-day subscription for this meeting
+      // Create a subscription for this user
       const subscription = await prisma.subscription.create({
         data: {
           userId: userId,
-          planType: 'admin-added',
-          startDate: meetingDate,
-          endDate: meetingDate,
+          planType: planType, // Use 'daily' or 'monthly' as passed
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
           status: 'active',
           paymentStatus: 'admin-added',
-          duration: 1,
+          duration: planType === 'daily' ? 1 : 30, // Set duration based on plan type
           price: 0,
           orderId: `admin-${Date.now()}-${userId.slice(-6)}`
         }
@@ -154,21 +115,44 @@ export async function POST(request: NextRequest) {
       // Send invitation email if requested
       if (sendInvite) {
         try {
-          // Import email service
-          const { sendMeetingInvite } = await import('@/lib/email');
-          
-          await sendMeetingInvite({
-            recipient: {
-              name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email.split('@')[0],
-              email: user.email
+          // Find meeting for the start date if it exists
+          const meeting = await prisma.meeting.findFirst({
+            where: {
+              meetingDate: {
+                gte: new Date(`${startDate}T00:00:00.000Z`),
+                lt: new Date(`${startDate}T23:59:59.999Z`)
+              }
             },
-            meetingTitle: meeting.meetingTitle || 'GOALETE Meeting',
-            meetingDescription: meeting.meetingDesc || '',
-            meetingLink: meeting.meetingLink || '',
-            startTime: meeting.startTime,
-            endTime: meeting.endTime,
-            platform: meeting.platform
+            select: {
+              id: true,
+              meetingDate: true,
+              platform: true,
+              meetingTitle: true,
+              meetingDesc: true,
+              startTime: true,
+              endTime: true,
+              meetingLink: true
+            }
           });
+
+          // If meeting exists, send invite
+          if (meeting) {
+            // Import email service
+            const { sendMeetingInvite } = await import('@/lib/email');
+            
+            await sendMeetingInvite({
+              recipient: {
+                name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email.split('@')[0],
+                email: user.email
+              },
+              meetingTitle: meeting.meetingTitle || `GOALETE Meeting ${new Date(meeting.meetingDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}`,
+              meetingDescription: meeting.meetingDesc || '',
+              meetingLink: meeting.meetingLink || '',
+              startTime: meeting.startTime,
+              endTime: meeting.endTime,
+              platform: meeting.platform
+            });
+          }
         } catch (emailError) {
           console.error('Failed to send invitation email:', emailError);
           // Don't fail the whole operation if email fails
@@ -176,12 +160,17 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({
-        message: "User successfully added to meeting",
+        message: `User successfully added to ${planType} subscription`,
         subscription: subscription,
         user: user,
-        meeting: meeting,
         inviteSent: sendInvite
       });
+
+    } else if (action === 'addUserToMeeting') {
+      // This section is kept for backward compatibility
+      return NextResponse.json({ 
+        error: "This action is deprecated. Please use 'createSubscription' instead." 
+      }, { status: 400 });
 
     } else {
       return NextResponse.json({ 

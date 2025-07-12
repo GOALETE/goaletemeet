@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, addDays, differenceInDays } from 'date-fns';
 
 type Meeting = {
   id: string;
@@ -36,7 +36,8 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
   onNavigateToCalendar
 }) => {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [meeting, setMeeting] = useState<Meeting | null>(null);
+  const [endDate, setEndDate] = useState('');
+  const [planType, setPlanType] = useState<'daily' | 'monthly'>('daily');
   const [loading, setLoading] = useState(false);
   const [sendInvite, setSendInvite] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -46,46 +47,60 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Check for meeting when date changes
+  // Cleanup useEffect for the old check meeting code
   useEffect(() => {
-    if (show && selectedDate) {
-      checkMeetingAvailability();
+    if (show) {
+      // Set default end date to same as start date for daily plan
+      setEndDate(selectedDate);
+      setPlanType('daily');
     }
   }, [selectedDate, show]);
 
-  const checkMeetingAvailability = async () => {
-    try {
-      setLoading(true);
-      const adminPasscode = sessionStorage.getItem('adminPasscode');
-      
-      const response = await fetch('/api/admin/add-user-to-meeting', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminPasscode}`
-        },
-        body: JSON.stringify({
-          action: 'checkMeeting',
-          date: selectedDate
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to check meeting availability');
-      }
-
-      const data = await response.json();
-      setMeeting(data.meetingExists ? data.meeting : null);
-    } catch (error) {
-      console.error('Error checking meeting:', error);
-      showToast('Failed to check meeting availability', 'error');
-    } finally {
-      setLoading(false);
+  // Handle date selection changes
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newStartDate = e.target.value;
+    setSelectedDate(newStartDate);
+    
+    // If daily plan, end date equals start date
+    // If monthly plan was already selected, calculate new end date
+    if (planType === 'daily') {
+      setEndDate(newStartDate);
+    } else if (planType === 'monthly') {
+      // Set end date to one month from start date
+      const newEndDate = format(addDays(new Date(newStartDate), 30), 'yyyy-MM-dd');
+      setEndDate(newEndDate);
     }
   };
 
-  const addUserToMeeting = async () => {
-    if (!user || !meeting) return;
+  // Handle plan type changes
+  const handlePlanTypeChange = (newPlanType: 'daily' | 'monthly') => {
+    setPlanType(newPlanType);
+    
+    if (newPlanType === 'daily') {
+      // For daily, end date is same as start date
+      setEndDate(selectedDate);
+    } else if (newPlanType === 'monthly') {
+      // For monthly, end date is 30 days after start date
+      const newEndDate = format(addDays(new Date(selectedDate), 30), 'yyyy-MM-dd');
+      setEndDate(newEndDate);
+    }
+  };
+
+  // Handle end date changes (only for custom ranges)
+  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEndDate(e.target.value);
+    
+    // Calculate plan type based on date range
+    const days = differenceInDays(new Date(e.target.value), new Date(selectedDate));
+    if (days <= 1) {
+      setPlanType('daily');
+    } else {
+      setPlanType('monthly');
+    }
+  };
+
+  const addUserToSubscription = async () => {
+    if (!user) return;
 
     try {
       setLoading(true);
@@ -98,16 +113,18 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
           'Authorization': `Bearer ${adminPasscode}`
         },
         body: JSON.stringify({
-          action: 'addUserToMeeting',
+          action: 'createSubscription',
           userId: user.id,
-          meetingId: meeting.id,
+          startDate: selectedDate,
+          endDate: endDate,
+          planType: planType,
           sendInvite: sendInvite
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add user to meeting');
+        throw new Error(errorData.error || 'Failed to add subscription');
       }
 
       const data = await response.json();
@@ -124,8 +141,8 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
       }, 2000);
       
     } catch (error) {
-      console.error('Error adding user to meeting:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to add user to meeting', 'error');
+      console.error('Error adding subscription:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to add subscription', 'error');
     } finally {
       setLoading(false);
     }
@@ -163,7 +180,7 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-800">Add User to Meeting</h2>
+            <h2 className="text-xl font-bold text-gray-800">Add User to Subscription</h2>
           </div>
           <button
             onClick={onClose}
@@ -191,38 +208,80 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
             </div>
           )}
 
+          {/* Plan Type Selection */}
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-gray-700">
+              Select Plan Type
+            </label>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => handlePlanTypeChange('daily')}
+                className={`px-4 py-2 rounded-xl flex-1 font-medium text-sm ${
+                  planType === 'daily' 
+                    ? 'bg-blue-100 text-blue-800 border-2 border-blue-300' 
+                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                Daily Plan
+              </button>
+              <button
+                onClick={() => handlePlanTypeChange('monthly')}
+                className={`px-4 py-2 rounded-xl flex-1 font-medium text-sm ${
+                  planType === 'monthly' 
+                    ? 'bg-purple-100 text-purple-800 border-2 border-purple-300' 
+                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                Monthly Plan
+              </button>
+            </div>
+          </div>
+
           {/* Date Selection */}
           <div className="space-y-2">
             <label className="block text-sm font-bold text-gray-700">
-              Select Meeting Date
+              Start Date
             </label>
             <input
               type="date"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={handleDateChange}
               min={format(new Date(), 'yyyy-MM-dd')}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
-          {/* Meeting Status */}
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-3 border-indigo-200 border-t-indigo-600"></div>
-            </div>
-          ) : meeting ? (
+          {/* End Date Selection (visible for monthly plan) */}
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-gray-700">
+              End Date
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={handleEndDateChange}
+              min={selectedDate}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500">
+              {planType === 'daily' ? 'Daily plan is for a single day' : 'Monthly plan provides access for 30 days'}
+            </p>
+          </div>
+
+          {/* Plan Summary */}
+          {!loading && (
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
               <div className="flex items-center space-x-2 mb-3">
                 <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <h3 className="font-bold text-green-800">Meeting Available</h3>
+                <h3 className="font-bold text-green-800">Subscription Summary</h3>
               </div>
               <div className="space-y-2 text-sm">
-                <div><span className="font-medium text-green-700">Title:</span> {meeting.meetingTitle}</div>
-                <div><span className="font-medium text-green-700">Platform:</span> {meeting.platform}</div>
-                <div><span className="font-medium text-green-700">Time:</span> {format(new Date(meeting.startTime), 'h:mm a')} - {format(new Date(meeting.endTime), 'h:mm a')}</div>
-                <div><span className="font-medium text-green-700">Date:</span> {format(new Date(meeting.meetingDate), 'MMM d, yyyy')}</div>
+                <div><span className="font-medium text-green-700">Plan Type:</span> {planType === 'daily' ? 'Daily' : 'Monthly'}</div>
+                <div><span className="font-medium text-green-700">Start Date:</span> {format(new Date(selectedDate), 'MMM d, yyyy')}</div>
+                <div><span className="font-medium text-green-700">End Date:</span> {format(new Date(endDate), 'MMM d, yyyy')}</div>
+                <div><span className="font-medium text-green-700">Duration:</span> {differenceInDays(new Date(endDate), new Date(selectedDate)) + 1} day(s)</div>
               </div>
               
               {/* Send Invite Option */}
@@ -239,20 +298,13 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
                 </label>
               </div>
             </div>
-          ) : selectedDate ? (
-            <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl p-4 border border-amber-200">
-              <div className="flex items-center space-x-2 mb-3">
-                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <h3 className="font-bold text-amber-800">No Meeting Scheduled</h3>
-              </div>
-              <p className="text-amber-700 text-sm mb-4">
-                No meeting is scheduled for {format(new Date(selectedDate), 'MMM d, yyyy')}. 
-                You can create a new meeting for this date.
-              </p>
+          )}
+
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-3 border-indigo-200 border-t-indigo-600"></div>
             </div>
-          ) : null}
+          )}
         </div>
 
         {/* Footer */}
@@ -265,22 +317,13 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
               Cancel
             </button>
             
-            {meeting ? (
-              <button
-                onClick={addUserToMeeting}
-                disabled={loading || !user}
-                className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Adding...' : 'Add to Meeting'}
-              </button>
-            ) : selectedDate ? (
-              <button
-                onClick={handleCreateMeeting}
-                className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-300"
-              >
-                Create Meeting
-              </button>
-            ) : null}
+            <button
+              onClick={addUserToSubscription}
+              disabled={loading || !user}
+              className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Processing...' : 'Add Subscription'}
+            </button>
           </div>
         </div>
       </div>

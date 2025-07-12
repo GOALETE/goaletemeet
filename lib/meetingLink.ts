@@ -36,24 +36,30 @@ export function getSpecialEmails(): string[] {
  * @param date ISO date string (YYYY-MM-DD)
  * @param startTime string (HH:MM, 24-hour format)
  * @param duration number (minutes)
+ * @param meetingTitle optional title for the meeting
+ * @param meetingDesc optional description for the meeting
  * @returns Promise<string> meeting link
  */
 export async function createMeetingLink({
   platform,
   date,
   startTime,
-  duration
+  duration,
+  meetingTitle,
+  meetingDesc
 }: {
   platform: 'google-meet' | 'zoom',
   date: string,
   startTime: string,
-  duration: number
+  duration: number,
+  meetingTitle?: string,
+  meetingDesc?: string
 }): Promise<string> {
   if (platform === 'google-meet') {
-    const { join_url } = await google_create_meet({ date, startTime, duration });
+    const { join_url } = await google_create_meet({ date, startTime, duration, meetingTitle, meetingDesc });
     return join_url;
   } else if (platform === 'zoom') {
-    const { join_url } = await zoom_create_meet({ date, startTime, duration });
+    const { join_url } = await zoom_create_meet({ date, startTime, duration, meetingTitle, meetingDesc });
     return join_url;
   } else {
     throw new Error('Unsupported platform');
@@ -76,7 +82,12 @@ export async function google_create_meet({
 }): Promise<{ join_url: string, id: string }> {
   try {
     // Get configuration from environment or defaults
-    const finalMeetingTitle = meetingTitle || process.env.DEFAULT_MEETING_TITLE || 'GOALETE Club Session';
+    const dateString = format(new Date(date), 'dd-MM-yy');
+    const finalMeetingTitle = meetingTitle 
+      ? `${meetingTitle} ${dateString}` 
+      : process.env.DEFAULT_MEETING_TITLE 
+        ? `${process.env.DEFAULT_MEETING_TITLE} ${dateString}` 
+        : `GOALETE Club Session ${dateString}`;
     const finalMeetingDesc = meetingDesc || process.env.DEFAULT_MEETING_DESCRIPTION || 'Join us for a GOALETE Club session to learn how to achieve any goal in life.';
     const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
     
@@ -484,7 +495,19 @@ async function get_zoom_token(): Promise<string> {
   }
 }
 
-export async function zoom_create_meet({ date, startTime, duration }: { date: string, startTime: string, duration: number }): Promise<{ join_url: string, id: string, start_url: string }> {
+export async function zoom_create_meet({ 
+  date, 
+  startTime, 
+  duration,
+  meetingTitle,
+  meetingDesc
+}: { 
+  date: string, 
+  startTime: string, 
+  duration: number,
+  meetingTitle?: string,
+  meetingDesc?: string
+}): Promise<{ join_url: string, id: string, start_url: string }> {
   const ZOOM_USER_ID = process.env.ZOOM_USER_ID;
   
   if (!ZOOM_USER_ID) {
@@ -499,13 +522,22 @@ export async function zoom_create_meet({ date, startTime, duration }: { date: st
   const istDateTime = new Date(istDateTimeString);
   const startTimeUTC = istDateTime.toISOString();
 
+  // Format date for meeting title
+  const dateString = format(new Date(date), 'dd-MM-yy');
+  const finalMeetingTitle = meetingTitle 
+    ? `${meetingTitle} ${dateString}` 
+    : process.env.DEFAULT_MEETING_TITLE 
+      ? `${process.env.DEFAULT_MEETING_TITLE} ${dateString}` 
+      : `GOALETE Club Session ${dateString}`;
+  const finalMeetingDesc = meetingDesc || process.env.DEFAULT_MEETING_DESCRIPTION || 'Join us for a GOALETE Club session to learn how to achieve any goal in life.';
+
   const meetingConfig = {
-    topic: 'GOALETE Club Session',
+    topic: finalMeetingTitle,
     type: 2, // Scheduled meeting
     start_time: startTimeUTC,
     duration: duration, // in minutes
     timezone: 'Asia/Kolkata',
-    agenda: 'Join us for a GOALETE Club session to learn how to achieve any goal in life.',
+    agenda: finalMeetingDesc,
     settings: {
       host_video: true,
       participant_video: true,

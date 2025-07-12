@@ -289,6 +289,14 @@ const UsersView: React.FC<UsersViewProps> = ({
                     <span>Status</span>
                   </div>
                 </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Next Session</span>
+                  </div>
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider rounded-tr-xl">
                   <div className="flex items-center space-x-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -346,14 +354,17 @@ const UsersView: React.FC<UsersViewProps> = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 py-1 text-xs font-semibold rounded-full shadow-sm flex items-center space-x-1 w-fit ${
-                      user.status === 'active' ? 'bg-gradient-to-r from-emerald-100 to-green-200 text-emerald-800 border border-emerald-300/50' :
+                      user.hasActiveOrUpcomingSubscriptions ? 'bg-gradient-to-r from-emerald-100 to-green-200 text-emerald-800 border border-emerald-300/50' :
                       'bg-gradient-to-r from-red-100 to-pink-200 text-red-800 border border-red-300/50'
                     }`}>
                       <div className={`w-2 h-2 rounded-full ${
-                        user.status === 'active' ? 'bg-emerald-500' : 'bg-red-500'
+                        user.hasActiveOrUpcomingSubscriptions ? 'bg-emerald-500' : 'bg-red-500'
                       }`}></div>
-                      <span>{user.status}</span>
+                      <span>{user.hasActiveOrUpcomingSubscriptions ? 'Active' : 'Inactive'}</span>
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                    {user.nextSessionDate ? format(new Date(user.nextSessionDate), 'MMM d, yyyy') : 'No upcoming sessions'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
                     {user.createdAt ? format(new Date(user.createdAt), 'MMM d, yyyy') : 'N/A'}

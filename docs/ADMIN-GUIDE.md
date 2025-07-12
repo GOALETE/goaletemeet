@@ -36,7 +36,7 @@ Comprehensive admin dashboard for managing users, subscriptions, meetings, and s
 ```
 Each row represents ONE subscription with:
 - User information (name, email)
-- Plan type (monthly, single-day, family)
+- Plan type (daily, monthly, unlimited)
 - Date range (start - end)
 - Status (active, upcoming, finished)
 - Payment details (price, order ID)
@@ -44,7 +44,7 @@ Each row represents ONE subscription with:
 
 **Filtering Options**:
 - Status: active, upcoming, finished
-- Plan type: monthly, single-day, family
+- Plan type: daily, monthly, unlimited
 - Date ranges: custom start/end dates
 - Search: by user name, email, or order ID
 
@@ -102,16 +102,17 @@ Each row represents ONE subscription with:
 
 **Information Displayed**:
 - Complete user profile
-- **All subscriptions** (not just the most recent)
+- Total subscription count and amount spent
+- **All subscriptions** with detailed information
 - Payment history with order IDs
 - Meeting attendance records
-- Family plan associations
 
 **Actions Available**:
 - Edit user information
 - View subscription details
 - Check payment status
 - Send manual invitations
+- Add user to meetings (create subscriptions)
 
 ## Search and Filtering
 

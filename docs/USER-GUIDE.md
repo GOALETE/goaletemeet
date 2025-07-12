@@ -6,9 +6,9 @@ GoaleteMeet is a meeting management platform that allows users to register for v
 ## User Registration Process
 
 ### 1. Available Plans
-- **Single Day**: One-time access for a specific date
+- **Daily**: One-time access for a specific date
 - **Monthly**: 30-day access to daily meetings
-- **Family Plans**: Multiple user access under one subscription
+- **Unlimited**: Special access (admin-granted only)
 
 ### 2. Registration Flow
 1. Visit the registration form at `/form`
@@ -31,7 +31,7 @@ GoaleteMeet is a meeting management platform that allows users to register for v
 
 ## Plan Types and Pricing
 
-### Single Day Plan
+### Daily Plan
 - **Duration**: 1 day
 - **Access**: Single meeting session
 - **Price**: ₹99
@@ -43,11 +43,11 @@ GoaleteMeet is a meeting management platform that allows users to register for v
 - **Price**: ₹299
 - **Best for**: Regular attendees
 
-### Family Plans
-- **Duration**: 30 days
-- **Access**: Multiple family members
-- **Price**: Variable based on family size
-- **Best for**: Families attending together
+### Unlimited Plan
+- **Duration**: Ongoing
+- **Access**: Unlimited meeting access
+- **Price**: Admin-granted only
+- **Best for**: Special users granted by administrators
 
 ## Support and FAQ
 

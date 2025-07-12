@@ -76,7 +76,7 @@ model User {
 model Subscription {
   id            String   @id @default(cuid())
   userId        String
-  planType      String
+  planType      String   // "daily", "monthly", or "unlimited"
   startDate     DateTime
   endDate       DateTime
   status        String   @default("active")
