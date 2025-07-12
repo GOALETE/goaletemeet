@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import AdminCalendar from './adminviews/AdminCalendar';
 import UsersView from './adminviews/UsersView';
 import UserDetailModal from './adminviews/UserDetailModal';
+import CreateUserModal from './adminviews/CreateUserModal';
 import SubscriptionsView from './adminviews/SubscriptionsView';
 import UpcomingRegistrationsView from './adminviews/UpcomingRegistrationsView';
 import TodayMeetingCard from './adminviews/TodayMeetingCard';
@@ -85,6 +86,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   const [error, setError] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserWithSubscriptions | null>(null);
   const [showUserDetail, setShowUserDetail] = useState(false);
+  const [showCreateUser, setShowCreateUser] = useState(false);
   const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
   const [upcomingRegistrations, setUpcomingRegistrations] = useState<any[]>([]);
   const [subscriptionUsers, setSubscriptionUsers] = useState<any[]>([]); // Changed to handle subscription records
@@ -555,6 +557,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
             downloadCSV={() => {}}
             downloadFullDBExport={() => {}}
+            onCreateUser={() => setShowCreateUser(true)}
           />
         )}
         
@@ -611,6 +614,17 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
           }}
         />
       )}
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        show={showCreateUser}
+        onClose={() => setShowCreateUser(false)}
+        onUserCreated={(newUser) => {
+          // Refresh the users list
+          fetchUsers();
+          setShowCreateUser(false);
+        }}
+      />
     </div>
   );
 }

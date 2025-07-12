@@ -35,6 +35,7 @@ interface UsersViewProps {
   handleRowClick: (userId: string) => void;
   downloadCSV: (all?: boolean) => void;
   downloadFullDBExport: () => void;
+  onCreateUser: () => void;
 }
 
 const UsersView: React.FC<UsersViewProps> = ({
@@ -57,7 +58,8 @@ const UsersView: React.FC<UsersViewProps> = ({
   setPageSize,
   handleRowClick,
   downloadCSV,
-  downloadFullDBExport
+  downloadFullDBExport,
+  onCreateUser
 }) => {
   if (loading) {
     return (
@@ -224,12 +226,24 @@ const UsersView: React.FC<UsersViewProps> = ({
       {/* Users Table */}
       <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
         <div className="p-6 border-b border-gray-200/50">
-          <h3 className="text-lg font-bold text-gray-800 flex items-center space-x-2">
-            <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            <span>Users Database</span>
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-gray-800 flex items-center space-x-2">
+              <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <span>Users Database</span>
+            </h3>
+            
+            <button
+              onClick={onCreateUser}
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              <span>Create New User</span>
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200/50">

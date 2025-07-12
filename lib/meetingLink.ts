@@ -1021,11 +1021,12 @@ export async function getOrCreateDailyMeeting(targetDate?: string): Promise<Meet
 /**
  * Add a single user to today's meeting (for immediate invites)
  * Optimized for users who register after cron job but before meeting time
+ * If no meeting exists, creates a new one automatically
  * @param userId User ID to add
  * @param targetDate Optional date (defaults to today)
- * @returns Updated meeting record or null if no meeting exists
+ * @returns Updated meeting record
  */
-export async function addUserToTodaysMeeting(userId: string, targetDate?: string): Promise<MeetingWithUsers | null> {
+export async function addUserToTodaysMeeting(userId: string, targetDate?: string): Promise<MeetingWithUsers> {
   try {
     // Get target date in IST (default to today)
     let dateToCheck: Date;
@@ -1051,8 +1052,10 @@ export async function addUserToTodaysMeeting(userId: string, targetDate?: string
     });
 
     if (!todaysMeeting) {
-      console.log(`No meeting found for ${dateStr}, cannot add user ${userId}`);
-      return null;
+      console.log(`No meeting found for ${dateStr}, creating new meeting and adding user ${userId}`);
+      
+      // Create a new meeting with this user using getOrCreateMeetingForDate
+      return await getOrCreateMeetingForDate(dateStr, userId);
     }
 
     // Check if user is already in the meeting
@@ -1062,7 +1065,7 @@ export async function addUserToTodaysMeeting(userId: string, targetDate?: string
       return todaysMeeting;
     }
 
-    // Add user to the meeting
+    // Add user to the existing meeting
     console.log(`Adding user ${userId} to today's meeting ${todaysMeeting.id}`);
     return await updateMeetingWithUsers(todaysMeeting.id, [userId]);
   } catch (error) {

@@ -196,20 +196,12 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    // Convert UTC times to IST for front-end display
-    const meetingsWithISTTime = meetings.map(meeting => {
-      const startTimeIST = new Date(meeting.startTime);
-      startTimeIST.setUTCHours(startTimeIST.getUTCHours() + 5, startTimeIST.getUTCMinutes() + 30);
-      
-      const endTimeIST = new Date(meeting.endTime);
-      endTimeIST.setUTCHours(endTimeIST.getUTCHours() + 5, endTimeIST.getUTCMinutes() + 30);
-      
-      return {
-        ...meeting,
-        startTimeIST: startTimeIST.toISOString(),
-        endTimeIST: endTimeIST.toISOString()
-      };
-    });
+    // The meeting times are already stored in IST, no conversion needed
+    const meetingsWithISTTime = meetings.map(meeting => ({
+      ...meeting,
+      startTimeIST: meeting.startTime.toISOString(),
+      endTimeIST: meeting.endTime.toISOString()
+    }));
     
     return NextResponse.json({ meetings: meetingsWithISTTime });
     
