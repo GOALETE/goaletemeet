@@ -47,8 +47,8 @@ type Meeting = {
   meetingLink: string;
   startTime: string;
   endTime: string;
-  startTimeIST: string;
-  endTimeIST: string;
+  startTimeUTC: string;
+  endTimeUTC: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

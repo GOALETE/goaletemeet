@@ -196,14 +196,14 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    // The meeting times are already stored in IST, no conversion needed
-    const meetingsWithISTTime = meetings.map(meeting => ({
+    // Return meetings with UTC timestamps - frontend will convert to IST for display
+    const meetingsWithUTCTime = meetings.map(meeting => ({
       ...meeting,
-      startTimeIST: meeting.startTime.toISOString(),
-      endTimeIST: meeting.endTime.toISOString()
+      startTimeUTC: meeting.startTime.toISOString(),
+      endTimeUTC: meeting.endTime.toISOString()
     }));
     
-    return NextResponse.json({ meetings: meetingsWithISTTime });
+    return NextResponse.json({ meetings: meetingsWithUTCTime });
     
   } catch (error) {
     console.error("Error fetching meetings:", error);
