@@ -1,11 +1,11 @@
 import React from 'react';
 import { format } from 'date-fns';
 
-// Helper function to convert UTC time to IST for display
-const convertUTCToIST = (utcTimeString: string): Date => {
-  const utcDate = new Date(utcTimeString);
-  // Add 5:30 hours to convert UTC to IST
-  return new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+// Helper function to display UTC time stored in DB as IST
+const displayUTCAsIST = (utcTimeString: string): Date => {
+  // The UTC time stored in DB represents IST time, so we just need to create a Date object
+  // and let the browser handle the timezone display
+  return new Date(utcTimeString);
 };
 
 interface UpcomingRegistration {
@@ -129,7 +129,7 @@ const UpcomingRegistrationsView: React.FC<UpcomingRegistrationsViewProps> = ({
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="font-medium">{format(convertUTCToIST(meeting.startTimeUTC), 'h:mm a')}</span>
+                        <span className="font-medium">{format(displayUTCAsIST(meeting.startTimeUTC), 'h:mm a')}</span>
                       </div>
                     </div>
                     

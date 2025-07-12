@@ -87,18 +87,18 @@ export async function google_create_meet({
     const impersonateUser = getAdminEmail();
     const calendar = await getCalendarClient(impersonateUser);
 
-    // Create UTC datetime objects - let Google Calendar handle timezone conversion
+    // Create timezone-aware datetime objects
     const IST_TIMEZONE = 'Asia/Kolkata';
     
-    // Parse IST time and convert to UTC for storage
+    // Parse the input time as IST and create proper Date objects
     const [hours, minutes] = startTime.split(':').map(Number);
-    const istDateTime = new Date(date);
-    istDateTime.setHours(hours, minutes, 0, 0);
     
-    // Convert IST to UTC by subtracting 5:30 hours
-    const startDateTime = new Date(istDateTime.getTime() - (5.5 * 60 * 60 * 1000));
-    const endDateTime = new Date(startDateTime);
-    endDateTime.setMinutes(endDateTime.getMinutes() + duration);
+    // Create IST datetime string and parse it correctly
+    const istDateTimeString = `${date}T${startTime}:00.000+05:30`;
+    const istDateTime = new Date(istDateTimeString);
+    
+    // For Google Calendar, we need the IST time
+    const endDateTime = new Date(istDateTime.getTime() + (duration * 60 * 1000));
 
     // Generate a unique request ID for conference creation following Google guidelines
     const conferenceRequestId = `goalete-meet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -118,11 +118,11 @@ export async function google_create_meet({
           // Required fields per API documentation
           summary: finalMeetingTitle,
           start: { 
-            dateTime: istDateTime.toISOString().replace('Z', '+05:30'), 
+            dateTime: istDateTime.toISOString(), 
             timeZone: IST_TIMEZONE
           },
           end: { 
-            dateTime: new Date(istDateTime.getTime() + (duration * 60 * 1000)).toISOString().replace('Z', '+05:30'), 
+            dateTime: endDateTime.toISOString(), 
             timeZone: IST_TIMEZONE
           },
           
@@ -196,7 +196,7 @@ export async function google_create_meet({
           // Required fields
           summary: finalMeetingTitle,
           start: { 
-            dateTime: startDateTime.toISOString(), 
+            dateTime: istDateTime.toISOString(), 
             timeZone: IST_TIMEZONE
           },
           end: { 
@@ -494,14 +494,10 @@ export async function zoom_create_meet({ date, startTime, duration }: { date: st
   // Get access token
   const accessToken = await get_zoom_token();
   
-  // Construct start time in IST and convert to UTC for Zoom API
-  const [hours, minutes] = startTime.split(':').map(Number);
-  const istDateTime = new Date(date);
-  istDateTime.setHours(hours, minutes, 0, 0);
-  
-  // Convert IST to UTC for Zoom API (Zoom expects UTC)
-  const utcDateTime = new Date(istDateTime.getTime() - (5.5 * 60 * 60 * 1000));
-  const startTimeUTC = utcDateTime.toISOString();
+  // Construct start time - parse IST input and convert to UTC for Zoom API
+  const istDateTimeString = `${date}T${startTime}:00.000+05:30`;
+  const istDateTime = new Date(istDateTimeString);
+  const startTimeUTC = istDateTime.toISOString();
 
   const meetingConfig = {
     topic: 'GOALETE Club Session',
@@ -575,6 +571,11 @@ export async function createMeeting({
   const finalMeetingTitle = meetingTitle || 'GOALETE Club Session';
   const finalMeetingDesc = meetingDesc || 'Join us for a GOALETE Club session to learn how to achieve any goal in life.';
 
+  // Parse the input time as IST and create proper Date objects for storage
+  const [hours, minutes] = startTime.split(':').map(Number);
+  const istDateTimeString = `${date}T${startTime}:00.000+05:30`;
+  const istDateTime = new Date(istDateTimeString);
+
   if (platform === 'google-meet') {
     const { join_url, id } = await google_create_meet({ 
       date, 
@@ -596,15 +597,9 @@ export async function createMeeting({
     }
   }
 
-  // Create UTC datetime objects for database storage
-  const [hours, minutes] = startTime.split(':').map(Number);
-  const istDateTime = new Date(date);
-  istDateTime.setHours(hours, minutes, 0, 0);
-  
-  // Convert IST to UTC for database storage
-  const startDateTimeUTC = new Date(istDateTime.getTime() - (5.5 * 60 * 60 * 1000));
-  const endDateTimeUTC = new Date(startDateTimeUTC);
-  endDateTimeUTC.setMinutes(endDateTimeUTC.getMinutes() + duration);
+  // Store the actual UTC times in database (istDateTime is already in UTC due to ISO parsing)
+  const startDateTimeUTC = istDateTime; // Already UTC from ISO string parsing
+  const endDateTimeUTC = new Date(startDateTimeUTC.getTime() + (duration * 60 * 1000));
   
   // Create meeting record with UTC times - frontend will convert to IST for display
   const meeting = await prisma.meeting.create({

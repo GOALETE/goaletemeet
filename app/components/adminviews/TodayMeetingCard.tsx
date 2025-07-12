@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 
-// Helper function to convert UTC time to IST for display
-const convertUTCToIST = (utcTimeString: string): Date => {
-  const utcDate = new Date(utcTimeString);
-  // Add 5:30 hours to convert UTC to IST
-  return new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+// Helper function to display UTC time stored in DB as IST
+const displayUTCAsIST = (utcTimeString: string): Date => {
+  // The UTC time stored in DB represents IST time, so we just need to create a Date object
+  // and let the browser handle the timezone display
+  return new Date(utcTimeString);
 };
 
 type TodayMeeting = {
@@ -222,8 +222,8 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger, onA
             <div>
               <span className="text-sm text-blue-600 font-medium">Time:</span>
               <span className="ml-2 font-bold text-blue-800">
-                {meeting.startTimeUTC ? format(convertUTCToIST(meeting.startTimeUTC), 'h:mm a') : 'N/A'} - 
-                {meeting.endTimeUTC ? format(convertUTCToIST(meeting.endTimeUTC), 'h:mm a') : 'N/A'}
+                {meeting.startTimeUTC ? format(displayUTCAsIST(meeting.startTimeUTC), 'h:mm a') : 'N/A'} - 
+                {meeting.endTimeUTC ? format(displayUTCAsIST(meeting.endTimeUTC), 'h:mm a') : 'N/A'}
               </span>
             </div>
           </div>

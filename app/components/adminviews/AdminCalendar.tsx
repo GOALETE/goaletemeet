@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays } from 'date-fns';
 
-// Helper function to convert UTC time to IST for display
-const convertUTCToIST = (utcTimeString: string): Date => {
-  const utcDate = new Date(utcTimeString);
-  // Add 5:30 hours to convert UTC to IST
-  return new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+// Helper function to display UTC time stored in DB as IST
+const displayUTCAsIST = (utcTimeString: string): Date => {
+  // The UTC time stored in DB represents IST time, so we just need to create a Date object
+  // and let the browser handle the timezone display
+  return new Date(utcTimeString);
 };
 
 type Meeting = {
@@ -283,9 +283,9 @@ export default function AdminCalendar() {
                           ? 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 border border-blue-300/50' 
                           : 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-700 border border-purple-300/50'
                       }`}
-                      title={`${meeting.meetingTitle} - ${format(convertUTCToIST(meeting.startTimeUTC || meeting.startTime), 'h:mm a')} (${meeting.platform})`}
+                      title={`${meeting.meetingTitle} - ${format(displayUTCAsIST(meeting.startTimeUTC || meeting.startTime), 'h:mm a')} (${meeting.platform})`}
                     >
-                      {format(convertUTCToIST(meeting.startTimeUTC || meeting.startTime), 'h:mm a')}
+                      {format(displayUTCAsIST(meeting.startTimeUTC || meeting.startTime), 'h:mm a')}
                     </div>
                   ))}
                   {dayMeetings.length > 2 && (
