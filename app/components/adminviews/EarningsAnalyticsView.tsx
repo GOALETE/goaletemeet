@@ -405,20 +405,27 @@ export default function EarningsAnalyticsView() {
                 <h3 className="text-xl font-bold text-gray-800">Subscriptions by Plan</h3>
               </div>
               <div className="space-y-4 mt-6">
-                {Object.entries(analyticsData.subscriptionsByPlan).map(([plan, count]) => (
-                  <div key={plan} className="group">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-sm font-bold text-gray-700 group-hover:text-purple-700 transition-colors">{plan}</span>
-                      <span className="text-sm text-gray-500">{count} subscriptions</span>
+                {Object.entries(analyticsData.subscriptionsByPlan).map(([plan, count]) => {
+                  const planDisplayName = plan === 'single-day' ? 'Single Day' : 
+                                         plan === 'monthly' ? 'Monthly' :
+                                         plan === 'family-monthly' ? 'Family Monthly' :
+                                         plan === 'unlimited' ? 'Unlimited' :
+                                         plan;
+                  return (
+                    <div key={plan} className="group">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm font-bold text-gray-700 group-hover:text-purple-700 transition-colors">{planDisplayName}</span>
+                        <span className="text-sm text-gray-500">{count} subscriptions</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
+                        <div 
+                          className="bg-gradient-to-r from-purple-500 to-violet-600 h-3 rounded-full shadow-lg transition-all duration-500 group-hover:from-purple-600 group-hover:to-violet-700" 
+                          style={{ width: `${(count / analyticsData.totalSubscriptions) * 100}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
-                      <div 
-                        className="bg-gradient-to-r from-purple-500 to-violet-600 h-3 rounded-full shadow-lg transition-all duration-500 group-hover:from-purple-600 group-hover:to-violet-700" 
-                        style={{ width: `${(count / analyticsData.totalSubscriptions) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             
@@ -432,20 +439,27 @@ export default function EarningsAnalyticsView() {
                 <h3 className="text-xl font-bold text-gray-800">Revenue by Plan</h3>
               </div>
               <div className="space-y-4 mt-6">
-                {Object.entries(analyticsData.revenueByPlan).map(([plan, revenue]) => (
-                  <div key={plan} className="group">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-sm font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">{plan}</span>
-                      <span className="text-sm text-gray-500">₹{revenue.toLocaleString()}</span>
+                {Object.entries(analyticsData.revenueByPlan).map(([plan, revenue]) => {
+                  const planDisplayName = plan === 'single-day' ? 'Single Day' : 
+                                         plan === 'monthly' ? 'Monthly' :
+                                         plan === 'family-monthly' ? 'Family Monthly' :
+                                         plan === 'unlimited' ? 'Unlimited' :
+                                         plan;
+                  return (
+                    <div key={plan} className="group">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">{planDisplayName}</span>
+                        <span className="text-sm text-gray-500">₹{revenue.toLocaleString()}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
+                        <div 
+                          className="bg-gradient-to-r from-emerald-500 to-green-600 h-3 rounded-full shadow-lg transition-all duration-500 group-hover:from-emerald-600 group-hover:to-green-700" 
+                          style={{ width: `${(revenue / analyticsData.totalRevenue) * 100}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
-                      <div 
-                        className="bg-gradient-to-r from-emerald-500 to-green-600 h-3 rounded-full shadow-lg transition-all duration-500 group-hover:from-emerald-600 group-hover:to-green-700" 
-                        style={{ width: `${(revenue / analyticsData.totalRevenue) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

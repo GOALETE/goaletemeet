@@ -173,22 +173,56 @@ export async function GET(req: NextRequest) {
     };
     
     // Group subscriptions by plan type for earnings analytics
-    const subscriptionsByPlan: Record<string, number> = {};
-    const revenueByPlan: Record<string, number> = {};
+    const subscriptionsByPlan: Record<string, number> = {
+      'single-day': 0,
+      'monthly': 0,
+      'family-monthly': 0,
+      'unlimited': 0
+    };
+    const revenueByPlan: Record<string, number> = {
+      'single-day': 0,
+      'monthly': 0,
+      'family-monthly': 0,
+      'unlimited': 0
+    };
     
     subscriptions.forEach(sub => {
+      // Normalize plan type
+      const planType = sub.planType.toLowerCase();
+      
       // Count by plan
-      if (!subscriptionsByPlan[sub.planType]) {
-        subscriptionsByPlan[sub.planType] = 0;
+      if (planType === 'single-day' || planType === 'daily') {
+        subscriptionsByPlan['single-day']++;
+      } else if (planType === 'monthly') {
+        subscriptionsByPlan['monthly']++;
+      } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {
+        subscriptionsByPlan['family-monthly']++;
+      } else if (planType === 'unlimited') {
+        subscriptionsByPlan['unlimited']++;
+      } else {
+        // Handle any other plan types that might exist
+        if (!subscriptionsByPlan['other']) {
+          subscriptionsByPlan['other'] = 0;
+        }
+        subscriptionsByPlan['other']++;
       }
-      subscriptionsByPlan[sub.planType]++;
       
       // Revenue by plan (only count paid subscriptions for revenue)
       if (sub.paymentStatus === 'completed' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'success') {
-        if (!revenueByPlan[sub.planType]) {
-          revenueByPlan[sub.planType] = 0;
+        if (planType === 'single-day' || planType === 'daily') {
+          revenueByPlan['single-day'] += (sub as any).price || 0;
+        } else if (planType === 'monthly') {
+          revenueByPlan['monthly'] += (sub as any).price || 0;
+        } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {
+          revenueByPlan['family-monthly'] += (sub as any).price || 0;
+        } else if (planType === 'unlimited') {
+          revenueByPlan['unlimited'] += (sub as any).price || 0;
+        } else {
+          if (!revenueByPlan['other']) {
+            revenueByPlan['other'] = 0;
+          }
+          revenueByPlan['other'] += (sub as any).price || 0;
         }
-        revenueByPlan[sub.planType] += (sub as any).price || 0;
       }
     });
     

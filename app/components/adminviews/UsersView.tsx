@@ -163,6 +163,7 @@ const UsersView: React.FC<UsersViewProps> = ({
               <option value="single-day">Single Day</option>
               <option value="monthly">Monthly</option>
               <option value="family-monthly">Family Monthly</option>
+              <option value="unlimited">Unlimited</option>
             </select>
           </div>
           
@@ -347,9 +348,15 @@ const UsersView: React.FC<UsersViewProps> = ({
                     <span className={`px-3 py-1 text-xs font-semibold rounded-full shadow-sm ${
                       user.plan === 'monthly' ? 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300/50' :
                       user.plan === 'single-day' ? 'bg-gradient-to-r from-emerald-100 to-green-200 text-emerald-800 border border-emerald-300/50' :
-                      'bg-gradient-to-r from-purple-100 to-violet-200 text-purple-800 border border-purple-300/50'
+                      user.plan === 'family-monthly' ? 'bg-gradient-to-r from-purple-100 to-violet-200 text-purple-800 border border-purple-300/50' :
+                      user.plan === 'unlimited' ? 'bg-gradient-to-r from-gold-100 to-yellow-200 text-amber-800 border border-amber-300/50' :
+                      'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 border border-gray-300/50'
                     }`}>
-                      {user.plan}
+                      {user.plan === 'single-day' ? 'Single Day' : 
+                       user.plan === 'monthly' ? 'Monthly' :
+                       user.plan === 'family-monthly' ? 'Family Monthly' :
+                       user.plan === 'unlimited' ? 'Unlimited' :
+                       user.plan || 'N/A'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

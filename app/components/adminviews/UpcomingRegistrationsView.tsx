@@ -102,7 +102,7 @@ const UpcomingRegistrationsView: React.FC<UpcomingRegistrationsViewProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-96 overflow-y-auto scrollbar-hide">
                 {upcomingMeetings.map((meeting) => (
                   <div key={meeting.id} className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 shadow-lg border border-blue-200/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
                     <div className="flex items-start justify-between mb-4">
