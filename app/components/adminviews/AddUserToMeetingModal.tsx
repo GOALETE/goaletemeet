@@ -37,7 +37,7 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
 }) => {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState('');
-  const [planType, setPlanType] = useState<'daily' | 'monthly'>('daily');
+  const [planType, setPlanType] = useState<'single-day' | 'monthly' | 'family-monthly' | 'unlimited'>('single-day');
   const [loading, setLoading] = useState(false);
   const [sendInvite, setSendInvite] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -50,9 +50,9 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
   // Cleanup useEffect for the old check meeting code
   useEffect(() => {
     if (show) {
-      // Set default end date to same as start date for daily plan
+      // Set default end date to same as start date for single-day plan
       setEndDate(selectedDate);
-      setPlanType('daily');
+      setPlanType('single-day');
     }
   }, [selectedDate, show]);
 
@@ -61,27 +61,35 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
     const newStartDate = e.target.value;
     setSelectedDate(newStartDate);
     
-    // If daily plan, end date equals start date
+    // If single-day plan, end date equals start date
     // If monthly plan was already selected, calculate new end date
-    if (planType === 'daily') {
+    if (planType === 'single-day') {
       setEndDate(newStartDate);
-    } else if (planType === 'monthly') {
+    } else if (planType === 'monthly' || planType === 'family-monthly') {
       // Set end date to one month from start date
       const newEndDate = format(addDays(new Date(newStartDate), 30), 'yyyy-MM-dd');
+      setEndDate(newEndDate);
+    } else if (planType === 'unlimited') {
+      // Set end date to one year from start date for unlimited
+      const newEndDate = format(addDays(new Date(newStartDate), 365), 'yyyy-MM-dd');
       setEndDate(newEndDate);
     }
   };
 
   // Handle plan type changes
-  const handlePlanTypeChange = (newPlanType: 'daily' | 'monthly') => {
+  const handlePlanTypeChange = (newPlanType: 'single-day' | 'monthly' | 'family-monthly' | 'unlimited') => {
     setPlanType(newPlanType);
     
-    if (newPlanType === 'daily') {
-      // For daily, end date is same as start date
+    if (newPlanType === 'single-day') {
+      // For single-day, end date is same as start date
       setEndDate(selectedDate);
-    } else if (newPlanType === 'monthly') {
-      // For monthly, end date is 30 days after start date
+    } else if (newPlanType === 'monthly' || newPlanType === 'family-monthly') {
+      // For monthly plans, end date is 30 days after start date
       const newEndDate = format(addDays(new Date(selectedDate), 30), 'yyyy-MM-dd');
+      setEndDate(newEndDate);
+    } else if (newPlanType === 'unlimited') {
+      // For unlimited, end date is 1 year after start date
+      const newEndDate = format(addDays(new Date(selectedDate), 365), 'yyyy-MM-dd');
       setEndDate(newEndDate);
     }
   };
@@ -93,9 +101,11 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
     // Calculate plan type based on date range
     const days = differenceInDays(new Date(e.target.value), new Date(selectedDate));
     if (days <= 1) {
-      setPlanType('daily');
-    } else {
+      setPlanType('single-day');
+    } else if (days <= 30) {
       setPlanType('monthly');
+    } else {
+      setPlanType('unlimited');
     }
   };
 
@@ -180,7 +190,7 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-800">Add User to Subscription</h2>
+            <h2 className="text-xl font-bold text-gray-800">Add User Subscription</h2>
           </div>
           <button
             onClick={onClose}
@@ -213,26 +223,46 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
             <label className="block text-sm font-bold text-gray-700">
               Select Plan Type
             </label>
-            <div className="flex space-x-4">
+            <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => handlePlanTypeChange('daily')}
-                className={`px-4 py-2 rounded-xl flex-1 font-medium text-sm ${
-                  planType === 'daily' 
+                onClick={() => handlePlanTypeChange('single-day')}
+                className={`px-4 py-2 rounded-xl font-medium text-sm ${
+                  planType === 'single-day' 
+                    ? 'bg-emerald-100 text-emerald-800 border-2 border-emerald-300' 
+                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                Single Day
+              </button>
+              <button
+                onClick={() => handlePlanTypeChange('monthly')}
+                className={`px-4 py-2 rounded-xl font-medium text-sm ${
+                  planType === 'monthly' 
                     ? 'bg-blue-100 text-blue-800 border-2 border-blue-300' 
                     : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                 }`}
               >
-                Daily Plan
+                Monthly
               </button>
               <button
-                onClick={() => handlePlanTypeChange('monthly')}
-                className={`px-4 py-2 rounded-xl flex-1 font-medium text-sm ${
-                  planType === 'monthly' 
+                onClick={() => handlePlanTypeChange('family-monthly')}
+                className={`px-4 py-2 rounded-xl font-medium text-sm ${
+                  planType === 'family-monthly' 
                     ? 'bg-purple-100 text-purple-800 border-2 border-purple-300' 
                     : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                 }`}
               >
-                Monthly Plan
+                Family Monthly
+              </button>
+              <button
+                onClick={() => handlePlanTypeChange('unlimited')}
+                className={`px-4 py-2 rounded-xl font-medium text-sm ${
+                  planType === 'unlimited' 
+                    ? 'bg-amber-100 text-amber-800 border-2 border-amber-300' 
+                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                Unlimited
               </button>
             </div>
           </div>
@@ -264,7 +294,10 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
             <p className="text-xs text-gray-500">
-              {planType === 'daily' ? 'Daily plan is for a single day' : 'Monthly plan provides access for 30 days'}
+              {planType === 'single-day' ? 'Single day plan is for a single day' : 
+               planType === 'monthly' ? 'Monthly plan provides access for 30 days' :
+               planType === 'family-monthly' ? 'Family monthly plan provides access for 30 days for family' :
+               'Unlimited plan provides lifetime access'}
             </p>
           </div>
 
@@ -278,7 +311,12 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
                 <h3 className="font-bold text-green-800">Subscription Summary</h3>
               </div>
               <div className="space-y-2 text-sm">
-                <div><span className="font-medium text-green-700">Plan Type:</span> {planType === 'daily' ? 'Daily' : 'Monthly'}</div>
+                <div><span className="font-medium text-green-700">Plan Type:</span> {
+                  planType === 'single-day' ? 'Single Day' : 
+                  planType === 'monthly' ? 'Monthly' :
+                  planType === 'family-monthly' ? 'Family Monthly' :
+                  'Unlimited'
+                }</div>
                 <div><span className="font-medium text-green-700">Start Date:</span> {format(new Date(selectedDate), 'MMM d, yyyy')}</div>
                 <div><span className="font-medium text-green-700">End Date:</span> {format(new Date(endDate), 'MMM d, yyyy')}</div>
                 <div><span className="font-medium text-green-700">Duration:</span> {differenceInDays(new Date(endDate), new Date(selectedDate)) + 1} day(s)</div>

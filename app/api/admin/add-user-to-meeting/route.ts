@@ -7,7 +7,7 @@ const createSubscriptionSchema = z.object({
   userId: z.string(),
   startDate: z.string(),
   endDate: z.string(),
-  planType: z.enum(['daily', 'monthly']),
+  planType: z.enum(['single-day', 'monthly', 'family-monthly', 'unlimited']),
   sendInvite: z.boolean().optional().default(true)
 });
 
@@ -101,12 +101,15 @@ export async function POST(request: NextRequest) {
       const subscription = await prisma.subscription.create({
         data: {
           userId: userId,
-          planType: planType, // Use 'daily' or 'monthly' as passed
+          planType: planType,
           startDate: new Date(startDate),
           endDate: new Date(endDate),
           status: 'active',
           paymentStatus: 'admin-added',
-          duration: planType === 'daily' ? 1 : 30, // Set duration based on plan type
+          duration: planType === 'single-day' ? 1 : 
+                   planType === 'monthly' ? 30 :
+                   planType === 'family-monthly' ? 30 :
+                   365, // unlimited gets 365 days
           price: 0,
           orderId: `admin-${Date.now()}-${userId.slice(-6)}`
         }
@@ -160,7 +163,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({
-        message: `User successfully added to ${planType} subscription`,
+        message: `User successfully added to ${planType.replace('-', ' ')} subscription`,
         subscription: subscription,
         user: user,
         inviteSent: sendInvite
