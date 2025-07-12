@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron-daily-invites",
-      "schedule": "0 8 * * *"
+      "schedule": "30 2 * * *"
     }
   ]
 }

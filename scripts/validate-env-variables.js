@@ -20,17 +20,14 @@ const ENVIRONMENT_VARIABLES = {
   
   // Admin Authentication
   ADMIN_PASSCODE: { required: true, description: 'Admin authentication passcode' },
-  ADMIN_EMAIL: { required: false, description: 'Admin email for notifications' },
+  ADMIN_EMAIL: { required: true, description: 'Admin email for authentication and notifications' },
   
   // Payment Gateway
-  NEXT_PUBLIC_RAZORPAY_KEY_ID: { required: true, description: 'Razorpay public key ID' },
-  RAZORPAY_KEY_ID: { required: true, description: 'Razorpay key ID' },
+  NEXT_PUBLIC_RAZORPAY_KEY_ID: { required: true, description: 'Razorpay public key ID (used in frontend and backend)' },
   RAZORPAY_KEY_SECRET: { required: true, description: 'Razorpay secret key' },
   
   // Email Configuration
-  EMAIL_USER: { required: true, description: 'SMTP email username' },
   EMAIL_PASSWORD: { required: true, description: 'SMTP email password' },
-  TEST_EMAIL: { required: false, description: 'Email for testing purposes' },
   
   // Application Configuration
   NEXT_PUBLIC_BASE_URL: { required: false, description: 'Public base URL for the application' },
@@ -62,8 +59,6 @@ const ENVIRONMENT_VARIABLES = {
   
   // Special Configurations
   SPECIAL_EMAILS: { required: false, description: 'Comma-separated list of special emails' },
-  API_KEY: { required: false, description: 'General API key' },
-  TEST_API_KEY: { required: false, description: 'API key for testing' },
   
   // CI/CD and Monitoring
   CI: { required: false, description: 'CI environment flag' },

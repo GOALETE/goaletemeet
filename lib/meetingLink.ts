@@ -3,6 +3,7 @@ import axios from 'axios';
 import { google } from 'googleapis';
 import { format } from 'date-fns';
 import { MeetingWithUsers } from '../types/meeting';
+import { getCalendarClient, getAuthenticatedJWT, getAdminEmail } from './googleAuth';
 
 /**
  * Enhanced error handling for the Google API calls
@@ -59,13 +60,13 @@ export async function createMeetingLink({
   }
 }
 
-// Enhanced Google Meet creation following Google Calendar API best practices
+// Enhanced Google Meet creation with proper conference data following Google Calendar API guidelines
 export async function google_create_meet({ 
   date, 
   startTime, 
   duration,
-  meetingTitle = 'GOALETE Club Session',
-  meetingDesc = 'Join us for a GOALETE Club session to learn how to achieve any goal in life.'
+  meetingTitle,
+  meetingDesc
 }: { 
   date: string, 
   startTime: string, 
@@ -74,168 +75,258 @@ export async function google_create_meet({
   meetingDesc?: string
 }): Promise<{ join_url: string, id: string }> {
   try {
-    const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-    const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-    const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
-
-    if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
-      throw new Error('Google Meet API credentials are not set');
-    }
-
+    // Get configuration from environment or defaults
+    const finalMeetingTitle = meetingTitle || process.env.DEFAULT_MEETING_TITLE || 'GOALETE Club Session';
+    const finalMeetingDesc = meetingDesc || process.env.DEFAULT_MEETING_DESCRIPTION || 'Join us for a GOALETE Club session to learn how to achieve any goal in life.';
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
+    
     console.log(`Creating Google Meet for date: ${date}, time: ${startTime}, duration: ${duration} minutes`);
+    console.log(`Using calendar ID: ${calendarId}`);
 
-    const jwtClient = new google.auth.JWT({
-      email: GOOGLE_CLIENT_EMAIL,
-      key: GOOGLE_PRIVATE_KEY,
-      scopes: ['https://www.googleapis.com/auth/calendar'],
-    });
-    
-    try {
-      await jwtClient.authorize();
-    } catch (authError) {
-      console.error('Google Calendar API authorization failed:', authError);
-      throw new Error(`Google Calendar API authorization failed: ${authError instanceof Error ? authError.message : String(authError)}`);
-    }
-    
-    const calendar = google.calendar({ version: 'v3', auth: jwtClient });
+    // Use service account authentication with Domain-Wide Delegation
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
 
-    // Create timezone-aware date objects
+    // Create IST timezone-aware date objects following Google Calendar API guidelines
+    const IST_TIMEZONE = 'Asia/Kolkata';
     const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
     const endDateTime = new Date(startDateTime);
     endDateTime.setMinutes(endDateTime.getMinutes() + duration);
 
-    // Generate a unique request ID for conference creation
-    const conferenceRequestId = `goalete-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Generate a unique request ID for conference creation following Google guidelines
+    const conferenceRequestId = `goalete-meet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    console.log(`Conference request ID: ${conferenceRequestId}`);
 
-    // Create meeting with proper error handling and Google Meet integration
-    let event;
+    // Create event following Google Calendar API v3 specification
+    let event: any = null;
+    
     try {
+      // Create event with proper Google Meet conference data
       event = await calendar.events.insert({
-        calendarId: GOOGLE_CALENDAR_ID,
-        conferenceDataVersion: 1, // Required for Google Meet integration
+        calendarId: calendarId,
+        conferenceDataVersion: 1, // Required for Google Meet integration per API docs
+        sendUpdates: 'none', // Don't send emails during creation (users added later)
         requestBody: {
-          summary: meetingTitle,
-          description: meetingDesc,
+          // Required fields per API documentation
+          summary: finalMeetingTitle,
           start: { 
             dateTime: startDateTime.toISOString(), 
-            timeZone: 'Asia/Kolkata' 
+            timeZone: IST_TIMEZONE
           },
           end: { 
             dateTime: endDateTime.toISOString(), 
-            timeZone: 'Asia/Kolkata' 
+            timeZone: IST_TIMEZONE
           },
-          // Configure Google Meet conference with security settings
+          
+          // Optional but recommended fields
+          description: finalMeetingDesc,
+          location: 'Google Meet (Online)',
+          status: 'confirmed',
+          
+          // Conference data creation following Google Calendar API v3 specification
           conferenceData: {
             createRequest: {
               requestId: conferenceRequestId,
               conferenceSolutionKey: {
-                type: 'hangoutsMeet' // Use Google Meet
+                type: 'hangoutsMeet'
               }
             }
           },
-          // Enhanced security settings for invite-only meetings (cross-domain compatible)
-          visibility: 'private', // Keep meetings private by default
-          guestsCanInviteOthers: false, // Prevent guests from inviting others
-          guestsCanModify: false, // Prevent guests from modifying the event
-          guestsCanSeeOtherGuests: true, // Allow guests to see other attendees
+          
+          // Security and access control settings
+          visibility: 'private', // Event is private to organization
+          guestsCanInviteOthers: false, // Prevent unauthorized invitations
+          guestsCanModify: false, // Prevent event modifications by guests
+          guestsCanSeeOtherGuests: true, // Allow attendees to see each other (required for meetings)
           anyoneCanAddSelf: false, // Prevent unauthorized self-addition
-          // Add extended properties for internal tracking and security
+          
+          // Notification settings
+          reminders: {
+            useDefault: false,
+            overrides: [
+              { method: 'email', minutes: 60 }, // 1 hour before
+              { method: 'email', minutes: 15 }  // 15 minutes before
+            ]
+          },
+          
+          // Calendar display settings
+          transparency: 'opaque', // Event blocks time on calendar
+          
+          // Extended properties for tracking and security (optional)
           extendedProperties: {
             private: {
-              'goaleTeApp': 'true',
-              'securityLevel': 'invite-only',
+              'securityLevel': 'invite-only-strict',
               'meetingType': 'subscription-based',
-              'createdBy': 'goalete-system',
-              'version': '2.0',
-              'crossDomainEnabled': 'true' // Track cross-domain support
+              'createdBy': 'goalete-service-account',
+              'version': '5.0',
+              'authMethod': 'service-account',
+              'crossDomainEnabled': 'true',
+              'timezone': IST_TIMEZONE,
+              'conferenceRequestId': conferenceRequestId,
+              'createdAt': new Date().toISOString(),
+              'platform': 'google-meet',
+              'accessControl': 'restricted-invite-only'
             },
             shared: {
               'platform': 'goalete',
-              'accessControl': 'restricted'
+              'eventSource': 'automated-system',
+              'supportsExternalDomains': 'true',
+              'securityLevel': 'high'
             }
-          },
-          // Set default event type for proper categorization
-          eventType: 'default',
-          // Add organizer metadata
-          organizer: {
-            email: GOOGLE_CLIENT_EMAIL,
-            displayName: 'GOALETE Team'
           }
         }
       });
-    } catch (eventError) {
-      console.error('Google Calendar event creation failed:', eventError);
-      const apiError = eventError as ApiError;
-      if (apiError.response?.status === 403) {
-        throw new Error('Google Calendar access denied. Please check your API permissions and ensure Calendar API is enabled.');
-      } else if (apiError.response?.status === 401) {
-        throw new Error('Google Calendar authentication failed. Please check your service account credentials.');
-      } else if (apiError.response?.status === 400) {
-        throw new Error(`Google Calendar bad request: ${apiError.response?.data?.error?.message || 'Invalid request parameters'}`);
-      } else {
-        throw new Error(`Google Calendar event creation failed: ${apiError.message || 'Unknown error'}`);
+    } catch (conferenceError) {
+      console.log('ERROR: Conference data creation failed, trying fallback method:', 
+        conferenceError instanceof Error ? conferenceError.message : String(conferenceError));
+      
+      // Fallback: Create event without explicit conference data - Google will auto-generate hangoutLink
+      event = await calendar.events.insert({
+        calendarId: calendarId,
+        sendUpdates: 'none',
+        requestBody: {
+          // Required fields
+          summary: finalMeetingTitle,
+          start: { 
+            dateTime: startDateTime.toISOString(), 
+            timeZone: IST_TIMEZONE
+          },
+          end: { 
+            dateTime: endDateTime.toISOString(), 
+            timeZone: IST_TIMEZONE
+          },
+          
+          // Optional fields
+          description: `${finalMeetingDesc}\n\nGoogle Meet link will be generated automatically.`,
+          location: 'Google Meet (Online)',
+          status: 'confirmed',
+          
+          // Security settings (maintained in fallback)
+          visibility: 'private',
+          guestsCanInviteOthers: false,
+          guestsCanModify: false,
+          guestsCanSeeOtherGuests: true,
+          anyoneCanAddSelf: false,
+          
+          reminders: {
+            useDefault: false,
+            overrides: [
+              { method: 'email', minutes: 60 },
+              { method: 'email', minutes: 15 }
+            ]
+          },
+          
+          transparency: 'opaque',
+          
+          extendedProperties: {
+            private: {
+              'goaleTeApp': 'true',
+              'securityLevel': 'invite-only-strict',
+              'meetingType': 'subscription-based',
+              'createdBy': 'goalete-service-account',
+              'version': '5.0',
+              'authMethod': 'service-account',
+              'crossDomainEnabled': 'true',
+              'timezone': IST_TIMEZONE,
+              'createdAt': new Date().toISOString(),
+              'platform': 'google-meet',
+              'accessControl': 'restricted-invite-only',
+              'conferenceMethod': 'fallback-hangout'
+            },
+            shared: {
+              'platform': 'goalete',
+              'eventSource': 'automated-system',
+              'supportsExternalDomains': 'true',
+              'securityLevel': 'high'
+            }
+          }
+        }
+      });
+    }
+
+    if (!event) {
+      throw new Error('Google Calendar API returned empty response');
+    }
+
+    // Extract event data from response
+    const calendarEvent = event.data;
+    const createdEventId = calendarEvent.id;
+    
+    if (!createdEventId) {
+      throw new Error('Failed to create Google Calendar event: No event ID returned');
+    }
+  
+    // Extract Google Meet link from conference data (preferred method)
+    let join_url = '';
+    const conferenceData = calendarEvent.conferenceData;
+    
+    if (conferenceData && conferenceData.entryPoints) {
+      // Find video entry point (Google Meet link)
+      const videoEntryPoint = conferenceData.entryPoints.find(
+        (entry: any) => entry.entryPointType === 'video'
+      );
+      
+      if (videoEntryPoint && videoEntryPoint.uri) {
+        join_url = videoEntryPoint.uri;
+        console.log(`Google Meet link generated from conference data: ${join_url}`);
       }
     }
     
-    if (!event?.data) {
-      throw new Error('Google Calendar API returned empty response');
+    // Fallback to hangoutLink if conference data not available
+    if (!join_url && calendarEvent.hangoutLink) {
+      join_url = calendarEvent.hangoutLink;
+      console.log(`Using hangoutLink as fallback: ${join_url}`);
     }
     
-    // Extract Google Meet link from conference data
-    const conferenceData = event.data.conferenceData;
-    if (!conferenceData || !conferenceData.entryPoints) {
-      throw new Error('Failed to create Google Meet: No conference data in response');
-    }
-    
-    const videoEntryPoint = conferenceData.entryPoints.find(
-      (entry) => entry.entryPointType === 'video'
-    );
-    
-    const join_url = videoEntryPoint?.uri || '';
-    
+    // If no meeting link available immediately, store a placeholder for later update
     if (!join_url) {
-      throw new Error('Failed to create Google Meet link: No video entry point found');
+      console.warn('No Google Meet link available immediately - conference creation might be pending');
+      join_url = 'pending-meet-link-creation';
     }
     
-    const eventId = event.data.id || '';
-    if (!eventId) {
-      throw new Error('Failed to create Google Meet event: No event ID returned');
+    console.log(`✅ Successfully created Google Calendar event with ID: ${createdEventId}`);
+    console.log(`📅 Event URL: ${calendarEvent.htmlLink || 'Not available'}`);
+    console.log(`🔗 Meeting URL: ${join_url}`);
+    console.log(`🎯 Conference status: ${conferenceData?.createRequest?.status || conferenceData?.status || 'auto-generated'}`);
+    
+    return { join_url, id: createdEventId };
+    
+  } catch (eventError) {
+    console.error('❌ Google Calendar event creation failed:', eventError);
+    const apiError = eventError as ApiError;
+    
+    // Enhanced error handling with specific Google Calendar API error codes
+    if (apiError.response?.status === 403) {
+      throw new Error('Google Calendar access denied. Verify service account has Calendar API access and proper calendar permissions.');
+    } else if (apiError.response?.status === 401) {
+      throw new Error('Google Calendar authentication failed. Check service account credentials and ensure proper authentication setup.');
+    } else if (apiError.response?.status === 400) {
+      const errorMsg = apiError.response?.data?.error?.message || 'Invalid request parameters';
+      console.error('Bad request details:', apiError.response?.data?.error?.details);
+      throw new Error(`Google Calendar bad request: ${errorMsg}`);
+    } else if (apiError.response?.status === 409) {
+      throw new Error('Event creation conflict. A conflicting event may already exist at this time.');
+    } else if (apiError.response?.status === 404) {
+      throw new Error('Calendar not found. Verify the calendar ID exists and is accessible.');
+    } else {
+      throw new Error(`Google Calendar event creation failed: ${apiError.message || 'Unknown error'}`);
     }
-    
-    console.log(`Successfully created Google Meet with ID: ${eventId}, Conference ID: ${conferenceData.conferenceId}`);
-    console.log(`Meeting URL: ${join_url}`);
-    
-    return { join_url, id: eventId };
-  } catch (error) {
-    console.error('Error creating Google Meet:', error);
-    throw error; // Re-throw to allow retry mechanism to work
   }
 }
 
-// Optimized function to add a single user to a Google Calendar event
+// Credit-optimized function to add a single user using patch (most efficient for minimal updates)
 export async function google_add_user_to_meeting(eventId: string, email: string, name?: string): Promise<void> {
-  const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-  const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-  const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
-
-  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
-    throw new Error('Google Meet API credentials are not set');
-  }
-
   try {
-    const jwtClient = new google.auth.JWT({
-      email: GOOGLE_CLIENT_EMAIL,
-      key: GOOGLE_PRIVATE_KEY,
-      scopes: ['https://www.googleapis.com/auth/calendar'],
-    });
-    
-    await jwtClient.authorize();
-    const calendar = google.calendar({ version: 'v3', auth: jwtClient });
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
 
-    // Get current event details
+    // Step 1: Get current event attendees only (minimal fields for efficiency)
     const event = await calendar.events.get({
-      calendarId: GOOGLE_CALENDAR_ID,
-      eventId: eventId
+      calendarId: calendarId,
+      eventId: eventId,
+      fields: 'attendees'
     });
 
     if (!event.data) {
@@ -244,75 +335,60 @@ export async function google_add_user_to_meeting(eventId: string, email: string,
 
     const attendees = event.data.attendees || [];
     
-    // Check if user is already an attendee
-    const existingAttendee = attendees.find(attendee => attendee.email === email);
+    // Quick check if user is already an attendee (avoid unnecessary API call)
+    const existingAttendee = attendees.find((attendee: any) => attendee.email === email);
     if (existingAttendee) {
       console.log(`User ${email} is already an attendee of event ${eventId}`);
       return;
     }
 
-    // Add new attendee with enhanced security settings
-    attendees.push({ 
+    // Step 2: Prepare new attendee
+    const newAttendee = { 
       email, 
       displayName: name || email.split('@')[0],
-      responseStatus: 'accepted' // Automatically accept to avoid RSVP requirement
-    });
+      responseStatus: 'accepted' as const, // Auto-accept for seamless experience
+      additionalGuests: 0, // Security: prevent additional guests
+      optional: false // Required attendance
+    };
+    
+    const updatedAttendees = [...attendees, newAttendee];
 
-    // Update event with new attendee (cross-domain compatible)
+    // Step 3: Use patch for partial update (most credit-efficient for single field updates)
     await calendar.events.patch({
-      calendarId: GOOGLE_CALENDAR_ID,
+      calendarId: calendarId,
       eventId: eventId,
-      sendUpdates: 'none', // Silent update - no email notifications sent (for individual additions)
+      sendUpdates: 'externalOnly', // Cross-domain support: send to external domains only
       requestBody: {
-        attendees,
-        // Update extended properties to track cross-domain addition
-        extendedProperties: {
-          private: {
-            'lastSingleUserUpdate': new Date().toISOString(),
-            'addedUserDomain': email.split('@')[1] || 'unknown',
-            'totalAttendees': attendees.length.toString(),
-            'crossDomainSupported': 'true'
-          }
-        }
+        // Only update attendees field - patch is most efficient for partial updates
+        attendees: updatedAttendees
       }
     });
 
-    console.log(`Successfully added ${email} to Google Calendar event ${eventId}`);
+    console.log(`✅ Credit-optimized: Added ${email} to event ${eventId} (patch method)`);
+    console.log(`📊 API efficiency: 2 quota units (1 get + 1 patch) - most efficient for single user`);
   } catch (error) {
     console.error(`Error adding user ${email} to Google Calendar event ${eventId}:`, error);
     throw new Error(`Failed to add user to Google Calendar event: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
-// Optimized function to add multiple users to a Google Calendar event in batch
+// Credit-optimized batch function using get + patch (most efficient for attendee updates)
 export async function google_add_users_to_meeting(eventId: string, users: { email: string, name?: string }[]): Promise<void> {
-  const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-  const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-  const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
-
-  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
-    throw new Error('Google Meet API credentials are not set');
-  }
-
   if (users.length === 0) {
     console.log('No users to add to meeting');
     return;
   }
 
   try {
-    const jwtClient = new google.auth.JWT({
-      email: GOOGLE_CLIENT_EMAIL,
-      key: GOOGLE_PRIVATE_KEY,
-      scopes: ['https://www.googleapis.com/auth/calendar'],
-    });
-    
-    await jwtClient.authorize();
-    const calendar = google.calendar({ version: 'v3', auth: jwtClient });
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
 
-    // Get current event details
+    // Step 1: Get current attendees only (minimal fields for maximum efficiency)
     const event = await calendar.events.get({
-      calendarId: GOOGLE_CALENDAR_ID,
-      eventId: eventId
+      calendarId: calendarId,
+      eventId: eventId,
+      fields: 'attendees' // Only fetch attendees to minimize data transfer
     });
 
     if (!event.data) {
@@ -320,9 +396,9 @@ export async function google_add_users_to_meeting(eventId: string, users: { emai
     }
 
     const existingAttendees = event.data.attendees || [];
-    const existingEmails = new Set(existingAttendees.map(attendee => attendee.email));
+    const existingEmails = new Set(existingAttendees.map((attendee: any) => attendee.email));
     
-    // Filter out users who are already attendees
+    // Filter out users who are already attendees (optimization to avoid API overhead)
     const newUsers = users.filter(user => !existingEmails.has(user.email));
     
     if (newUsers.length === 0) {
@@ -330,36 +406,43 @@ export async function google_add_users_to_meeting(eventId: string, users: { emai
       return;
     }
 
-    // Add new attendees with security settings
+    // Step 2: Prepare new attendees with cross-domain security settings
     const newAttendees = newUsers.map(user => ({
       email: user.email,
       displayName: user.name || user.email.split('@')[0],
-      responseStatus: 'accepted' as const // Auto-accept to avoid RSVP requirement
+      responseStatus: 'accepted' as const, // Auto-accept for seamless experience
+      additionalGuests: 0, // Prevent additional guests for security
+      comment: '', // No special comments
+      optional: false // Required attendance
     }));
 
     const updatedAttendees = [...existingAttendees, ...newAttendees];
 
-    // Update event with new attendees (cross-domain batch operation)
+    // Analyze domains for cross-domain tracking
+    const domainAnalysis = newUsers.reduce((acc, user) => {
+      const domain = user.email.split('@')[1] || 'unknown';
+      acc[domain] = (acc[domain] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const domainBreakdown = Object.entries(domainAnalysis)
+      .map(([domain, count]) => `${domain}:${count}`)
+      .join(';');
+
+    // Step 3: Use patch for attendee-only update (most credit-efficient approach)
     await calendar.events.patch({
-      calendarId: GOOGLE_CALENDAR_ID,
+      calendarId: calendarId,
       eventId: eventId,
-      sendUpdates: 'externalOnly', // Send updates only to external attendees (supports all domains)
+      sendUpdates: 'externalOnly', // Critical for cross-domain invites - sends to external domains
       requestBody: {
-        attendees: updatedAttendees,
-        // Update extended properties to track the cross-domain batch addition
-        extendedProperties: {
-          private: {
-            'lastBatchUpdate': new Date().toISOString(),
-            'batchSize': newUsers.length.toString(),
-            'totalAttendees': updatedAttendees.length.toString(),
-            'crossDomainBatch': 'true',
-            'domainList': [...new Set(newUsers.map(user => user.email.split('@')[1] || 'unknown'))].join(',')
-          }
-        }
+        // Only update attendees field - patch is most efficient for partial updates
+        attendees: updatedAttendees
       }
     });
 
-    console.log(`Successfully added ${newUsers.length} users to Google Calendar event ${eventId}`);
+    console.log(`✅ Credit-optimized batch: Added ${newUsers.length} users to event ${eventId} with auto-acceptance`);
+    console.log(`📊 API efficiency: 2 quota units (1 get + 1 patch) for ${newUsers.length} users - optimal approach`);
+    console.log(`Domain breakdown: ${domainBreakdown}`);
   } catch (error) {
     console.error(`Error adding users to Google Calendar event ${eventId}:`, error);
     throw new Error(`Failed to add users to Google Calendar event: ${error instanceof Error ? error.message : String(error)}`);
@@ -990,8 +1073,7 @@ export async function addUserToTodaysMeeting(userId: string, targetDate?: string
 
 /**
  * Enhanced security settings for Google Meet events with cross-domain support
- * These settings ensure only invited users can join and prevent unauthorized access
- * while supporting attendees from any email domain
+ * Following Google Calendar API best practices for invite-only meetings
  */
 export const GOOGLE_MEET_SECURITY_SETTINGS = {
   // Event visibility and access control (cross-domain compatible)
@@ -1000,26 +1082,92 @@ export const GOOGLE_MEET_SECURITY_SETTINGS = {
   guestsCanModify: false,
   guestsCanSeeOtherGuests: true,
   anyoneCanAddSelf: false, // Prevent unauthorized self-addition
+  locked: false, // Allow updates for user management
   
-  // Extended properties for tracking and security
+  // Enhanced extended properties for security tracking
   extendedProperties: {
     private: {
       'goaleTeApp': 'true',
-      'securityLevel': 'invite-only',
+      'securityLevel': 'invite-only-strict',
       'meetingType': 'subscription-based',
-      'createdBy': 'goalete-system',
-      'version': '2.0',
-      'accessControl': 'restricted',
-      'crossDomainEnabled': 'true', // Explicitly enable cross-domain support
-      'crossDomainVersion': '1.0'
+      'createdBy': 'goalete-service-account',
+      'version': '4.0',
+      'accessControl': 'restricted-invite-only',
+      'crossDomainEnabled': 'true',
+      'autoAcceptanceEnabled': 'true',
+      'timezone': 'Asia/Kolkata'
     },
     shared: {
       'platform': 'goalete',
       'eventSource': 'automated-system',
-      'supportsExternalDomains': 'true'
+      'supportsExternalDomains': 'true',
+      'securityLevel': 'high'
     }
+  },
+  
+  // Default reminder configuration
+  reminders: {
+    useDefault: false,
+    overrides: [
+      { method: 'email', minutes: 60 }, // 1 hour before
+      { method: 'email', minutes: 15 }  // 15 minutes before
+    ]
   }
 };
+
+/**
+ * Check and update pending Google Meet links for events
+ * Some conference data might be created asynchronously
+ * @param eventId Google Calendar event ID
+ * @returns Updated meeting link or null if still pending
+ */
+export async function updatePendingMeetingLink(eventId: string): Promise<string | null> {
+  try {
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
+
+    // Get current event details
+    const event = await calendar.events.get({
+      calendarId: calendarId,
+      eventId: eventId
+    });
+
+    if (!event.data) {
+      throw new Error(`Event with ID ${eventId} not found`);
+    }
+
+    // Check if conference data is now available
+    const conferenceData = event.data.conferenceData;
+    
+    if (conferenceData && conferenceData.entryPoints) {
+      // Find video entry point (Google Meet link)
+      const videoEntryPoint = conferenceData.entryPoints.find(
+        (entry: any) => entry.entryPointType === 'video'
+      );
+      
+      if (videoEntryPoint && videoEntryPoint.uri) {
+        console.log(`Conference link now available for event ${eventId}: ${videoEntryPoint.uri}`);
+        return videoEntryPoint.uri;
+      }
+    }
+    
+    // Check hangoutLink as fallback
+    if (event.data.hangoutLink) {
+      console.log(`Hangout link available for event ${eventId}: ${event.data.hangoutLink}`);
+      return event.data.hangoutLink;
+    }
+
+    // Conference creation might still be pending
+    const createRequestStatus = conferenceData?.createRequest?.status;
+    console.log(`Conference creation status for event ${eventId}: ${createRequestStatus || 'unknown'}`);
+    
+    return null; // Still pending
+  } catch (error) {
+    console.error(`Error checking pending meeting link for event ${eventId}:`, error);
+    throw new Error(`Failed to check pending meeting link: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
 
 /**
  * Enhance an existing Google Meet event with additional security settings
@@ -1032,23 +1180,10 @@ export async function enhanceMeetingSecurity(
   eventId: string, 
   additionalSettings: Partial<typeof GOOGLE_MEET_SECURITY_SETTINGS> = {}
 ): Promise<void> {
-  const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-  const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-  const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
-
-  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
-    throw new Error('Google Meet API credentials are not set');
-  }
-
   try {
-    const jwtClient = new google.auth.JWT({
-      email: GOOGLE_CLIENT_EMAIL,
-      key: GOOGLE_PRIVATE_KEY,
-      scopes: ['https://www.googleapis.com/auth/calendar'],
-    });
-    
-    await jwtClient.authorize();
-    const calendar = google.calendar({ version: 'v3', auth: jwtClient });
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
 
     // Merge default security settings with additional settings
     const securitySettings = {
@@ -1059,6 +1194,7 @@ export async function enhanceMeetingSecurity(
         private: {
           ...GOOGLE_MEET_SECURITY_SETTINGS.extendedProperties.private,
           'securityEnhanced': new Date().toISOString(),
+          'enhancementVersion': '4.0',
           ...additionalSettings.extendedProperties?.private
         },
         shared: {
@@ -1070,7 +1206,7 @@ export async function enhanceMeetingSecurity(
 
     // Apply security enhancements
     await calendar.events.patch({
-      calendarId: GOOGLE_CALENDAR_ID,
+      calendarId: calendarId,
       eventId: eventId,
       sendUpdates: 'none', // Silent update
       requestBody: securitySettings
@@ -1104,27 +1240,20 @@ export async function getMeetingSecurityStatus(eventId: string): Promise<{
     responseStatus: string;
     organizer?: boolean;
   }>;
+  conferenceData?: {
+    hasConference: boolean;
+    conferenceSolution?: string;
+    entryPoints: number;
+    status?: string;
+  };
 }> {
-  const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-  const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-  const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
-
-  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
-    throw new Error('Google Meet API credentials are not set');
-  }
-
   try {
-    const jwtClient = new google.auth.JWT({
-      email: GOOGLE_CLIENT_EMAIL,
-      key: GOOGLE_PRIVATE_KEY,
-      scopes: ['https://www.googleapis.com/auth/calendar'],
-    });
-    
-    await jwtClient.authorize();
-    const calendar = google.calendar({ version: 'v3', auth: jwtClient });
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
 
     const event = await calendar.events.get({
-      calendarId: GOOGLE_CALENDAR_ID,
+      calendarId: calendarId,
       eventId: eventId
     });
 
@@ -1134,6 +1263,7 @@ export async function getMeetingSecurityStatus(eventId: string): Promise<{
 
     const eventData = event.data;
     const extendedProps = eventData.extendedProperties;
+    const conferenceData = eventData.conferenceData;
     
     return {
       isSecure: eventData.visibility === 'private' && 
@@ -1152,7 +1282,16 @@ export async function getMeetingSecurityStatus(eventId: string): Promise<{
         email: attendee.email || 'unknown',
         responseStatus: attendee.responseStatus || 'unknown',
         organizer: attendee.organizer || false
-      }))
+      })),
+      conferenceData: conferenceData ? {
+        hasConference: true,
+        conferenceSolution: conferenceData.conferenceSolution?.name || undefined,
+        entryPoints: conferenceData.entryPoints?.length || 0,
+        status: (conferenceData.createRequest?.status as string) || undefined
+      } : {
+        hasConference: false,
+        entryPoints: 0
+      }
     };
   } catch (error) {
     console.error(`Error getting security status for event ${eventId}:`, error);
@@ -1231,20 +1370,16 @@ export async function google_add_users_to_meeting_cross_domain(
   skippedUsers: { email: string, reason: string }[];
   domainAnalysis: ReturnType<typeof validateCrossDomainEmails>['domainAnalysis'];
 }> {
-  const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-  const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-  const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
-
-  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
-    throw new Error('Google Meet API credentials are not set');
-  }
-
   if (users.length === 0) {
     console.log('No users to add to meeting');
     return { addedUsers: [], skippedUsers: [], domainAnalysis: [] };
   }
 
   try {
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
+
     // Validate emails and analyze domains
     const emailValidation = validateCrossDomainEmails(users.map(u => u.email));
     console.log(`Cross-domain validation: ${emailValidation.validEmails.length} valid emails across ${emailValidation.totalDomains} domains`);
@@ -1260,18 +1395,9 @@ export async function google_add_users_to_meeting_cross_domain(
       return { addedUsers: [], skippedUsers, domainAnalysis: emailValidation.domainAnalysis };
     }
 
-    const jwtClient = new google.auth.JWT({
-      email: GOOGLE_CLIENT_EMAIL,
-      key: GOOGLE_PRIVATE_KEY,
-      scopes: ['https://www.googleapis.com/auth/calendar'],
-    });
-    
-    await jwtClient.authorize();
-    const calendar = google.calendar({ version: 'v3', auth: jwtClient });
-
     // Get current event details
     const event = await calendar.events.get({
-      calendarId: GOOGLE_CALENDAR_ID,
+      calendarId: calendarId,
       eventId: eventId
     });
 
@@ -1295,11 +1421,13 @@ export async function google_add_users_to_meeting_cross_domain(
       return { addedUsers: [], skippedUsers, domainAnalysis: emailValidation.domainAnalysis };
     }
 
-    // Add new attendees with cross-domain support
+    // Add new attendees with cross-domain support and auto-acceptance
     const newAttendees = newUsers.map(user => ({
       email: user.email,
       displayName: user.name || user.email.split('@')[0],
-      responseStatus: 'accepted' as const // Auto-accept for seamless cross-domain experience
+      responseStatus: 'accepted' as const, // Auto-accept for seamless cross-domain experience
+      additionalGuests: 0, // Prevent additional guests for security
+      optional: false // Required attendance
     }));
 
     const updatedAttendees = [...existingAttendees, ...newAttendees];
@@ -1312,7 +1440,7 @@ export async function google_add_users_to_meeting_cross_domain(
 
     // Update event with enhanced cross-domain tracking
     await calendar.events.patch({
-      calendarId: GOOGLE_CALENDAR_ID,
+      calendarId: calendarId,
       eventId: eventId,
       sendUpdates: 'externalOnly', // Critical for cross-domain invites
       requestBody: {
@@ -1326,7 +1454,10 @@ export async function google_add_users_to_meeting_cross_domain(
             'crossDomainEnabled': 'true',
             'domainBreakdown': domainBreakdown,
             'externalDomainCount': emailValidation.domainAnalysis.filter(d => d.isExternal).length.toString(),
-            'hasExternalDomains': emailValidation.hasExternalDomains.toString()
+            'hasExternalDomains': emailValidation.hasExternalDomains.toString(),
+            'autoAcceptanceEnabled': 'true',
+            'timezone': 'Asia/Kolkata',
+            'authMethod': 'service-account'
           }
         }
       }
@@ -1347,4 +1478,101 @@ export async function google_add_users_to_meeting_cross_domain(
   }
 }
 
-// ...existing code...
+/**
+ * Update meeting record in database with actual Google Meet link
+ * Call this function periodically to check for pending conference links
+ * @param meetingId Database meeting ID
+ * @returns Updated meeting record or null if link still pending
+ */
+export async function updateMeetingWithActualLink(meetingId: string): Promise<MeetingWithUsers | null> {
+  try {
+    // Get meeting from database
+    const meeting = await prisma.meeting.findUnique({
+      where: { id: meetingId },
+      include: { users: true }
+    });
+
+    if (!meeting) {
+      throw new Error(`Meeting with ID ${meetingId} not found in database`);
+    }
+
+    // Skip if not Google Meet or no event ID
+    if (meeting.platform !== 'google-meet' || !meeting.googleEventId) {
+      console.log(`Meeting ${meetingId} is not a Google Meet event or has no event ID`);
+      return meeting;
+    }
+
+    // Skip if already has a proper meeting link
+    if (meeting.meetingLink && 
+        meeting.meetingLink !== 'pending-meet-link-creation' && 
+        meeting.meetingLink.includes('meet.google.com')) {
+      console.log(`Meeting ${meetingId} already has a valid Google Meet link`);
+      return meeting;
+    }
+
+    // Check for updated meeting link
+    const updatedLink = await updatePendingMeetingLink(meeting.googleEventId);
+    
+    if (updatedLink && updatedLink !== 'pending-meet-link-creation') {
+      // Update meeting record with actual link
+      const updatedMeeting = await prisma.meeting.update({
+        where: { id: meetingId },
+        data: { meetingLink: updatedLink },
+        include: { users: true }
+      });
+
+      console.log(`Updated meeting ${meetingId} with actual Google Meet link: ${updatedLink}`);
+      return updatedMeeting;
+    }
+
+    console.log(`Meeting link still pending for meeting ${meetingId}`);
+    return null; // Link still pending
+  } catch (error) {
+    console.error(`Error updating meeting ${meetingId} with actual link:`, error);
+    throw new Error(`Failed to update meeting with actual link: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// Credit-efficient utility function to get minimal event data (for status checks only)
+export async function google_get_meeting_status(eventId: string): Promise<{
+  exists: boolean;
+  attendeeCount?: number;
+  meetingLink?: string;
+  summary?: string;
+  domains?: string[];
+}> {
+  try {
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
+
+    // Ultra-minimal fields to reduce quota consumption and bandwidth
+    const event = await calendar.events.get({
+      calendarId: calendarId,
+      eventId: eventId,
+      fields: 'id,summary,attendees,hangoutLink,extendedProperties/private'
+    });
+
+    if (!event.data) {
+      return { exists: false };
+    }
+
+    const attendees = event.data.attendees || [];
+    const domains = [...new Set(
+      attendees
+        .map((attendee: any) => attendee.email?.split('@')[1])
+        .filter(Boolean)
+    )];
+
+    return {
+      exists: true,
+      attendeeCount: attendees.length,
+      meetingLink: event.data.hangoutLink || undefined,
+      summary: event.data.summary || undefined,
+      domains
+    };
+  } catch (error) {
+    console.error(`Error checking meeting status for event ${eventId}:`, error);
+    return { exists: false };
+  }
+}

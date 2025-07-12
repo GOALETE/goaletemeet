@@ -9,7 +9,7 @@ import { sendAdminNotificationEmail, sendFamilyAdminNotificationEmail } from "@/
 import { sendImmediateInviteViaMessaging } from "@/lib/messaging";
 
 // Get Razorpay keys from environment variables
-const key_id = process.env.RAZORPAY_KEY_ID;
+const key_id = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
 // Validate Razorpay keys are present

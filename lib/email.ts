@@ -10,15 +10,15 @@ import nodemailer, { Transporter } from 'nodemailer';
  */
 export const createTransporter = (): Transporter | null => {
   try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-      console.error('Email configuration missing. Check your .env file for EMAIL_USER and EMAIL_PASSWORD.');
+    if (!process.env.ADMIN_EMAIL || !process.env.EMAIL_PASSWORD) {
+      console.error('Email configuration missing. Check your .env file for ADMIN_EMAIL and EMAIL_PASSWORD.');
       return null;
     }
 
     return nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,
+        user: process.env.ADMIN_EMAIL,
         pass: process.env.EMAIL_PASSWORD,
       },
       // Add connection timeout and pool settings for better reliability
@@ -113,13 +113,13 @@ export function addEnvironmentBannerToHtml(htmlContent: string): string {
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
-    if (!process.env.EMAIL_USER) {
-      console.error('EMAIL_USER environment variable is not set');
+    if (!process.env.ADMIN_EMAIL) {
+      console.error('ADMIN_EMAIL environment variable is not set');
       return false;
     }
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.ADMIN_EMAIL,
       to: options.to,
       subject: getEnvironmentAwareSubject(options.subject),
       text: options.text,
@@ -577,7 +577,7 @@ export async function sendWelcomeEmail({
           <div class="contact-us">
           <p><strong>Questions or Need Help?</strong></p>
           <p>Our support team is ready to assist you with any questions you might have about your subscription or upcoming sessions.</p>
-          <a href="mailto:${process.env.EMAIL_USER || 'info@goaleteclub.com'}" class="button">Contact Support</a>
+          <a href="mailto:${process.env.ADMIN_EMAIL || 'info@goaleteclub.com'}" class="button">Contact Support</a>
         </div>
         
         <p class="note">Note: Please keep this email for your records. It serves as confirmation of your subscription.</p>
@@ -678,7 +678,7 @@ BEGIN:VEVENT
 DTSTART:${startDateISO.replace(/[-:]/g, '').replace(/\.\d+/g, '')}
 DTEND:${endDateISO.replace(/[-:]/g, '').replace(/\.\d+/g, '')}
 DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/g, '')}
-ORGANIZER;CN=GOALETE CLUB:mailto:${process.env.EMAIL_USER}
+ORGANIZER;CN=GOALETE CLUB:mailto:${process.env.ADMIN_EMAIL}
 UID:${Date.now()}@goaleteclub.com
 ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${recipient.name}:mailto:${recipient.email}
 SUMMARY:${meetingTitle}
@@ -753,7 +753,7 @@ END:VCALENDAR`;
 
         <div class="footer">
           <p>&copy; ${new Date().getFullYear()} GOALETE CLUB. All rights reserved.</p>
-          <p>If you have any questions, please contact us at ${process.env.EMAIL_USER || 'info@goaleteclub.com'}</p>
+          <p>If you have any questions, please contact us at ${process.env.ADMIN_EMAIL || 'info@goaleteclub.com'}</p>
         </div>
       </body>
       </html>

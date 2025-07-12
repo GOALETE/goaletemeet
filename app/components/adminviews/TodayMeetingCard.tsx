@@ -15,16 +15,29 @@ type TodayMeeting = {
   googleEventId?: string;
   zoomMeetingId?: string;
   zoomStartUrl?: string;
+  attendeeCount?: number;
+};
+
+type Attendee = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  registeredDate: string;
 };
 
 interface TodayMeetingCardProps {
   refreshTrigger?: number;
+  onAddUserClick?: () => void; // New prop for opening user selection
 }
 
-const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) => {
+const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger, onAddUserClick }) => {
   const [meeting, setMeeting] = useState<TodayMeeting | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showAttendees, setShowAttendees] = useState(false);
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [loadingAttendees, setLoadingAttendees] = useState(false);
 
   useEffect(() => {
     fetchTodayMeeting();
@@ -66,6 +79,34 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
       setError('Failed to fetch today&apos;s meeting');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAttendees = async () => {
+    if (!meeting) return;
+    
+    try {
+      setLoadingAttendees(true);
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      
+      const response = await fetch(`/api/admin/meeting-attendees?meetingId=${meeting.id}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch attendees');
+      }
+      
+      const data = await response.json();
+      setAttendees(data.attendees || []);
+      setShowAttendees(true);
+    } catch (error) {
+      console.error('Error fetching attendees:', error);
+      setError('Failed to fetch attendees');
+    } finally {
+      setLoadingAttendees(false);
     }
   };
 
@@ -179,13 +220,69 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
               </span>
             </div>
           </div>
+          
+          <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200/50">
+            <div className="p-1 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-sm text-purple-600 font-medium">Attendees:</span>
+              <span className="ml-2 font-bold text-purple-800">
+                {meeting.attendeeCount || 0} registered
+              </span>
+            </div>
+          </div>
         </div>
       </div>
       
-      <div className="flex justify-between items-center">
+      {/* Attendee List Modal */}
+      {showAttendees && (
+        <div className="mt-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200/50">
+          <div className="flex items-center justify-between mb-3">
+            <h5 className="font-bold text-gray-800">Meeting Attendees</h5>
+            <button 
+              onClick={() => setShowAttendees(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          {loadingAttendees ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-600 mx-auto"></div>
+            </div>
+          ) : attendees.length > 0 ? (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {attendees.map((attendee) => (
+                <div key={attendee.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                  <div>
+                    <div className="font-medium text-gray-800">{attendee.name}</div>
+                    <div className="text-sm text-gray-600">{attendee.email}</div>
+                    {attendee.phone && (
+                      <div className="text-sm text-gray-500">{attendee.phone}</div>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Registered: {attendee.registeredDate}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-gray-500">No attendees registered yet</div>
+          )}
+        </div>
+      )}
+      
+      <div className="flex justify-between items-center space-x-3">
         <button 
           onClick={handleJoinMeeting}
-          className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
+          className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg flex-1"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -193,11 +290,52 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger }) =
           <span>Join as Host</span>
         </button>
         
+        {onAddUserClick && (
+          <button 
+            onClick={onAddUserClick}
+            className="px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-medium rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
+            title="Add user to today's meeting"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </button>
+        )}
+        
+        <button 
+          onClick={fetchAttendees}
+          disabled={loadingAttendees}
+          className="px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50"
+        >
+          {loadingAttendees ? (
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          )}
+        </button>
+        
         <button 
           onClick={fetchTodayMeeting}
-          className="px-4 py-2 bg-white/70 backdrop-blur-sm border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all duration-300"
+          className="px-4 py-3 bg-white/70 backdrop-blur-sm border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all duration-300"
         >
-          Refresh
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Add User Button */}
+      <div className="mt-4">
+        <button 
+          onClick={onAddUserClick}
+          className="w-full px-4 py-3 bg-gradient-to-r from-green-400 to-green-500 text-white font-medium rounded-xl hover:from-green-500 hover:to-green-600 transition-all duration-300 transform hover:scale-105 shadow-lg"
+        >
+          <svg className="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add User to Meeting
         </button>
       </div>
     </div>

@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 interface SubscriptionsViewProps {
   subscriptionView: 'all' | 'thisWeek' | 'upcoming';
   setSubscriptionView: (view: 'all' | 'thisWeek' | 'upcoming') => void;
-  subscriptionUsers: any[];
+  subscriptionUsers: any[]; // Now contains individual subscription records with nested user data
   subscriptionsLoading: boolean;
   revenue: number;
   handleRowClick: (userId: string) => void;
@@ -26,12 +26,12 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
   });
 
   // Filter subscriptions based on status
-  const filteredSubscriptions = subscriptionUsers.filter(user => {
-    if (!user.subscription) return false;
+  const filteredSubscriptions = subscriptionUsers.filter(subscription => {
+    if (!subscription) return false;
 
     const today = new Date();
-    const startDate = new Date(user.subscription.startDate);
-    const endDate = new Date(user.subscription.endDate);
+    const startDate = new Date(subscription.startDate);
+    const endDate = new Date(subscription.endDate);
     
     // Status filter
     if (filter !== 'all') {
@@ -71,18 +71,18 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
   });
 
   // Calculate active subscriptions
-  const activeSubscriptions = filteredSubscriptions.filter(user => {
-    if (!user.subscription) return false;
+  const activeSubscriptions = filteredSubscriptions.filter(subscription => {
+    if (!subscription) return false;
     const today = new Date();
-    const startDate = new Date(user.subscription.startDate);
-    const endDate = new Date(user.subscription.endDate);
+    const startDate = new Date(subscription.startDate);
+    const endDate = new Date(subscription.endDate);
     return startDate <= today && endDate >= today;
   });
 
   // Calculate upcoming subscriptions
-  const upcomingSubscriptions = filteredSubscriptions.filter(user => {
-    if (!user.subscription) return false;
-    return new Date(user.subscription.startDate) > new Date();
+  const upcomingSubscriptions = filteredSubscriptions.filter(subscription => {
+    if (!subscription) return false;
+    return new Date(subscription.startDate) > new Date();
   });
 
   return (
@@ -316,8 +316,7 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
                     </tr>
                   </thead>
                   <tbody className="bg-white/50 divide-y divide-gray-200/30">
-                    {filteredSubscriptions.map((user) => {
-                      const subscription = user.subscription;
+                    {filteredSubscriptions.map((subscription) => {
                       if (!subscription) return null;
                       
                       // Determine subscription status
@@ -335,18 +334,18 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
                       }
                       
                       return (
-                        <tr key={subscription.id} onClick={() => handleRowClick(user.id)} 
+                        <tr key={subscription.id} onClick={() => handleRowClick(subscription.userId)} 
                             className="cursor-pointer hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-300 group">
                           <td className="px-6 py-5 whitespace-nowrap">
                             <div className="flex items-center space-x-3">
                               <div className="flex-shrink-0 h-10 w-10">
                                 <div className="h-10 w-10 rounded-full bg-gradient-to-r from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                                  {user.name.charAt(0).toUpperCase()}
+                                  {subscription.userName?.charAt(0)?.toUpperCase() || 'U'}
                                 </div>
                               </div>
                               <div>
-                                <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{user.name}</div>
-                                <div className="text-sm text-gray-500">{user.email}</div>
+                                <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{subscription.userName}</div>
+                                <div className="text-sm text-gray-500">{subscription.userEmail}</div>
                               </div>
                             </div>
                           </td>

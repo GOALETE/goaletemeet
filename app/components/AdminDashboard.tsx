@@ -5,11 +5,9 @@ import { format } from 'date-fns';
 import AdminCalendar from './adminviews/AdminCalendar';
 import UsersView from './adminviews/UsersView';
 import UserDetailModal from './adminviews/UserDetailModal';
-import SessionUsersView from './adminviews/SessionUsersView';
 import SubscriptionsView from './adminviews/SubscriptionsView';
 import UpcomingRegistrationsView from './adminviews/UpcomingRegistrationsView';
 import TodayMeetingCard from './adminviews/TodayMeetingCard';
-import UserManagementView from './adminviews/UserManagementView';
 import EarningsAnalyticsView from './adminviews/EarningsAnalyticsView';
 import CronManagementView from './adminviews/CronManagementView';
 
@@ -79,7 +77,7 @@ function useToast() {
 }
 
 export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'sessionUsers' | 'userManagement' | 'analytics' | 'cronManagement'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'analytics' | 'cronManagement'>('users');
   const [subscriptionView, setSubscriptionView] = useState<'all' | 'thisWeek' | 'upcoming'>('all');
   const [users, setUsers] = useState<UserData[]>(initialUsers);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>(initialUsers);
@@ -89,14 +87,8 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   const [showUserDetail, setShowUserDetail] = useState(false);
   const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
   const [upcomingRegistrations, setUpcomingRegistrations] = useState<any[]>([]);
-  const [subscriptionUsers, setSubscriptionUsers] = useState<UserData[]>([]);
+  const [subscriptionUsers, setSubscriptionUsers] = useState<any[]>([]); // Changed to handle subscription records
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
-  const [sessionDate, setSessionDate] = useState(() => {
-    const today = new Date();
-    return format(today, 'yyyy-MM-dd');
-  });
-  const [sessionUsers, setSessionUsers] = useState<any[]>([]);
-  const [sessionUsersLoading, setSessionUsersLoading] = useState(false);
   const [refreshMeetingTrigger, setRefreshMeetingTrigger] = useState(0);
   
   // Filter states - simplified
@@ -348,38 +340,13 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         throw new Error('Failed to fetch subscription data');
       }
       const data = await response.json();
-      setSubscriptionUsers(data.users);
+      setSubscriptionUsers(data.subscriptions); // Changed from data.users to data.subscriptions
       setRevenue(data.revenue); // Update revenue based on the current view
       setSubscriptionsLoading(false);
     } catch (error) {
       console.error('Error fetching subscription data:', error);
       setSubscriptionsLoading(false);
     }
-  };
-
-  // Fetch users for a given session date
-  const fetchSessionUsers = async (date: string) => {
-    setSessionUsersLoading(true);
-    try {
-      const adminPasscode = sessionStorage.getItem('adminPasscode');
-      if (!adminPasscode) {
-        setSessionUsers([]);
-        setSessionUsersLoading(false);
-        return;
-      }
-      
-      const response = await fetch(`/api/admin/session-users?date=${date}`, {
-        headers: {
-          'Authorization': `Bearer ${adminPasscode}`
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch session users');
-      const data = await response.json();
-      setSessionUsers(data.users);
-    } catch (error) {
-      setSessionUsers([]);
-    }
-    setSessionUsersLoading(false);
   };
 
   useEffect(() => {
@@ -415,8 +382,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       fetchUpcomingRegistrations();
     } else if (activeTab === 'subscriptions') {
       fetchSubscriptionData(subscriptionView);
-    } else if (activeTab === 'sessionUsers') {
-      fetchSessionUsers(sessionDate);
     }
   }, [
     activeTab,
@@ -433,7 +398,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     page, 
     pageSize,
     subscriptionView,
-    sessionDate,
     fetchUsers
   ]);
 
@@ -551,33 +515,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             </button>
             <button 
               className={`px-4 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-[1.02] flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'sessionUsers' 
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' 
-                  : 'text-gray-700 hover:bg-gray-100/70'
-              }`} 
-              onClick={() => setActiveTab('sessionUsers')}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <span>Session Users</span>
-            </button>
-            <button 
-              className={`px-4 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-[1.02] flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'userManagement' 
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' 
-                  : 'text-gray-700 hover:bg-gray-100/70'
-              }`} 
-              onClick={() => setActiveTab('userManagement')}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span>Management</span>
-            </button>
-            <button 
-              className={`px-4 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-[1.02] flex items-center space-x-2 whitespace-nowrap ${
                 activeTab === 'analytics' 
                   ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' 
                   : 'text-gray-700 hover:bg-gray-100/70'
@@ -646,77 +583,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
           />
         )}
         
-        {activeTab === 'sessionUsers' && (
-          <SessionUsersView
-            sessionDate={sessionDate}
-            setSessionDate={setSessionDate}
-            sessionUsers={sessionUsers}
-            sessionUsersLoading={sessionUsersLoading}
-          />
-        )}
-        
-        {activeTab === 'userManagement' && (
-          <div className="space-y-6">
-            {/* Quick Stats for User Management */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-100 backdrop-blur-sm rounded-2xl shadow-xl border border-blue-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-blue-800 mb-1">Total Users</h3>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">{userStats.total}</p>
-                  </div>
-                  <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-emerald-50 to-green-100 backdrop-blur-sm rounded-2xl shadow-xl border border-emerald-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-emerald-800 mb-1">Active</h3>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-800 bg-clip-text text-transparent">{userStats.active}</p>
-                  </div>
-                  <div className="p-3 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-purple-50 to-violet-100 backdrop-blur-sm rounded-2xl shadow-xl border border-purple-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-purple-800 mb-1">Revenue</h3>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-800 bg-clip-text text-transparent">₹{revenue}</p>
-                  </div>
-                  <div className="p-3 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-orange-50 to-amber-100 backdrop-blur-sm rounded-2xl shadow-xl border border-orange-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-orange-800 mb-1">Meetings</h3>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-800 bg-clip-text text-transparent">{upcomingMeetings.length}</p>
-                  </div>
-                  <div className="p-3 bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <UserManagementView />
-          </div>
-        )}
-        
         {activeTab === 'analytics' && (
           <EarningsAnalyticsView />
         )}
@@ -739,6 +605,10 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
           setModalFilterStatus={() => {}}
           setModalFilterPayment={() => {}}
           handleModalSort={() => {}}
+          onNavigateToCalendar={() => {
+            setShowUserDetail(false);
+            setActiveTab('calendar');
+          }}
         />
       )}
     </div>

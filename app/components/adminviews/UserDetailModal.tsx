@@ -1,5 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
+import AddUserToMeetingModal from './AddUserToMeetingModal';
 
 export type Subscription = {
   id: string;
@@ -38,6 +39,7 @@ interface UserDetailModalProps {
   setModalFilterPayment: (status: string) => void;
   handleModalSort: (field: keyof Subscription) => void;
   onUserUpdated?: (updatedUser: UserWithSubscriptions) => void;
+  onNavigateToCalendar?: () => void;
 }
 
 const UserDetailModal: React.FC<UserDetailModalProps> = ({
@@ -52,10 +54,12 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
   setModalFilterPayment,
   handleModalSort,
   onUserUpdated,
+  onNavigateToCalendar,
 }) => {
   const [loading, setLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState('');
   const [successMessage, setSuccessMessage] = React.useState('');
+  const [showAddToMeeting, setShowAddToMeeting] = React.useState(false);
 
   if (!show || !user) return null;
 
@@ -524,18 +528,49 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           <div className="text-sm text-gray-600">
             User ID: <span className="font-mono text-gray-800">{user.id}</span>
           </div>
-          <button
-            onClick={onClose}
-            className="px-6 py-3 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 rounded-xl text-gray-800 font-semibold transform hover:scale-[1.02] transition-all duration-300 shadow-lg flex items-center space-x-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            <span>Close</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setShowAddToMeeting(true)}
+              className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-xl text-white font-semibold transform hover:scale-[1.02] transition-all duration-300 shadow-lg flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              <span>Add to Meeting</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="px-6 py-3 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 rounded-xl text-gray-800 font-semibold transform hover:scale-[1.02] transition-all duration-300 shadow-lg flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span>Close</span>
+            </button>
+          </div>
         </div>
         </div>
       </div>
+
+      {/* Add User to Meeting Modal */}
+      <AddUserToMeetingModal
+        show={showAddToMeeting}
+        onClose={() => setShowAddToMeeting(false)}
+        user={user}
+        onUserAdded={() => {
+          // Refresh user data if needed
+          if (onUserUpdated) {
+            onUserUpdated(user);
+          }
+        }}
+        onNavigateToCalendar={() => {
+          setShowAddToMeeting(false);
+          onClose();
+          if (onNavigateToCalendar) {
+            onNavigateToCalendar();
+          }
+        }}
+      />
     </div>
   );
 };
