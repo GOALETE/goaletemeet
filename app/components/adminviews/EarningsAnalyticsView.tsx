@@ -408,9 +408,8 @@ export default function EarningsAnalyticsView() {
                 {Object.entries(analyticsData.subscriptionsByPlan).map(([plan, count]) => {
                   const planDisplayName = plan === 'single-day' ? 'Single Day' : 
                                          plan === 'monthly' ? 'Monthly' :
-                                         plan === 'family-monthly' ? 'Family Monthly' :
                                          plan === 'unlimited' ? 'Unlimited' :
-                                         plan;
+                                         plan.charAt(0).toUpperCase() + plan.slice(1);
                   return (
                     <div key={plan} className="group">
                       <div className="flex justify-between mb-2">
@@ -442,9 +441,8 @@ export default function EarningsAnalyticsView() {
                 {Object.entries(analyticsData.revenueByPlan).map(([plan, revenue]) => {
                   const planDisplayName = plan === 'single-day' ? 'Single Day' : 
                                          plan === 'monthly' ? 'Monthly' :
-                                         plan === 'family-monthly' ? 'Family Monthly' :
                                          plan === 'unlimited' ? 'Unlimited' :
-                                         plan;
+                                         plan.charAt(0).toUpperCase() + plan.slice(1);
                   return (
                     <div key={plan} className="group">
                       <div className="flex justify-between mb-2">

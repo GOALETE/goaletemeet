@@ -198,6 +198,17 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       setUsers(data.users);
       setFilteredUsers(data.users);
       setTotal(data.total);
+      
+      // Set user stats from the API response
+      if (data.stats) {
+        setUserStats({
+          total: data.stats.total || 0,
+          active: data.stats.active || 0,
+          expired: data.stats.expired || 0,
+          upcoming: data.stats.upcoming || 0,
+        });
+      }
+      
       setUsersLoading(false);
     } catch (error) {
       console.error('Error fetching users data:', error);

@@ -150,7 +150,6 @@ export function calculateSubscriptionStats(users: AdminUserData[]) {
     byPlan: {
       'single-day': 0,
       'monthly': 0,
-      'family-monthly': 0,
       'unlimited': 0,
       other: 0
     }
@@ -172,7 +171,7 @@ export function calculateSubscriptionStats(users: AdminUserData[]) {
       }
     }
     
-    // Count by plan type
+    // Count by plan type - split family-monthly into monthly
     if (user.plan) {
       const planType = user.plan.toLowerCase();
       if (planType === 'single-day' || planType === 'daily') {
@@ -180,7 +179,8 @@ export function calculateSubscriptionStats(users: AdminUserData[]) {
       } else if (planType === 'monthly') {
         stats.byPlan.monthly++;
       } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {
-        stats.byPlan['family-monthly']++;
+        // Split family-monthly into 2 monthly entries
+        stats.byPlan.monthly += 2;
       } else if (planType === 'unlimited') {
         stats.byPlan.unlimited++;
       } else {

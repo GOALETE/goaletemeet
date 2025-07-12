@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { formatUserForAdmin } from '@/lib/admin';
+import { formatUserForAdmin, calculateSubscriptionStats } from '@/lib/admin';
 
 // GET /api/admin/users
 export async function GET(req: NextRequest) {
@@ -102,13 +102,17 @@ export async function GET(req: NextRequest) {
 
     // Format users for admin display
     const formattedUsers = users.map(user => formatUserForAdmin(user as any));
+    
+    // Calculate stats using the formatted users
+    const stats = calculateSubscriptionStats(formattedUsers);
 
     return NextResponse.json({
       users: formattedUsers,
       total,
       page,
       pageSize,
-      totalPages: Math.ceil(total / pageSize)
+      totalPages: Math.ceil(total / pageSize),
+      stats
     });
   } catch (error) {
     console.error('Error fetching users:', error);

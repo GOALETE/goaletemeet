@@ -176,13 +176,11 @@ export async function GET(req: NextRequest) {
     const subscriptionsByPlan: Record<string, number> = {
       'single-day': 0,
       'monthly': 0,
-      'family-monthly': 0,
       'unlimited': 0
     };
     const revenueByPlan: Record<string, number> = {
       'single-day': 0,
       'monthly': 0,
-      'family-monthly': 0,
       'unlimited': 0
     };
     
@@ -190,21 +188,16 @@ export async function GET(req: NextRequest) {
       // Normalize plan type
       const planType = sub.planType.toLowerCase();
       
-      // Count by plan
+      // Count by plan - split family-monthly into 2 monthly entries
       if (planType === 'single-day' || planType === 'daily') {
         subscriptionsByPlan['single-day']++;
       } else if (planType === 'monthly') {
         subscriptionsByPlan['monthly']++;
       } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {
-        subscriptionsByPlan['family-monthly']++;
+        // Split family-monthly into 2 monthly entries
+        subscriptionsByPlan['monthly'] += 2;
       } else if (planType === 'unlimited') {
         subscriptionsByPlan['unlimited']++;
-      } else {
-        // Handle any other plan types that might exist
-        if (!subscriptionsByPlan['other']) {
-          subscriptionsByPlan['other'] = 0;
-        }
-        subscriptionsByPlan['other']++;
       }
       
       // Revenue by plan (only count paid subscriptions for revenue)
@@ -214,14 +207,10 @@ export async function GET(req: NextRequest) {
         } else if (planType === 'monthly') {
           revenueByPlan['monthly'] += (sub as any).price || 0;
         } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {
-          revenueByPlan['family-monthly'] += (sub as any).price || 0;
+          // For family-monthly, add the revenue to monthly (since it represents 2 monthly subscriptions)
+          revenueByPlan['monthly'] += (sub as any).price || 0;
         } else if (planType === 'unlimited') {
           revenueByPlan['unlimited'] += (sub as any).price || 0;
-        } else {
-          if (!revenueByPlan['other']) {
-            revenueByPlan['other'] = 0;
-          }
-          revenueByPlan['other'] += (sub as any).price || 0;
         }
       }
     });
