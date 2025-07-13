@@ -80,9 +80,15 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
   const activeSubs = user.subscriptions?.filter(sub => 
     sub.status === 'active' || 
     (new Date(sub.endDate) > new Date())
-  ).length || 0;  // Function to grant superuser status
-  const handleGrantSuperuser = async () => {
-    if (window.confirm('Are you sure you want to grant superuser status to this user? This will give them unlimited access without requiring payment.')) {
+  ).length || 0;
+  
+  // Function to toggle superuser status
+  const handleToggleSuperuser = async () => {
+    const isCurrentlySuperuser = user.role === 'superuser' || user.role === 'ADMIN';
+    const action = isCurrentlySuperuser ? 'revoke' : 'grant';
+    const actionText = isCurrentlySuperuser ? 'revoke superuser status from' : 'grant superuser status to';
+    
+    if (window.confirm(`Are you sure you want to ${actionText} this user? This will ${isCurrentlySuperuser ? 'remove their unlimited access and require them to have active subscriptions' : 'give them unlimited access without requiring payment'}.`)) {
       setLoading(true);
       setErrorMessage('');
       setSuccessMessage('');
@@ -101,16 +107,17 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           },
           body: JSON.stringify({
             userId: user.id,
-            grantSuperUser: true,
-            createInfiniteSubscription: true
+            grantSuperUser: !isCurrentlySuperuser,
+            revokeSuperUser: isCurrentlySuperuser,
+            createInfiniteSubscription: !isCurrentlySuperuser
           })
-        });if (!response.ok) {
+        });        if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.message || 'Failed to update user');
         }
 
         const data = await response.json();
-        setSuccessMessage('Successfully granted superuser status');
+        setSuccessMessage(`Successfully ${action}d superuser status`);
         
         // If a callback was provided, call it with the updated user from the response
         if (onUserUpdated && data.user) {
@@ -119,11 +126,11 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           // Fallback to previous behavior if user not returned
           onUserUpdated({
             ...user,
-            role: 'ADMIN'
+            role: isCurrentlySuperuser ? 'USER' : 'ADMIN'
           });
         }
       } catch (error) {
-        console.error('Error granting superuser status:', error);
+        console.error(`Error ${action}ing superuser status:`, error);
         setErrorMessage(error instanceof Error ? error.message : 'An error occurred');
       } finally {
         setLoading(false);
@@ -223,27 +230,38 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
         {/* Action Buttons */}
         <div className="px-8 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200/50 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            {user.role !== 'superuser' && (
-              <button 
-                onClick={handleGrantSuperuser}
-                disabled={loading}
-                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg disabled:opacity-50 disabled:transform-none flex items-center space-x-2"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    <span>Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    <span>Grant Unlimited Access</span>
-                  </>
-                )}
-              </button>
+          <button 
+            onClick={handleToggleSuperuser}
+            disabled={loading}
+            className={`px-4 py-2 text-white rounded-xl font-semibold hover:scale-[1.02] transition-all duration-300 shadow-lg disabled:opacity-50 disabled:transform-none flex items-center space-x-2 ${
+              user.role === 'superuser' || user.role === 'ADMIN' 
+                ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' 
+                : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+            }`}
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <span>Processing...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {user.role === 'superuser' || user.role === 'ADMIN' ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  )}
+                </svg>
+                <span>
+                  {user.role === 'superuser' || user.role === 'ADMIN' 
+                    ? 'Remove Unlimited Access' 
+                    : 'Grant Unlimited Access'
+                  }
+                </span>
+              </>
             )}
+          </button>
             <button 
               className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg flex items-center space-x-2"
             >

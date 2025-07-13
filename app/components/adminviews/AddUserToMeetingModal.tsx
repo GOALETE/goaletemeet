@@ -59,20 +59,32 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
   // Handle date selection changes
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newStartDate = e.target.value;
+    if (!newStartDate) return;
+    
     setSelectedDate(newStartDate);
     
-    // If single-day plan, end date equals start date
-    // If monthly plan was already selected, calculate new end date
-    if (planType === 'single-day') {
-      setEndDate(newStartDate);
-    } else if (planType === 'monthly' || planType === 'family-monthly') {
-      // Set end date to one month from start date
-      const newEndDate = format(addDays(new Date(newStartDate), 30), 'yyyy-MM-dd');
-      setEndDate(newEndDate);
-    } else if (planType === 'unlimited') {
-      // Set end date to one year from start date for unlimited
-      const newEndDate = format(addDays(new Date(newStartDate), 365), 'yyyy-MM-dd');
-      setEndDate(newEndDate);
+    try {
+      const startDateObj = new Date(newStartDate);
+      if (isNaN(startDateObj.getTime())) {
+        console.warn('Invalid start date:', newStartDate);
+        return;
+      }
+      
+      // If single-day plan, end date equals start date
+      // If monthly plan was already selected, calculate new end date
+      if (planType === 'single-day') {
+        setEndDate(newStartDate);
+      } else if (planType === 'monthly' || planType === 'family-monthly') {
+        // Set end date to one month from start date
+        const newEndDate = format(addDays(startDateObj, 30), 'yyyy-MM-dd');
+        setEndDate(newEndDate);
+      } else if (planType === 'unlimited') {
+        // Set end date to one year from start date for unlimited
+        const newEndDate = format(addDays(startDateObj, 365), 'yyyy-MM-dd');
+        setEndDate(newEndDate);
+      }
+    } catch (error) {
+      console.error('Error calculating dates:', error);
     }
   };
 
@@ -80,32 +92,59 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
   const handlePlanTypeChange = (newPlanType: 'single-day' | 'monthly' | 'family-monthly' | 'unlimited') => {
     setPlanType(newPlanType);
     
-    if (newPlanType === 'single-day') {
-      // For single-day, end date is same as start date
-      setEndDate(selectedDate);
-    } else if (newPlanType === 'monthly' || newPlanType === 'family-monthly') {
-      // For monthly plans, end date is 30 days after start date
-      const newEndDate = format(addDays(new Date(selectedDate), 30), 'yyyy-MM-dd');
-      setEndDate(newEndDate);
-    } else if (newPlanType === 'unlimited') {
-      // For unlimited, end date is 1 year after start date
-      const newEndDate = format(addDays(new Date(selectedDate), 365), 'yyyy-MM-dd');
-      setEndDate(newEndDate);
+    if (!selectedDate) return;
+    
+    try {
+      const startDateObj = new Date(selectedDate);
+      if (isNaN(startDateObj.getTime())) {
+        console.warn('Invalid selected date:', selectedDate);
+        return;
+      }
+      
+      if (newPlanType === 'single-day') {
+        // For single-day, end date is same as start date
+        setEndDate(selectedDate);
+      } else if (newPlanType === 'monthly' || newPlanType === 'family-monthly') {
+        // For monthly plans, end date is 30 days after start date
+        const newEndDate = format(addDays(startDateObj, 30), 'yyyy-MM-dd');
+        setEndDate(newEndDate);
+      } else if (newPlanType === 'unlimited') {
+        // For unlimited, end date is 1 year after start date
+        const newEndDate = format(addDays(startDateObj, 365), 'yyyy-MM-dd');
+        setEndDate(newEndDate);
+      }
+    } catch (error) {
+      console.error('Error calculating plan dates:', error);
     }
   };
 
   // Handle end date changes (only for custom ranges)
   const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEndDate(e.target.value);
+    const newEndDate = e.target.value;
+    if (!newEndDate) return;
+    
+    setEndDate(newEndDate);
     
     // Calculate plan type based on date range
-    const days = differenceInDays(new Date(e.target.value), new Date(selectedDate));
-    if (days <= 1) {
-      setPlanType('single-day');
-    } else if (days <= 30) {
-      setPlanType('monthly');
-    } else {
-      setPlanType('unlimited');
+    try {
+      const startDateObj = new Date(selectedDate);
+      const endDateObj = new Date(newEndDate);
+      
+      if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+        console.warn('Invalid date values:', selectedDate, newEndDate);
+        return;
+      }
+      
+      const days = differenceInDays(endDateObj, startDateObj);
+      if (days <= 1) {
+        setPlanType('single-day');
+      } else if (days <= 30) {
+        setPlanType('monthly');
+      } else {
+        setPlanType('unlimited');
+      }
+    } catch (error) {
+      console.error('Error calculating date difference:', error);
     }
   };
 
@@ -317,9 +356,13 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
                   planType === 'family-monthly' ? 'Family Monthly' :
                   'Unlimited'
                 }</div>
-                <div><span className="font-medium text-green-700">Start Date:</span> {format(new Date(selectedDate), 'MMM d, yyyy')}</div>
-                <div><span className="font-medium text-green-700">End Date:</span> {format(new Date(endDate), 'MMM d, yyyy')}</div>
-                <div><span className="font-medium text-green-700">Duration:</span> {differenceInDays(new Date(endDate), new Date(selectedDate)) + 1} day(s)</div>
+                <div><span className="font-medium text-green-700">Start Date:</span> {selectedDate ? format(new Date(selectedDate), 'MMM d, yyyy') : 'Not set'}</div>
+                <div><span className="font-medium text-green-700">End Date:</span> {endDate ? format(new Date(endDate), 'MMM d, yyyy') : 'Not set'}</div>
+                <div><span className="font-medium text-green-700">Duration:</span> {
+                  selectedDate && endDate ? 
+                    `${differenceInDays(new Date(endDate), new Date(selectedDate)) + 1} day(s)` : 
+                    'Not calculated'
+                }</div>
               </div>
               
               {/* Send Invite Option */}

@@ -59,17 +59,32 @@ export async function PATCH(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { userId, grantSuperUser, createInfiniteSubscription } = data;
+    const { userId, grantSuperUser, revokeSuperUser, createInfiniteSubscription } = data;
 
     if (!userId) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    // First, update the user role if needed
+    // Update the user role if needed
     if (grantSuperUser) {
       await prisma.user.update({
         where: { id: userId },
         data: { role: 'ADMIN' }
+      });
+    } else if (revokeSuperUser) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { role: 'USER' }
+      });
+      
+      // Also deactivate any unlimited subscriptions when revoking superuser status
+      await prisma.subscription.updateMany({
+        where: { 
+          userId: userId,
+          planType: 'UNLIMITED',
+          status: 'active'
+        },
+        data: { status: 'cancelled' }
       });
     }
 
