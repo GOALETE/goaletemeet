@@ -8,8 +8,7 @@ const createSubscriptionSchema = z.object({
   startDate: z.string(),
   endDate: z.string(),
   planType: z.enum(['daily', 'monthly', 'unlimited']),
-  price: z.number().min(0).optional().default(0),
-  sendInvite: z.boolean().optional().default(true)
+  price: z.number().min(0).optional().default(0)
 });
 
 // Schema for checking meeting availability
@@ -78,7 +77,7 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      const { userId, startDate, endDate, planType, price, sendInvite } = parsed.data;
+      const { userId, startDate, endDate, planType, price } = parsed.data;
 
       // Verify user exists
       const user = await prisma.user.findUnique({
@@ -115,58 +114,56 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // Send invitation email if requested
-      if (sendInvite) {
-        try {
-          // Find meeting for the start date if it exists
-          const meeting = await prisma.meeting.findFirst({
-            where: {
-              meetingDate: {
-                gte: new Date(`${startDate}T00:00:00.000Z`),
-                lt: new Date(`${startDate}T23:59:59.999Z`)
-              }
-            },
-            select: {
-              id: true,
-              meetingDate: true,
-              platform: true,
-              meetingTitle: true,
-              meetingDesc: true,
-              startTime: true,
-              endTime: true,
-              meetingLink: true
+      // Send invitation email for admin-created subscriptions
+      try {
+        // Find meeting for the start date if it exists
+        const meeting = await prisma.meeting.findFirst({
+          where: {
+            meetingDate: {
+              gte: new Date(`${startDate}T00:00:00.000Z`),
+              lt: new Date(`${startDate}T23:59:59.999Z`)
             }
-          });
-
-          // If meeting exists, send invite
-          if (meeting) {
-            // Import email service
-            const { sendMeetingInvite } = await import('@/lib/email');
-            
-            await sendMeetingInvite({
-              recipient: {
-                name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email.split('@')[0],
-                email: user.email
-              },
-              meetingTitle: meeting.meetingTitle || `GOALETE Meeting ${new Date(meeting.meetingDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}`,
-              meetingDescription: meeting.meetingDesc || '',
-              meetingLink: meeting.meetingLink || '',
-              startTime: meeting.startTime,
-              endTime: meeting.endTime,
-              platform: meeting.platform
-            });
+          },
+          select: {
+            id: true,
+            meetingDate: true,
+            platform: true,
+            meetingTitle: true,
+            meetingDesc: true,
+            startTime: true,
+            endTime: true,
+            meetingLink: true
           }
-        } catch (emailError) {
-          console.error('Failed to send invitation email:', emailError);
-          // Don't fail the whole operation if email fails
+        });
+
+        // If meeting exists, send invite
+        if (meeting) {
+          // Import email service
+          const { sendMeetingInvite } = await import('@/lib/email');
+          
+          await sendMeetingInvite({
+            recipient: {
+              name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email.split('@')[0],
+              email: user.email
+            },
+            meetingTitle: meeting.meetingTitle || `GOALETE Meeting ${new Date(meeting.meetingDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}`,
+            meetingDescription: meeting.meetingDesc || '',
+            meetingLink: meeting.meetingLink || '',
+            startTime: meeting.startTime,
+            endTime: meeting.endTime,
+            platform: meeting.platform
+          });
         }
+      } catch (emailError) {
+        console.error('Failed to send invitation email:', emailError);
+        // Don't fail the whole operation if email fails
       }
 
       return NextResponse.json({
         message: `User successfully added to ${planType.replace('-', ' ')} subscription`,
         subscription: subscription,
         user: user,
-        inviteSent: sendInvite
+        inviteSent: true
       });
 
     } else if (action === 'addUserToMeeting') {

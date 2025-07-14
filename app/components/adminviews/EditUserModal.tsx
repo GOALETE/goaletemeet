@@ -47,20 +47,27 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         throw new Error('Admin authentication required');
       }
 
+      // Prepare the request body, excluding source if it's admin-created
+      const requestBody: any = {
+        userId: user.id,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+      };
+
+      // Only include source if it's not admin-created
+      if (formData.source !== 'admin-created') {
+        requestBody.source = formData.source;
+      }
+
       const response = await fetch(`/api/admin/user`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminPasscode}`
         },
-        body: JSON.stringify({
-          userId: user.id,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          source: formData.source,
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -75,14 +82,14 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
       if (data.user) {
         onUserUpdated(data.user);
       } else {
-        // Fallback update
+        // Fallback update - preserve original source if it was admin-created
         onUserUpdated({
           ...user,
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
           phone: formData.phone,
-          source: formData.source,
+          source: formData.source === 'admin-created' ? user.source : formData.source,
         });
       }
 
@@ -222,13 +229,33 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
             {/* Source Field */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Source</label>
-              <input
-                type="text"
-                value={formData.source}
-                onChange={(e) => handleInputChange('source', e.target.value)}
-                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all duration-200"
-                placeholder="Enter source (e.g., website, referral, etc.)"
-              />
+              {formData.source === 'admin-created' ? (
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.source}
+                    disabled
+                    className="w-full p-3 border-2 border-gray-300 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed"
+                    placeholder="Enter source (e.g., website, referral, etc.)"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    This field cannot be edited for admin-created users.
+                  </p>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={formData.source}
+                  onChange={(e) => handleInputChange('source', e.target.value)}
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all duration-200"
+                  placeholder="Enter source (e.g., website, referral, etc.)"
+                />
+              )}
             </div>
           </div>
 

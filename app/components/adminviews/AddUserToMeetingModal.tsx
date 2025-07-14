@@ -56,7 +56,6 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
   const [planType, setPlanType] = useState<'daily' | 'monthly' | 'unlimited'>('daily');
   const [price, setPrice] = useState<number>(0);
   const [loading, setLoading] = useState(false);
-  const [sendInvite, setSendInvite] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -96,8 +95,8 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
         const newEndDate = format(addDays(startDateObj, 30), 'yyyy-MM-dd');
         setEndDate(newEndDate);
       } else if (planType === 'unlimited') {
-        // Set end date to one year from start date for unlimited
-        const newEndDate = format(addDays(startDateObj, 365), 'yyyy-MM-dd');
+        // For unlimited, no end date needed - set to far future for database compatibility
+        const newEndDate = format(addDays(startDateObj, 36500), 'yyyy-MM-dd'); // 100 years in future
         setEndDate(newEndDate);
       }
     } catch (error) {
@@ -126,8 +125,8 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
         const newEndDate = format(addDays(startDateObj, 30), 'yyyy-MM-dd');
         setEndDate(newEndDate);
       } else if (newPlanType === 'unlimited') {
-        // For unlimited, end date is 1 year after start date
-        const newEndDate = format(addDays(startDateObj, 365), 'yyyy-MM-dd');
+        // For unlimited, no end date needed - set to far future for database compatibility
+        const newEndDate = format(addDays(startDateObj, 36500), 'yyyy-MM-dd'); // 100 years in future
         setEndDate(newEndDate);
       }
     } catch (error) {
@@ -184,8 +183,7 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
           startDate: selectedDate,
           endDate: endDate,
           planType: planType,
-          price: price,
-          sendInvite: sendInvite
+          price: price
         })
       });
 
@@ -347,24 +345,39 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
             />
           </div>
 
-          {/* End Date Selection (visible for monthly plan) */}
-          <div className="space-y-2">
-            <label className="block text-sm font-bold text-gray-700">
-              End Date
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={handleEndDateChange}
-              min={selectedDate}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-            <p className="text-xs text-gray-500">
-              {planType === 'daily' ? 'Daily plan is for one day' : 
-               planType === 'monthly' ? 'Monthly plan provides access for 30 days' :
-               'Unlimited plan provides lifetime access'}
-            </p>
-          </div>
+          {/* End Date Selection (hidden for unlimited plan) */}
+          {planType !== 'unlimited' && (
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-gray-700">
+                End Date
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={handleEndDateChange}
+                min={selectedDate}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500">
+                {planType === 'daily' ? 'Daily plan is for one day' : 
+                 'Monthly plan provides access for 30 days'}
+              </p>
+            </div>
+          )}
+
+          {/* Unlimited Plan Info */}
+          {planType === 'unlimited' && (
+            <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl p-4 border border-amber-200">
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-amber-800 font-medium">
+                  Unlimited plan provides lifetime access - no end date required.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Plan Summary */}
           {!loading && (
@@ -382,28 +395,18 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
                   'Unlimited'
                 }</div>
                 <div><span className="font-medium text-green-700">Start Date:</span> {selectedDate ? formatMeetingDate(selectedDate) : 'Not set'}</div>
-                <div><span className="font-medium text-green-700">End Date:</span> {endDate ? formatMeetingDate(endDate) : 'Not set'}</div>
+                {planType !== 'unlimited' && (
+                  <div><span className="font-medium text-green-700">End Date:</span> {endDate ? formatMeetingDate(endDate) : 'Not set'}</div>
+                )}
                 <div><span className="font-medium text-green-700">Duration:</span> {
+                  planType === 'unlimited' ? 'Lifetime Access' :
                   selectedDate && endDate ? 
                     `${differenceInDays(new Date(endDate), new Date(selectedDate)) + 1} day(s)` : 
                     'Not calculated'
                 }</div>
                 <div><span className="font-medium text-green-700">Price:</span> ₹{price}</div>
                 <div><span className="font-medium text-green-700">Payment Status:</span> Admin Added</div>
-              </div>
-              
-              {/* Send Invite Option */}
-              <div className="flex items-center space-x-2 mt-4">
-                <input
-                  type="checkbox"
-                  id="sendInvite"
-                  checked={sendInvite}
-                  onChange={(e) => setSendInvite(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                />
-                <label htmlFor="sendInvite" className="text-sm text-green-700">
-                  Send meeting invitation email
-                </label>
+                <div><span className="font-medium text-green-700">Email Invitation:</span> Will be sent automatically</div>
               </div>
             </div>
           )}

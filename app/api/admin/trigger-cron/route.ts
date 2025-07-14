@@ -24,9 +24,21 @@ export async function POST(request: NextRequest) {
     const cronResponse = await fetch(`${baseUrl}/api/cron-daily-invites`, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'User-Agent': 'Internal-Admin-Trigger'
       }
     });
+
+    // Check if the response is HTML (404 page)
+    const contentType = cronResponse.headers.get('content-type');
+    if (!contentType?.includes('application/json')) {
+      console.error('Cron API returned non-JSON response:', await cronResponse.text());
+      return NextResponse.json({
+        success: false,
+        message: "Cron API endpoint not found or returned invalid response",
+        timestamp: new Date().toISOString()
+      }, { status: 500 });
+    }
 
     const cronData = await cronResponse.json();
 

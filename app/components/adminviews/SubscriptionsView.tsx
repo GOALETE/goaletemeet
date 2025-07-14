@@ -19,7 +19,7 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
   revenue,
   handleRowClick
 }) => {
-  const [filter, setFilter] = useState<'all' | 'active' | 'finished' | 'upcoming'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'finished' | 'upcoming' | 'expired'>('all');
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
@@ -44,23 +44,33 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
       if (filter === 'upcoming' && !(startDate > today)) {
         return false;
       }
+      if (filter === 'expired' && !(endDate < today)) {
+        return false;
+      }
     }
     
-    // Date filter from props
+    // Date filter from props (view type filtering)
     if (subscriptionView !== 'all') {
       const now = new Date();
+      now.setHours(0, 0, 0, 0); // Normalize to start of day
       
       if (subscriptionView === 'thisWeek') {
         const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
         const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setDate(weekStart.getDate() + 6); // End of week (Saturday)
+        weekEnd.setHours(23, 59, 59, 999); // End of day
         
-        // Check if subscription overlaps with this week
-        if (!(endDate >= weekStart && startDate <= weekEnd)) {
+        // Include subscriptions that are active or start within this week
+        if (!(
+          (startDate >= weekStart && startDate <= weekEnd) || // Starts this week
+          (endDate >= weekStart && startDate <= weekEnd) || // Active during this week
+          (startDate <= weekStart && endDate >= weekEnd) // Spans entire week
+        )) {
           return false;
         }
       } else if (subscriptionView === 'upcoming') {
+        // Show subscriptions that start in the future
         if (!(startDate > now)) {
           return false;
         }
@@ -83,6 +93,14 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
   const upcomingSubscriptions = filteredSubscriptions.filter(subscription => {
     if (!subscription) return false;
     return new Date(subscription.startDate) > new Date();
+  });
+
+  // Calculate expired subscriptions
+  const expiredSubscriptions = filteredSubscriptions.filter(subscription => {
+    if (!subscription) return false;
+    const today = new Date();
+    const endDate = new Date(subscription.endDate);
+    return endDate < today;
   });
 
   return (
@@ -169,13 +187,14 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
               <option value="active">Active</option>
               <option value="finished">Finished</option>
               <option value="upcoming">Upcoming</option>
+              <option value="expired">Expired</option>
             </select>
           </div>
         </div>
       </div>
       
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <div className="bg-gradient-to-br from-blue-50 to-indigo-100 backdrop-blur-sm rounded-2xl shadow-xl border border-blue-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
@@ -224,6 +243,20 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
             <div className="p-3 bg-gradient-to-r from-amber-500 to-yellow-600 rounded-xl">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-br from-red-50 to-pink-100 backdrop-blur-sm rounded-2xl shadow-xl border border-red-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-red-800 mb-1">Expired</h3>
+              <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-pink-800 bg-clip-text text-transparent">{expiredSubscriptions.length}</p>
+            </div>
+            <div className="p-3 bg-gradient-to-r from-red-500 to-pink-600 rounded-xl">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
           </div>
@@ -358,13 +391,21 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
-                              {format(new Date(subscription.startDate), 'MMM d, yyyy')} - {format(new Date(subscription.endDate), 'MMM d, yyyy')}
+                              {subscription.planType === 'unlimited' 
+                                ? `${format(new Date(subscription.startDate), 'MMM d, yyyy')} - Unlimited`
+                                : `${format(new Date(subscription.startDate), 'MMM d, yyyy')} - ${format(new Date(subscription.endDate), 'MMM d, yyyy')}`
+                              }
                             </div>
                             <div className="text-xs text-gray-500 flex items-center space-x-1 mt-1">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              <span>{subscription.duration || Math.round((new Date(subscription.endDate).getTime() - new Date(subscription.startDate).getTime()) / (1000 * 60 * 60 * 24))} days</span>
+                              <span>
+                                {subscription.planType === 'unlimited' 
+                                  ? 'Lifetime Access'
+                                  : `${subscription.duration || Math.round((new Date(subscription.endDate).getTime() - new Date(subscription.startDate).getTime()) / (1000 * 60 * 60 * 24))} days`
+                                }
+                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap">
