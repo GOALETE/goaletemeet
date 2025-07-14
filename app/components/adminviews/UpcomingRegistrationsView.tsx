@@ -11,9 +11,16 @@ const displayUTCAsIST = (utcTimeString: string): Date => {
 // Helper function to check if a date is today
 const isToday = (dateString: string): boolean => {
   if (!dateString) return false;
-  const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-  const today = istDate.toISOString().split('T')[0];
-  return dateString === today;
+  
+  // Get current date in IST
+  const now = new Date();
+  const istNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const todayIST = istNow.toISOString().split('T')[0];
+  
+  // Parse the meeting date (should be in YYYY-MM-DD format)
+  const meetingDate = dateString.split('T')[0]; // Remove time part if present
+  
+  return meetingDate === todayIST;
 };
 
 // Helper function to format date with "Today" if it's today
@@ -119,49 +126,77 @@ const UpcomingRegistrationsView: React.FC<UpcomingRegistrationsViewProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-96 overflow-y-auto scrollbar-hide">
-                {upcomingMeetings.map((meeting) => (
-                  <div key={meeting.id} className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 shadow-lg border border-blue-200/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
+                {upcomingMeetings.map((meeting) => {
+                  const isTodayMeeting = isToday(meeting.meetingDate);
+                  return (
+                    <div key={meeting.id} className={`bg-gradient-to-br rounded-2xl p-6 shadow-lg border hover:shadow-xl hover:scale-[1.02] transition-all duration-300 ${
+                      isTodayMeeting 
+                        ? 'from-amber-50 to-orange-100 border-amber-300/70' 
+                        : 'from-blue-50 to-indigo-100 border-blue-200/50'
+                    }`}>
+                      <div className="flex items-start justify-between mb-4">
+                        <div className={`p-2 bg-gradient-to-r rounded-lg ${
+                          isTodayMeeting 
+                            ? 'from-amber-500 to-orange-600' 
+                            : 'from-blue-500 to-indigo-600'
+                        }`}>
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <span className="px-3 py-1 bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-xs font-bold rounded-full border border-emerald-200">
+                          {meeting.platform}
+                        </span>
                       </div>
-                      <span className="px-3 py-1 bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-xs font-bold rounded-full border border-emerald-200">
-                        {meeting.platform}
-                      </span>
-                    </div>
-                    
-                    <h4 className="text-lg font-bold text-blue-800 mb-3">{meeting.meetingTitle || 'Meeting'}</h4>
-                    
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center space-x-2 text-sm text-blue-700">
+                      
+                      <h4 className={`text-lg font-bold mb-3 ${
+                        isTodayMeeting ? 'text-amber-800' : 'text-blue-800'
+                      }`}>{meeting.meetingTitle || 'Meeting'}</h4>
+                      
+                      <div className="space-y-2 mb-4">
+                        <div className={`flex items-center space-x-2 text-sm ${
+                          isTodayMeeting ? 'text-amber-700' : 'text-blue-700'
+                        }`}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span className={`font-medium ${
+                            isTodayMeeting ? 'text-amber-900 font-bold' : ''
+                          }`}>{formatMeetingDate(meeting.meetingDate)}</span>
+                          {isTodayMeeting && (
+                            <span className="px-2 py-0.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-bold rounded-full animate-pulse">
+                              TODAY
+                            </span>
+                          )}
+                        </div>
+                        <div className={`flex items-center space-x-2 text-sm ${
+                          isTodayMeeting ? 'text-amber-700' : 'text-blue-700'
+                        }`}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="font-medium">{format(displayUTCAsIST(meeting.startTimeUTC), 'h:mm a')}</span>
+                        </div>
+                      </div>
+                      
+                      <a 
+                        href={meeting.meetingLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r text-white text-sm font-medium rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg ${
+                          isTodayMeeting 
+                            ? 'from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' 
+                            : 'from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
+                        }`}
+                      >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
-                        <span className="font-medium">{formatMeetingDate(meeting.meetingDate)}</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm text-blue-700">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="font-medium">{format(displayUTCAsIST(meeting.startTimeUTC), 'h:mm a')}</span>
-                      </div>
+                        <span>Join Meeting</span>
+                      </a>
                     </div>
-                    
-                    <a 
-                      href={meeting.meetingLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-medium rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                      <span>Join Meeting</span>
-                    </a>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

@@ -414,6 +414,81 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     }
   };
 
+  // CSV export function
+  const downloadCSV = async (isFullExport: boolean = false) => {
+    try {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        showToast('Admin authentication required', 'error');
+        return;
+      }
+
+      // Build query parameters based on current filters
+      const queryParams = new URLSearchParams();
+      if (!isFullExport) {
+        // Apply current filters only if not full export
+        if (filterState.plan !== 'all') queryParams.set('planType', filterState.plan);
+        if (filterState.status !== 'all') queryParams.set('status', filterState.status);
+        if (filterState.paymentStatus !== 'all') queryParams.set('paymentStatus', filterState.paymentStatus);
+        
+        if (filterState.dateRange === 'custom' && filterState.startDate && filterState.endDate) {
+          queryParams.set('startDate', filterState.startDate);
+          queryParams.set('endDate', filterState.endDate);
+        } else if (filterState.dateRange === 'today') {
+          const today = new Date();
+          queryParams.set('startDate', format(today, 'yyyy-MM-dd'));
+          queryParams.set('endDate', format(today, 'yyyy-MM-dd'));
+        } else if (filterState.dateRange === 'thisWeek') {
+          const today = new Date();
+          const startOfWeek = new Date(today);
+          startOfWeek.setDate(today.getDate() - today.getDay());
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
+          queryParams.set('startDate', format(startOfWeek, 'yyyy-MM-dd'));
+          queryParams.set('endDate', format(endOfWeek, 'yyyy-MM-dd'));
+        } else if (filterState.dateRange === 'thisMonth') {
+          const today = new Date();
+          const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          queryParams.set('startDate', format(startOfMonth, 'yyyy-MM-dd'));
+          queryParams.set('endDate', format(endOfMonth, 'yyyy-MM-dd'));
+        }
+        
+        if (filterState.source !== 'all') queryParams.set('source', filterState.source);
+        if (filterState.search) queryParams.set('search', filterState.search);
+      }
+      
+      queryParams.set('fullExport', isFullExport.toString());
+
+      const response = await fetch(`/api/admin/export?${queryParams.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export data');
+      }
+
+      // Create download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = isFullExport ? 'goalete-full-export.csv' : 'goalete-filtered-export.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      showToast(`${isFullExport ? 'Full database' : 'Filtered data'} exported successfully`);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      showToast('Failed to export data', 'error');
+    }
+  };
+
   useEffect(() => {
     // Check if admin is authenticated before making any API calls
     const checkAuthAndFetch = async () => {
@@ -637,8 +712,8 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             setPage={setPage}
             setPageSize={setPageSize}
             handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
-            downloadCSV={() => {}}
-            downloadFullDBExport={() => {}}
+            downloadCSV={downloadCSV}
+            downloadFullDBExport={() => downloadCSV(true)}
             onCreateUser={() => setShowCreateUser(true)}
           />
         )}
