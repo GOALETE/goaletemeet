@@ -8,6 +8,22 @@ const displayUTCAsIST = (utcTimeString: string): Date => {
   return new Date(utcTimeString);
 };
 
+// Helper function to check if a date is today
+const isToday = (dateString: string): boolean => {
+  if (!dateString) return false;
+  const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const today = istDate.toISOString().split('T')[0];
+  return dateString === today;
+};
+
+// Helper function to format date with "Today" if it's today
+const formatMeetingDate = (dateString: string): string => {
+  if (isToday(dateString)) {
+    return 'Today';
+  }
+  return format(new Date(dateString), 'MMM d, yyyy');
+};
+
 interface UpcomingRegistration {
   id: string;
   name: string;
@@ -123,7 +139,7 @@ const UpcomingRegistrationsView: React.FC<UpcomingRegistrationsViewProps> = ({
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span className="font-medium">{format(new Date(meeting.meetingDate), 'MMM d, yyyy')}</span>
+                        <span className="font-medium">{formatMeetingDate(meeting.meetingDate)}</span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm text-blue-700">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,7 +258,7 @@ const UpcomingRegistrationsView: React.FC<UpcomingRegistrationsViewProps> = ({
                         <td className="px-6 py-5 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
                             {registration.start
-                              ? format(new Date(registration.start), 'MMM d, yyyy')
+                              ? formatMeetingDate(registration.start)
                               : 'N/A'}
                           </div>
                         </td>

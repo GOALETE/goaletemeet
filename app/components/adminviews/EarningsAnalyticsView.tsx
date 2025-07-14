@@ -406,7 +406,7 @@ export default function EarningsAnalyticsView() {
               </div>
               <div className="space-y-4 mt-6">
                 {Object.entries(analyticsData.subscriptionsByPlan).map(([plan, count]) => {
-                  const planDisplayName = plan === 'single-day' ? 'Single Day' : 
+                  const planDisplayName = plan === 'daily' ? 'Daily' : 
                                          plan === 'monthly' ? 'Monthly' :
                                          plan === 'unlimited' ? 'Unlimited' :
                                          plan.charAt(0).toUpperCase() + plan.slice(1);
@@ -439,7 +439,7 @@ export default function EarningsAnalyticsView() {
               </div>
               <div className="space-y-4 mt-6">
                 {Object.entries(analyticsData.revenueByPlan).map(([plan, revenue]) => {
-                  const planDisplayName = plan === 'single-day' ? 'Single Day' : 
+                  const planDisplayName = plan === 'daily' ? 'Daily' : 
                                          plan === 'monthly' ? 'Monthly' :
                                          plan === 'unlimited' ? 'Unlimited' :
                                          plan.charAt(0).toUpperCase() + plan.slice(1);

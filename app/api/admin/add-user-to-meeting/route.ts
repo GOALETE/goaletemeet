@@ -7,7 +7,8 @@ const createSubscriptionSchema = z.object({
   userId: z.string(),
   startDate: z.string(),
   endDate: z.string(),
-  planType: z.enum(['single-day', 'monthly', 'family-monthly', 'unlimited']),
+  planType: z.enum(['daily', 'monthly', 'unlimited']),
+  price: z.number().min(0).optional().default(0),
   sendInvite: z.boolean().optional().default(true)
 });
 
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      const { userId, startDate, endDate, planType, sendInvite } = parsed.data;
+      const { userId, startDate, endDate, planType, price, sendInvite } = parsed.data;
 
       // Verify user exists
       const user = await prisma.user.findUnique({
@@ -106,11 +107,10 @@ export async function POST(request: NextRequest) {
           endDate: new Date(endDate),
           status: 'active',
           paymentStatus: 'admin-added',
-          duration: planType === 'single-day' ? 1 : 
+          duration: planType === 'daily' ? 1 : 
                    planType === 'monthly' ? 30 :
-                   planType === 'family-monthly' ? 30 :
                    365, // unlimited gets 365 days
-          price: 0,
+          price: price,
           orderId: `admin-${Date.now()}-${userId.slice(-6)}`
         }
       });

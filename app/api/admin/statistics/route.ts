@@ -174,12 +174,12 @@ export async function GET(req: NextRequest) {
     
     // Group subscriptions by plan type for earnings analytics
     const subscriptionsByPlan: Record<string, number> = {
-      'single-day': 0,
+      'daily': 0,
       'monthly': 0,
       'unlimited': 0
     };
     const revenueByPlan: Record<string, number> = {
-      'single-day': 0,
+      'daily': 0,
       'monthly': 0,
       'unlimited': 0
     };
@@ -189,8 +189,8 @@ export async function GET(req: NextRequest) {
       const planType = sub.planType.toLowerCase();
       
       // Count by plan - split family-monthly into 2 monthly entries
-      if (planType === 'single-day' || planType === 'daily') {
-        subscriptionsByPlan['single-day']++;
+      if (planType === 'daily' || planType === 'daily') {
+        subscriptionsByPlan['daily']++;
       } else if (planType === 'monthly') {
         subscriptionsByPlan['monthly']++;
       } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {
@@ -202,8 +202,8 @@ export async function GET(req: NextRequest) {
       
       // Revenue by plan (only count paid subscriptions for revenue)
       if (sub.paymentStatus === 'completed' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'success') {
-        if (planType === 'single-day' || planType === 'daily') {
-          revenueByPlan['single-day'] += (sub as any).price || 0;
+        if (planType === 'daily' || planType === 'daily') {
+          revenueByPlan['daily'] += (sub as any).price || 0;
         } else if (planType === 'monthly') {
           revenueByPlan['monthly'] += (sub as any).price || 0;
         } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {

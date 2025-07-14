@@ -8,6 +8,22 @@ const displayUTCAsIST = (utcTimeString: string): Date => {
   return new Date(utcTimeString);
 };
 
+// Helper function to check if a date is today
+const isToday = (dateString: string): boolean => {
+  if (!dateString) return false;
+  const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const today = istDate.toISOString().split('T')[0];
+  return dateString === today;
+};
+
+// Helper function to format date with "Today" if it's today
+const formatMeetingDate = (dateString: string): string => {
+  if (isToday(dateString)) {
+    return 'Today';
+  }
+  return format(new Date(dateString), 'MMM d, yyyy');
+};
+
 type Meeting = {
   id: string;
   meetingDate: string;
@@ -331,7 +347,7 @@ export default function AdminCalendar() {
               key={dateString}
               className="px-4 py-2 bg-gradient-to-r from-indigo-100 to-purple-100 border border-indigo-300/50 rounded-xl text-indigo-800 text-sm font-medium flex items-center shadow-sm hover:shadow-md transition-all duration-200"
             >
-              {format(new Date(dateString), 'MMM d, yyyy')}
+              {formatMeetingDate(dateString)}
               <button 
                 className="ml-3 p-1 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-200 rounded-full transition-all duration-200"
                 onClick={() => setSelectedDates(prev => prev.filter(d => d !== dateString))}

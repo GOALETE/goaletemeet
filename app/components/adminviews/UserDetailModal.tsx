@@ -1,6 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import AddUserToMeetingModal from './AddUserToMeetingModal';
+import EditUserModal from './EditUserModal';
 
 export type Subscription = {
   id: string;
@@ -60,6 +61,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
   const [errorMessage, setErrorMessage] = React.useState('');
   const [successMessage, setSuccessMessage] = React.useState('');
   const [showAddToMeeting, setShowAddToMeeting] = React.useState(false);
+  const [showEditModal, setShowEditModal] = React.useState(false);
 
   if (!show || !user) return null;
 
@@ -75,20 +77,24 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
       return dateString;
     }
   };
-  // Calculate summary info
-  const totalSpent = user.subscriptions?.reduce((sum, sub) => sum + (sub.price || 0), 0);
-  const activeSubs = user.subscriptions?.filter(sub => 
-    sub.status === 'active' || 
-    (new Date(sub.endDate) > new Date())
-  ).length || 0;
+  // Calculate summary info with proper null checking
+  const totalSpent = user.subscriptions?.reduce((sum, sub) => {
+    const price = sub.price || 0;
+    return sum + price;
+  }, 0) || 0;
   
-  // Function to toggle superuser status
-  const handleToggleSuperuser = async () => {
-    const isCurrentlySuperuser = user.role === 'superuser' || user.role === 'ADMIN';
-    const action = isCurrentlySuperuser ? 'revoke' : 'grant';
-    const actionText = isCurrentlySuperuser ? 'revoke superuser status from' : 'grant superuser status to';
+  const activeSubs = user.subscriptions?.filter(sub => {
+    if (!sub.status || !sub.endDate) return false;
+    return sub.status === 'active' && new Date(sub.endDate) > new Date();
+  }).length || 0;
+  
+  // Function to toggle unlimited access status
+  const handleToggleUnlimited = async () => {
+    const isCurrentlyUnlimited = user.role === 'superuser' || user.role === 'ADMIN';
+    const action = isCurrentlyUnlimited ? 'revoke' : 'grant';
+    const actionText = isCurrentlyUnlimited ? 'revoke unlimited access from' : 'grant unlimited access to';
     
-    if (window.confirm(`Are you sure you want to ${actionText} this user? This will ${isCurrentlySuperuser ? 'remove their unlimited access and require them to have active subscriptions' : 'give them unlimited access without requiring payment'}.`)) {
+    if (window.confirm(`Are you sure you want to ${actionText} this user? This will ${isCurrentlyUnlimited ? 'remove their unlimited access and require them to have active subscriptions' : 'give them unlimited access without requiring payment'}.`)) {
       setLoading(true);
       setErrorMessage('');
       setSuccessMessage('');
@@ -107,9 +113,9 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           },
           body: JSON.stringify({
             userId: user.id,
-            grantSuperUser: !isCurrentlySuperuser,
-            revokeSuperUser: isCurrentlySuperuser,
-            createInfiniteSubscription: !isCurrentlySuperuser
+            grantUnlimited: !isCurrentlyUnlimited,
+            revokeUnlimited: isCurrentlyUnlimited,
+            createInfiniteSubscription: !isCurrentlyUnlimited
           })
         });        if (!response.ok) {
           const errorData = await response.json();
@@ -117,7 +123,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
         }
 
         const data = await response.json();
-        setSuccessMessage(`Successfully ${action}d superuser status`);
+        setSuccessMessage(`Successfully ${action}d unlimited access`);
         
         // If a callback was provided, call it with the updated user from the response
         if (onUserUpdated && data.user) {
@@ -126,11 +132,11 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           // Fallback to previous behavior if user not returned
           onUserUpdated({
             ...user,
-            role: isCurrentlySuperuser ? 'USER' : 'ADMIN'
+            role: isCurrentlyUnlimited ? 'USER' : 'ADMIN'
           });
         }
       } catch (error) {
-        console.error(`Error ${action}ing superuser status:`, error);
+        console.error(`Error ${action}ing unlimited access:`, error);
         setErrorMessage(error instanceof Error ? error.message : 'An error occurred');
       } finally {
         setLoading(false);
@@ -217,7 +223,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
             <div>
               <p className="text-sm text-gray-600">Role</p>
               <p className="font-medium">{user.role === 'superuser' || user.role === 'ADMIN'
-                ? <span className="text-blue-600 font-bold">Superuser (Unlimited Access)</span> 
+                ? <span className="text-blue-600 font-bold">Unlimited Access User</span> 
                 : <span className="text-gray-700">{user.role || 'Regular User'}</span>}</p>
             </div>
           </div>
@@ -228,7 +234,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           <div className="mb-2 text-lg font-semibold text-gray-700">Summary</div>          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-600">Total Spent</p>
-              <p className="font-medium">₹{totalSpent}</p>
+              <p className="font-medium">₹{totalSpent?.toFixed(2) || '0.00'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Active Subscriptions</p>
@@ -241,7 +247,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
         <div className="px-8 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200/50 flex justify-between items-center">
           <div className="flex items-center space-x-3">
           <button 
-            onClick={handleToggleSuperuser}
+            onClick={handleToggleUnlimited}
             disabled={loading}
             className={`px-4 py-2 text-white rounded-xl font-semibold hover:scale-[1.02] transition-all duration-300 shadow-lg disabled:opacity-50 disabled:transform-none flex items-center space-x-2 ${
               user.role === 'superuser' || user.role === 'ADMIN' 
@@ -273,6 +279,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
             )}
           </button>
             <button 
+              onClick={() => setShowEditModal(true)}
               className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg flex items-center space-x-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -476,7 +483,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
                           <td className="px-4 py-4 whitespace-nowrap">
                             <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
                               sub.planType === 'monthly' ? 'bg-blue-100 text-blue-800' :
-                              sub.planType === 'single-day' ? 'bg-emerald-100 text-emerald-800' :
+                              sub.planType === 'daily' ? 'bg-emerald-100 text-emerald-800' :
                               'bg-purple-100 text-purple-800'
                             }`}>
                               {sub.planType}
@@ -599,6 +606,19 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           onClose();
           if (onNavigateToCalendar) {
             onNavigateToCalendar();
+          }
+        }}
+      />
+      
+      {/* Edit User Modal */}
+      <EditUserModal
+        user={user}
+        show={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onUserUpdated={(updatedUser) => {
+          setShowEditModal(false);
+          if (onUserUpdated) {
+            onUserUpdated(updatedUser);
           }
         }}
       />

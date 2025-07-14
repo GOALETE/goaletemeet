@@ -1,6 +1,22 @@
 import React from 'react';
 import { format } from 'date-fns';
 
+// Helper function to check if a date is today
+const isToday = (dateString: string): boolean => {
+  if (!dateString) return false;
+  const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const today = istDate.toISOString().split('T')[0];
+  return dateString === today;
+};
+
+// Helper function to format date with "Today" if it's today
+const formatSessionDate = (dateString: string): string => {
+  if (isToday(dateString)) {
+    return 'Today';
+  }
+  return format(new Date(dateString), 'MMM d, yyyy');
+};
+
 // Define the filter state keys as a type
 export type FilterStateKey =
   | 'plan'
@@ -160,7 +176,7 @@ const UsersView: React.FC<UsersViewProps> = ({
               onChange={(e) => updateFilter('plan', e.target.value)}
             >
               <option value="all">All Plans</option>
-              <option value="single-day">Single Day</option>
+              <option value="daily">Daily</option>
               <option value="monthly">Monthly</option>
               <option value="family-monthly">Family Monthly</option>
               <option value="unlimited">Unlimited</option>
@@ -354,12 +370,12 @@ const UsersView: React.FC<UsersViewProps> = ({
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 py-1 text-xs font-semibold rounded-full shadow-sm ${
                       user.plan === 'monthly' ? 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300/50' :
-                      user.plan === 'single-day' ? 'bg-gradient-to-r from-emerald-100 to-green-200 text-emerald-800 border border-emerald-300/50' :
+                      user.plan === 'daily' ? 'bg-gradient-to-r from-emerald-100 to-green-200 text-emerald-800 border border-emerald-300/50' :
                       user.plan === 'family-monthly' ? 'bg-gradient-to-r from-purple-100 to-violet-200 text-purple-800 border border-purple-300/50' :
                       user.plan === 'unlimited' ? 'bg-gradient-to-r from-gold-100 to-yellow-200 text-amber-800 border border-amber-300/50' :
                       'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 border border-gray-300/50'
                     }`}>
-                      {user.plan === 'single-day' ? 'Single Day' : 
+                      {user.plan === 'daily' ? 'Daily' : 
                        user.plan === 'monthly' ? 'Monthly' :
                        user.plan === 'family-monthly' ? 'Family Monthly' :
                        user.plan === 'unlimited' ? 'Unlimited' :
@@ -378,7 +394,7 @@ const UsersView: React.FC<UsersViewProps> = ({
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
-                    {user.nextSessionDate ? format(new Date(user.nextSessionDate), 'MMM d, yyyy') : 'No upcoming sessions'}
+                    {user.nextSessionDate ? formatSessionDate(user.nextSessionDate) : 'No upcoming sessions'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
                     {user.createdAt ? format(new Date(user.createdAt), 'MMM d, yyyy') : 'N/A'}

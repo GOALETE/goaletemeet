@@ -294,7 +294,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       // Get active subscriptions for upcoming dates (in IST)
       const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
       
-      // Use the existing API to get all active users (including single day plans)
+      // Use the existing API to get all active users (including daily plans)
       const queryParams = new URLSearchParams();
       queryParams.set('status', 'active');
       

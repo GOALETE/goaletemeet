@@ -8,6 +8,22 @@ const displayUTCAsIST = (utcTimeString: string): Date => {
   return new Date(utcTimeString);
 };
 
+// Helper function to check if a date is today
+const isToday = (dateString: string): boolean => {
+  if (!dateString) return false;
+  const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const today = istDate.toISOString().split('T')[0];
+  return dateString === today;
+};
+
+// Helper function to format date with "Today" if it's today
+const formatMeetingDate = (dateString: string): string => {
+  if (isToday(dateString)) {
+    return 'Today';
+  }
+  return format(new Date(dateString), 'MMM d, yyyy');
+};
+
 type TodayMeeting = {
   id: string;
   meetingDate: string;

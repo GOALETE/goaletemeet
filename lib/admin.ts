@@ -148,7 +148,7 @@ export function calculateSubscriptionStats(users: AdminUserData[]) {
     expired: 0,
     upcoming: 0,
     byPlan: {
-      'single-day': 0,
+      'daily': 0,
       'monthly': 0,
       'unlimited': 0,
       other: 0
@@ -174,8 +174,8 @@ export function calculateSubscriptionStats(users: AdminUserData[]) {
     // Count by plan type - split family-monthly into monthly
     if (user.plan) {
       const planType = user.plan.toLowerCase();
-      if (planType === 'single-day' || planType === 'daily') {
-        stats.byPlan['single-day']++;
+      if (planType === 'daily' || planType === 'daily') {
+        stats.byPlan['daily']++;
       } else if (planType === 'monthly') {
         stats.byPlan.monthly++;
       } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {

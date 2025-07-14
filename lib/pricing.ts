@@ -3,19 +3,24 @@
  * All pricing information should be managed here and imported where needed
  */
 
-export const PLAN_PRICING = {  daily: {
+export const PLAN_PRICING = {  
+  daily: {
     amount: 299,         // Price in INR
     display: "Rs. 299",  // Formatted display price
     duration: 1,         // Duration in days
     name: "Daily Session",
-    description: "Experience a transformative single day session that will introduce you to powerful goal-setting techniques. Choose any date that works for you and begin your journey to achieving what matters most in your life."
-  },  monthly: {
+    description: "Experience a transformative daily session that will introduce you to powerful goal-setting techniques. Choose any date that works for you and begin your journey to achieving what matters most in your life."
+  },  
+  
+  monthly: {
     amount: 2999,        // Price in INR
     display: "Rs. 2999", // Formatted display price
     duration: 30,        // Duration in days
     name: "Monthly Plan",
     description: "Maintain momentum with daily access for a full month. This consistent approach delivers superior results, keeping you motivated and accountable every step of your journey. Enjoy significant savings compared to daily sessions."
-  },  monthlyFamily: {
+  },  
+  
+  monthlyFamily: {
     amount: 4499,        // Price in INR
     display: "Rs. 4499", // Formatted display price
     duration: 30,        // Duration in days
