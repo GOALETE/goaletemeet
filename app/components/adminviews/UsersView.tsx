@@ -79,21 +79,13 @@ const UsersView: React.FC<UsersViewProps> = ({
   const [searchInput, setSearchInput] = useState(filterState.search || '');
 
   // Debounce search input
-  const debouncedUpdateSearch = useCallback(
-    (value: string) => {
-      const timeoutId = setTimeout(() => {
-        updateFilter('search', value);
-      }, 500); // 500ms delay
-      
-      return () => clearTimeout(timeoutId);
-    },
-    [updateFilter]
-  );
-
   useEffect(() => {
-    const cleanup = debouncedUpdateSearch(searchInput);
-    return cleanup;
-  }, [searchInput, debouncedUpdateSearch]);
+    const timeoutId = setTimeout(() => {
+      updateFilter('search', searchInput);
+    }, 500); // 500ms delay
+    
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]); // Remove updateFilter from dependencies to prevent infinite loop
   if (loading) {
     return (
       <div className="min-h-[400px] flex items-center justify-center">

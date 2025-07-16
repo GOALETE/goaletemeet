@@ -65,6 +65,7 @@ export default function EarningsAnalyticsView() {
       }
       
       const data = await response.json();
+      console.log('Analytics API Response:', data); // Debug logging
       setAnalyticsData(data);
       setLoading(false);
     } catch (error) {
@@ -274,7 +275,7 @@ export default function EarningsAnalyticsView() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-emerald-800 mb-1">Total Revenue</h3>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-800 bg-clip-text text-transparent">₹{analyticsData.totalRevenue.toLocaleString()}</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-800 bg-clip-text text-transparent">₹{(analyticsData.totalRevenue || 0).toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl">
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -287,7 +288,7 @@ export default function EarningsAnalyticsView() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-blue-800 mb-1">Active</h3>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-800 bg-clip-text text-transparent">{analyticsData.activeSubscriptions}</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-800 bg-clip-text text-transparent">{analyticsData.activeSubscriptions || 0}</p>
                 </div>
                 <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl">
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -300,7 +301,7 @@ export default function EarningsAnalyticsView() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-purple-800 mb-1">Total</h3>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-800 bg-clip-text text-transparent">{analyticsData.totalSubscriptions}</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-800 bg-clip-text text-transparent">{analyticsData.totalSubscriptions || 0}</p>
                 </div>
                 <div className="p-3 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl">
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -313,7 +314,7 @@ export default function EarningsAnalyticsView() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-amber-800 mb-1">New</h3>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-yellow-800 bg-clip-text text-transparent">{analyticsData.newSubscriptions}</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-yellow-800 bg-clip-text text-transparent">{analyticsData.newSubscriptions || 0}</p>
                 </div>
                 <div className="p-3 bg-gradient-to-r from-amber-500 to-yellow-600 rounded-xl">
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -336,25 +337,36 @@ export default function EarningsAnalyticsView() {
                 </div>
                 <h3 className="text-xl font-bold text-gray-800">Revenue Over Time</h3>
               </div>
-              <div className="h-80 mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6">
-                <div className="h-full flex items-end justify-between space-x-2">
-                  {analyticsData.revenueByDay.slice(-14).map((item, index) => {
-                    const maxRevenue = Math.max(...analyticsData.revenueByDay.map(d => d.revenue));
-                    const height = maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0;
-                    
-                    return (
-                      <div key={index} className="flex flex-col items-center flex-1 group">
-                        <div 
-                          className="w-full bg-gradient-to-t from-blue-500 to-indigo-600 rounded-t-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 group-hover:scale-110 shadow-lg" 
-                          style={{ height: `${Math.max(height, 2)}%` }}
-                          title={`₹${item.revenue}`}
-                        ></div>
-                        <div className="text-xs text-gray-600 mt-2 transform -rotate-45 origin-top-left font-medium">
-                          {format(new Date(item.date), 'MMM d')}
+              <div className="h-80 mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 overflow-hidden">
+                <div className="h-full flex items-end justify-between space-x-1 pb-8 relative">
+                  {analyticsData.revenueByDay && analyticsData.revenueByDay.length > 0 ? (
+                    analyticsData.revenueByDay.slice(-14).map((item, index) => {
+                      const maxRevenue = Math.max(...analyticsData.revenueByDay.map(d => d.revenue));
+                      const height = maxRevenue > 0 ? (item.revenue / maxRevenue) * 85 : 2; // Use 85% max height to leave space for labels
+                      
+                      return (
+                        <div key={index} className="flex flex-col items-center group relative" style={{ minWidth: '20px', maxWidth: '60px', flex: '1' }}>
+                          <div 
+                            className="w-full bg-gradient-to-t from-blue-500 to-indigo-600 rounded-t-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 group-hover:scale-105 shadow-lg min-h-[2px]" 
+                            style={{ height: `${height}%` }}
+                            title={`₹${item.revenue.toLocaleString()}`}
+                          ></div>
+                          <div className="absolute -bottom-6 text-[10px] text-gray-600 font-medium transform -rotate-45 origin-center whitespace-nowrap">
+                            {format(new Date(item.date), 'MMM d')}
+                          </div>
                         </div>
+                      );
+                    })
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <svg className="w-12 h-12 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <p className="text-gray-500 text-sm">No revenue data available</p>
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -369,25 +381,36 @@ export default function EarningsAnalyticsView() {
                 </div>
                 <h3 className="text-xl font-bold text-gray-800">Subscriptions Over Time</h3>
               </div>
-              <div className="h-80 mt-6 bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6">
-                <div className="h-full flex items-end justify-between space-x-2">
-                  {analyticsData.subscriptionsByDay.slice(-14).map((item, index) => {
-                    const maxCount = Math.max(...analyticsData.subscriptionsByDay.map(d => d.count));
-                    const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-                    
-                    return (
-                      <div key={index} className="flex flex-col items-center flex-1 group">
-                        <div 
-                          className="w-full bg-gradient-to-t from-emerald-500 to-green-600 rounded-t-lg hover:from-emerald-600 hover:to-green-700 transition-all duration-300 group-hover:scale-110 shadow-lg" 
-                          style={{ height: `${Math.max(height, 2)}%` }}
-                          title={`${item.count} subscriptions`}
-                        ></div>
-                        <div className="text-xs text-gray-600 mt-2 transform -rotate-45 origin-top-left font-medium">
-                          {format(new Date(item.date), 'MMM d')}
+              <div className="h-80 mt-6 bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6 overflow-hidden">
+                <div className="h-full flex items-end justify-between space-x-1 pb-8 relative">
+                  {analyticsData.subscriptionsByDay && analyticsData.subscriptionsByDay.length > 0 ? (
+                    analyticsData.subscriptionsByDay.slice(-14).map((item, index) => {
+                      const maxCount = Math.max(...analyticsData.subscriptionsByDay.map(d => d.count));
+                      const height = maxCount > 0 ? (item.count / maxCount) * 85 : 2; // Use 85% max height to leave space for labels
+                      
+                      return (
+                        <div key={index} className="flex flex-col items-center group relative" style={{ minWidth: '20px', maxWidth: '60px', flex: '1' }}>
+                          <div 
+                            className="w-full bg-gradient-to-t from-emerald-500 to-green-600 rounded-t-lg hover:from-emerald-600 hover:to-green-700 transition-all duration-300 group-hover:scale-105 shadow-lg min-h-[2px]" 
+                            style={{ height: `${height}%` }}
+                            title={`${item.count} subscriptions`}
+                          ></div>
+                          <div className="absolute -bottom-6 text-[10px] text-gray-600 font-medium transform -rotate-45 origin-center whitespace-nowrap">
+                            {format(new Date(item.date), 'MMM d')}
+                          </div>
                         </div>
+                      );
+                    })
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <svg className="w-12 h-12 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                        <p className="text-gray-500 text-sm">No subscription data available</p>
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -405,26 +428,36 @@ export default function EarningsAnalyticsView() {
                 <h3 className="text-xl font-bold text-gray-800">Subscriptions by Plan</h3>
               </div>
               <div className="space-y-4 mt-6">
-                {Object.entries(analyticsData.subscriptionsByPlan).map(([plan, count]) => {
-                  const planDisplayName = plan === 'daily' ? 'Daily' : 
-                                         plan === 'monthly' ? 'Monthly' :
-                                         plan === 'unlimited' ? 'Unlimited' :
-                                         plan.charAt(0).toUpperCase() + plan.slice(1);
-                  return (
-                    <div key={plan} className="group">
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-bold text-gray-700 group-hover:text-purple-700 transition-colors">{planDisplayName}</span>
-                        <span className="text-sm text-gray-500">{count} subscriptions</span>
+                {analyticsData.subscriptionsByPlan && Object.keys(analyticsData.subscriptionsByPlan).length > 0 ? (
+                  Object.entries(analyticsData.subscriptionsByPlan).map(([plan, count]) => {
+                    const planDisplayName = plan === 'daily' ? 'Daily' : 
+                                           plan === 'monthly' ? 'Monthly' :
+                                           plan === 'unlimited' ? 'Unlimited' :
+                                           plan.charAt(0).toUpperCase() + plan.slice(1);
+                    const percentage = analyticsData.totalSubscriptions > 0 ? (count / analyticsData.totalSubscriptions) * 100 : 0;
+                    return (
+                      <div key={plan} className="group">
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm font-bold text-gray-700 group-hover:text-purple-700 transition-colors">{planDisplayName}</span>
+                          <span className="text-sm text-gray-500">{count} subscriptions ({percentage.toFixed(1)}%)</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-purple-500 to-violet-600 h-3 rounded-full shadow-lg transition-all duration-500 group-hover:from-purple-600 group-hover:to-violet-700" 
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          ></div>
+                        </div>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
-                        <div 
-                          className="bg-gradient-to-r from-purple-500 to-violet-600 h-3 rounded-full shadow-lg transition-all duration-500 group-hover:from-purple-600 group-hover:to-violet-700" 
-                          style={{ width: `${(count / analyticsData.totalSubscriptions) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8">
+                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                    </svg>
+                    <p className="text-gray-500">No subscription plan data available</p>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -438,26 +471,36 @@ export default function EarningsAnalyticsView() {
                 <h3 className="text-xl font-bold text-gray-800">Revenue by Plan</h3>
               </div>
               <div className="space-y-4 mt-6">
-                {Object.entries(analyticsData.revenueByPlan).map(([plan, revenue]) => {
-                  const planDisplayName = plan === 'daily' ? 'Daily' : 
-                                         plan === 'monthly' ? 'Monthly' :
-                                         plan === 'unlimited' ? 'Unlimited' :
-                                         plan.charAt(0).toUpperCase() + plan.slice(1);
-                  return (
-                    <div key={plan} className="group">
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">{planDisplayName}</span>
-                        <span className="text-sm text-gray-500">₹{revenue.toLocaleString()}</span>
+                {analyticsData.revenueByPlan && Object.keys(analyticsData.revenueByPlan).length > 0 ? (
+                  Object.entries(analyticsData.revenueByPlan).map(([plan, revenue]) => {
+                    const planDisplayName = plan === 'daily' ? 'Daily' : 
+                                           plan === 'monthly' ? 'Monthly' :
+                                           plan === 'unlimited' ? 'Unlimited' :
+                                           plan.charAt(0).toUpperCase() + plan.slice(1);
+                    const percentage = analyticsData.totalRevenue > 0 ? (revenue / analyticsData.totalRevenue) * 100 : 0;
+                    return (
+                      <div key={plan} className="group">
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">{planDisplayName}</span>
+                          <span className="text-sm text-gray-500">₹{revenue.toLocaleString()} ({percentage.toFixed(1)}%)</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-emerald-500 to-green-600 h-3 rounded-full shadow-lg transition-all duration-500 group-hover:from-emerald-600 group-hover:to-green-700" 
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          ></div>
+                        </div>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
-                        <div 
-                          className="bg-gradient-to-r from-emerald-500 to-green-600 h-3 rounded-full shadow-lg transition-all duration-500 group-hover:from-emerald-600 group-hover:to-green-700" 
-                          style={{ width: `${(revenue / analyticsData.totalRevenue) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8">
+                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                    </svg>
+                    <p className="text-gray-500">No revenue plan data available</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

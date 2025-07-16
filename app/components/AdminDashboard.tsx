@@ -492,7 +492,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     };
 
     checkAuthAndFetch();
-  }, [fetchUsers, activeTab]);
+  }, [activeTab]); // Remove fetchUsers dependency
 
   // Tab-specific data fetching when switching tabs
   useEffect(() => {
@@ -503,7 +503,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
 
     switch (activeTab) {
       case 'users':
-        fetchUsers();
+        // Users data is handled by the filter effect below
         break;
       case 'calendar':
         fetchCalendarData();
@@ -518,7 +518,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         fetchAnalytics();
         break;
     }
-  }, [activeTab, subscriptionView, fetchUsers, fetchCalendarData, fetchUpcomingData, fetchNewSubscriptionData, fetchAnalytics]);
+  }, [activeTab, subscriptionView, fetchCalendarData, fetchUpcomingData, fetchNewSubscriptionData, fetchAnalytics]);
 
   // Filter-specific effect only for users tab
   useEffect(() => {
@@ -537,9 +537,8 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     sortOrder, 
     page, 
     pageSize,
-    fetchUsers,
     activeTab
-  ]);
+  ]); // Remove fetchUsers dependency to prevent infinite loop
 
   // Handle user click to fetch detailed user data
   const handleUserClick = async (userId: string) => {
