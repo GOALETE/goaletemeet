@@ -132,6 +132,11 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   const [paymentStats, setPaymentStats] = useState<any[]>([]);
   const [planStats, setPlanStats] = useState<any[]>([]);
 
+  // Create a memoized updateFilter function
+  const updateFilter = useCallback((key: any, value: any) => {
+    setFilterState((prev: any) => ({ ...prev, [key]: value }));
+  }, []);
+
   const { toast, showToast } = useToast();
 
   // Only one fetchUsers function, wrapped in useCallback
@@ -275,7 +280,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       setError('Error fetching calendar data');
       setCalendarLoading(false);
     }
-  }, [refreshMeetingTrigger]);
+  }, []);
 
   const fetchUpcomingData = useCallback(async () => {
     setUpcomingLoading(true);
@@ -492,7 +497,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     };
 
     checkAuthAndFetch();
-  }, [activeTab]); // Remove fetchUsers dependency
+  }, [activeTab, fetchUsers]);
 
   // Tab-specific data fetching when switching tabs
   useEffect(() => {
@@ -513,6 +518,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         break;
       case 'subscriptions':
         fetchNewSubscriptionData(subscriptionView);
+        fetchStatistics(); // Also fetch revenue and statistics for subscriptions view
         break;
       case 'analytics':
         fetchAnalytics();
@@ -537,8 +543,9 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     sortOrder, 
     page, 
     pageSize,
-    activeTab
-  ]); // Remove fetchUsers dependency to prevent infinite loop
+    activeTab,
+    fetchUsers
+  ]);
 
   // Handle user click to fetch detailed user data
   const handleUserClick = async (userId: string) => {
@@ -719,14 +726,13 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             loading={usersLoading}
             error={error}
             userStats={userStats}
-            revenue={revenue}
             filterState={filterState}
             sortBy={sortBy}
             sortOrder={sortOrder}
             page={page}
             pageSize={pageSize}
             total={total}
-            updateFilter={(key, value) => setFilterState((prev: any) => ({ ...prev, [key]: value }))}
+            updateFilter={updateFilter}
             setSortBy={setSortBy}
             setSortOrder={setSortOrder}
             setPage={setPage}

@@ -150,7 +150,7 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger, onA
       <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 h-48 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-3">
           <div className="animate-spin rounded-full h-8 w-8 border-3 border-indigo-200 border-t-indigo-600"></div>
-          <div className="text-gray-600 font-medium">Loading today's meeting...</div>
+          <div className="text-gray-600 font-medium">Loading today&apos;s meeting...</div>
         </div>
       </div>
     );
@@ -183,7 +183,7 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger, onA
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
           </div>
-          <h3 className="text-xl font-bold text-gray-800">Today's Meeting</h3>
+          <h3 className="text-xl font-bold text-gray-800">Today&apos;s Meeting</h3>
         </div>
         
         <div className="text-center py-8">
@@ -213,7 +213,7 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger, onA
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
           </div>
-          <h3 className="text-xl font-bold text-gray-800">Today's Meeting</h3>
+          <h3 className="text-xl font-bold text-gray-800">Today&apos;s Meeting</h3>
         </div>
         <span className="px-3 py-1 bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-sm font-bold rounded-full border border-emerald-200 capitalize">
           {meeting.platform}
@@ -317,7 +317,7 @@ const TodayMeetingCard: React.FC<TodayMeetingCardProps> = ({ refreshTrigger, onA
           <button 
             onClick={onAddUserClick}
             className="px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-medium rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
-            title="Add user to today's meeting"
+            title="Add user to today&apos;s meeting"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

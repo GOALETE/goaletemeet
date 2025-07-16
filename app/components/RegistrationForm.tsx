@@ -1262,7 +1262,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                   {plan === 'daily' ? (
                     <>Select the specific date for your single session. Access will be valid for this day only.</>
                   ) : (
-                    <>Your {plan === 'monthlyFamily' ? 'family ' : ''}plan will start on the selected date and continue for 30 days. You'll have access to all sessions during this period.</>
+                    <>Your {plan === 'monthlyFamily' ? 'family ' : ''}plan will start on the selected date and continue for 30 days. You&apos;ll have access to all sessions during this period.</>
                   )}
                 </div>
               </div>

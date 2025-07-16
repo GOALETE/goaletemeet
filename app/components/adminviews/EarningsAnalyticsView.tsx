@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format, subDays, subMonths } from 'date-fns';
 
 type AnalyticsData = {
@@ -25,7 +25,7 @@ export default function EarningsAnalyticsView() {
   });
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'pending'>('paid');
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -76,11 +76,11 @@ export default function EarningsAnalyticsView() {
       setError('Failed to fetch analytics: ' + (error instanceof Error ? error.message : String(error)));
       setLoading(false);
     }
-  };
+  }, [dateRange, customRange, paymentFilter]);
 
   useEffect(() => {
     fetchAnalytics();
-  }, [dateRange, customRange, paymentFilter]);
+  }, [dateRange, customRange, paymentFilter, fetchAnalytics]);
 
   // Handle date range change
   const handleDateRangeChange = (range: '7days' | '30days' | '90days' | 'custom') => {

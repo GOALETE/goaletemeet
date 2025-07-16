@@ -327,7 +327,7 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
               placeholder="0"
             />
             <p className="text-xs text-gray-500">
-              Default is 0 for admin-created subscriptions. Payment status will be marked as "admin-added".
+              Default is 0 for admin-created subscriptions. Payment status will be marked as &quot;admin-added&quot;.
             </p>
           </div>
 
