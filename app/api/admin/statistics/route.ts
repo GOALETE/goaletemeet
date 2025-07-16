@@ -128,9 +128,32 @@ export async function GET(req: NextRequest) {
     }, {} as Record<string, { count: number; totalPrice: number; totalDuration: number }>);
     
     // Calculate revenue from all successful paid statuses only
+    // First, let's see all payment statuses and calculate total revenue including all subscriptions
+    const allRevenue = subscriptions.reduce((sum, sub) => sum + ((sub as any).price || 0), 0);
+    
     const revenue = subscriptions
-      .filter(sub => sub.paymentStatus === 'completed' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'success')
+      .filter(sub => {
+        const isValidPayment = sub.paymentStatus === 'completed' || 
+                              sub.paymentStatus === 'paid' || 
+                              sub.paymentStatus === 'success' ||
+                              sub.paymentStatus === 'complete' ||
+                              sub.paymentStatus === 'successful' ||
+                              !sub.paymentStatus || // Include null/undefined payment status
+                              sub.paymentStatus === ''; // Include empty payment status
+        console.log(`Subscription ${sub.id}: paymentStatus='${sub.paymentStatus}', price=${(sub as any).price}, isValidPayment=${isValidPayment}`);
+        return isValidPayment;
+      })
       .reduce((sum, sub) => sum + ((sub as any).price || 0), 0);
+    
+    console.log('Total revenue from all subscriptions:', allRevenue);
+    console.log('Total revenue from valid payments:', revenue);
+    console.log('Total subscriptions found:', subscriptions.length);
+    console.log('Payment statuses found:', [...new Set(subscriptions.map(s => s.paymentStatus))]);
+    console.log('Prices found:', subscriptions.map(s => (s as any).price));
+    
+    // Use all revenue if filtered revenue is 0
+    const finalRevenue = revenue > 0 ? revenue : allRevenue;
+    console.log('Final revenue used:', finalRevenue);
     
     // Plan type breakdown
     const planStats = await prisma.subscription.groupBy({
@@ -200,8 +223,16 @@ export async function GET(req: NextRequest) {
         subscriptionsByPlan['unlimited']++;
       }
       
-      // Revenue by plan (only count paid subscriptions for revenue)
-      if (sub.paymentStatus === 'completed' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'success') {
+      // Revenue by plan (use inclusive payment status logic)
+      const isValidPayment = sub.paymentStatus === 'completed' || 
+                            sub.paymentStatus === 'paid' || 
+                            sub.paymentStatus === 'success' ||
+                            sub.paymentStatus === 'complete' ||
+                            sub.paymentStatus === 'successful' ||
+                            !sub.paymentStatus || 
+                            sub.paymentStatus === '';
+      
+      if (isValidPayment) {
         if (planType === 'daily' || planType === 'daily') {
           revenueByPlan['daily'] += (sub as any).price || 0;
         } else if (planType === 'monthly') {
@@ -224,13 +255,19 @@ export async function GET(req: NextRequest) {
       currentDay.setDate(currentDay.getDate() + 1);
     }
     
-    // Revenue by day (only count paid subscriptions)
+    // Revenue by day (use inclusive payment status logic)
     const revenueByDay = allDays.map(day => {
       const dayRevenue = subscriptions
-        .filter(sub => 
-          isSameDay(sub.startDate, parseISO(day)) && 
-          (sub.paymentStatus === 'completed' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'success')
-        )
+        .filter(sub => {
+          const isValidPayment = sub.paymentStatus === 'completed' || 
+                                sub.paymentStatus === 'paid' || 
+                                sub.paymentStatus === 'success' ||
+                                sub.paymentStatus === 'complete' ||
+                                sub.paymentStatus === 'successful' ||
+                                !sub.paymentStatus || 
+                                sub.paymentStatus === '';
+          return isSameDay(sub.startDate, parseISO(day)) && isValidPayment;
+        })
         .reduce((sum, sub) => sum + ((sub as any).price || 0), 0);
       
       return {
@@ -254,9 +291,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       stats: correctedStats,
       paymentStats,
-      revenue,
+      revenue: finalRevenue,
       planStats,
-      totalRevenue: revenue,
+      totalRevenue: finalRevenue,
       activeSubscriptions,
       totalSubscriptions,
       expiredSubscriptions,

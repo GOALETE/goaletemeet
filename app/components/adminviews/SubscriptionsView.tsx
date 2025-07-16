@@ -19,7 +19,7 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
   revenue,
   handleRowClick
 }) => {
-  const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'upcoming' | 'cancelled'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'upcoming'>('all');
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
@@ -33,7 +33,7 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
     const startDate = new Date(subscription.startDate);
     const endDate = new Date(subscription.endDate);
     
-    // Status filter - handle cancelled status properly
+    // Status filter - handle cancelled status properly, merge cancelled with expired
     if (filter !== 'all') {
       // First determine the actual status (respecting cancelled from DB)
       const today = new Date();
@@ -52,17 +52,14 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
         }
       }
       
-      // Apply the filter based on actual status
+      // Apply the filter based on actual status - merge cancelled with expired
       if (filter === 'active' && actualStatus !== 'active') {
         return false;
       }
-      if (filter === 'expired' && actualStatus !== 'expired') {
+      if (filter === 'expired' && !(actualStatus === 'expired' || actualStatus === 'cancelled' || actualStatus === 'canceled')) {
         return false;
       }
       if (filter === 'upcoming' && actualStatus !== 'upcoming') {
-        return false;
-      }
-      if (filter === 'cancelled' && !(actualStatus === 'cancelled' || actualStatus === 'canceled')) {
         return false;
       }
     }
@@ -231,16 +228,15 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
             >
               <option value="all">All Subscriptions</option>
               <option value="active">Active</option>
-              <option value="expired">Expired</option>
+              <option value="expired">Expired / Cancelled</option>
               <option value="upcoming">Upcoming</option>
-              <option value="cancelled">Cancelled</option>
             </select>
           </div>
         </div>
       </div>
       
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <div className="bg-gradient-to-br from-blue-50 to-indigo-100 backdrop-blur-sm rounded-2xl shadow-xl border border-blue-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
@@ -297,26 +293,12 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
         <div className="bg-gradient-to-br from-red-50 to-pink-100 backdrop-blur-sm rounded-2xl shadow-xl border border-red-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-red-800 mb-1">Expired</h3>
-              <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-pink-800 bg-clip-text text-transparent">{expiredSubscriptions.length}</p>
+              <h3 className="text-lg font-bold text-red-800 mb-1">Expired / Cancelled</h3>
+              <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-pink-800 bg-clip-text text-transparent">{expiredSubscriptions.length + cancelledSubscriptions.length}</p>
             </div>
             <div className="p-3 bg-gradient-to-r from-red-500 to-pink-600 rounded-xl">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-br from-gray-50 to-slate-100 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-gray-800 mb-1">Cancelled</h3>
-              <p className="text-3xl font-bold bg-gradient-to-r from-gray-600 to-slate-800 bg-clip-text text-transparent">{cancelledSubscriptions.length}</p>
-            </div>
-            <div className="p-3 bg-gradient-to-r from-gray-500 to-slate-600 rounded-xl">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
           </div>

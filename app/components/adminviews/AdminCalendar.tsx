@@ -264,21 +264,19 @@ export default function AdminCalendar() {
         deleted: data.deleted || 0
       });
 
-      setSyncStatus({
-        type: 'success',
-        message: `Enhanced sync completed: ${data.created || 0} created, ${data.updated || 0} updated, ${data.deleted || 0} deleted. User attachments preserved.`
-      });
+      // Show toast notification instead of status message
+      showToast(`Enhanced sync completed: ${data.created || 0} created, ${data.updated || 0} updated, ${data.deleted || 0} deleted. User attachments preserved.`, 'success');
       
       // Refresh meetings after sync
       fetchMeetings();
       
-      // Auto-reset after 3 seconds
+      // Auto-reset after 5 seconds to allow time to see the cards
       setTimeout(() => {
         setSyncStep(0);
         setSyncProgress(0);
         setSyncStage('');
         setSyncResults(null);
-      }, 3000);
+      }, 5000);
       
     } catch (error) {
       console.error('Calendar sync error:', error);
@@ -698,25 +696,6 @@ export default function AdminCalendar() {
                         </div>
                       </div>
                     )}
-                  </div>
-                </div>
-              )}
-              
-              {syncStatus && syncStep !== 2 && (
-                <div className={`p-3 rounded-lg ${syncStatus.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                  <div className="flex items-center">
-                    {syncStatus.type === 'success' ? (
-                      <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    )}
-                    <span className={`font-medium ${syncStatus.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
-                      {syncStatus.message}
-                    </span>
                   </div>
                 </div>
               )}
