@@ -1,5 +1,5 @@
 import prisma from './prisma';
-import { createCompleteMeeting } from './meetingLink';
+import { manageMeeting } from './meetingLink';
 import type { Meeting } from '@/generated/prisma';
 import { MeetingWithUsers } from '../types/meeting';
 
@@ -504,15 +504,17 @@ export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | 
 
     console.log(`Creating default meeting with platform: ${defaultPlatform}, time: ${defaultTime}, duration: ${defaultDuration} minutes`);
 
-    // Create the meeting with all users for today
-    const meeting = await createCompleteMeeting({
-      platform: defaultPlatform as 'google-meet' | 'zoom',
+    // Create the meeting with all users for today using unified function
+    const meeting = await manageMeeting({
       date: todayStr,
+      platform: defaultPlatform as 'google-meet' | 'zoom',
       startTime: defaultTime,
       duration: defaultDuration,
       meetingTitle: 'GOALETE Club Daily Session',
       meetingDesc: 'Join us for a GOALETE Club session to learn how to achieve any goal in life.',
-      userIds
+      userIds,
+      operation: 'getOrCreate',
+      syncFromCalendar: true
     });
     
     // Mark this as a system-generated default meeting

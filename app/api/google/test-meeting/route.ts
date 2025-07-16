@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createMeeting } from '@/lib/meetingLink';
+import { manageMeeting } from '@/lib/meetingLink';
 import { isAuthenticated } from '@/lib/googleAuth';
 
 /**
@@ -32,13 +32,15 @@ export async function POST(request: NextRequest) {
 
     console.log(`Creating test meeting for ${date} at ${startTime} using service account`);
 
-    const meeting = await createMeeting({
+    const meeting = await manageMeeting({
       platform: platform as 'google-meet' | 'zoom',
       date,
       startTime,
       duration,
       meetingTitle,
-      meetingDesc
+      meetingDesc,
+      operation: 'create',
+      syncFromCalendar: false
     });
 
     return NextResponse.json({

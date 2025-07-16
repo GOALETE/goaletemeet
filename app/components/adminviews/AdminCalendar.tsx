@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays } from 'date-fns';
+import TodayMeetingCard from './TodayMeetingCard';
 
 // Helper function to display UTC time stored in DB as IST
 const displayUTCAsIST = (utcTimeString: string): Date => {
@@ -474,6 +475,11 @@ export default function AdminCalendar() {
 
         {/* Meeting creation form */}
         <div className="lg:col-span-2 order-1 lg:order-2">
+          {/* Today's Meeting Card */}
+          <div className="mb-6">
+            <TodayMeetingCard />
+          </div>
+          
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-4 sm:p-6 lg:sticky lg:top-6">
             <div className="flex items-center space-x-3 mb-4 sm:mb-6">
               <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg">

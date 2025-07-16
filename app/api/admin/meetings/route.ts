@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "../../../../lib/prisma";
 import { z } from "zod";
-import { createMeeting, createCompleteMeeting } from '../../../../lib/meetingLink';
+import { manageMeeting } from '../../../../lib/meetingLink';
 import { addDays, format, parseISO } from 'date-fns';
 
 // Schema for creating meetings
@@ -100,37 +100,43 @@ export async function POST(request: NextRequest) {
         if (userIds.length > 0) {
           // Create meeting first, then add users (optimized workflow)
           console.log(`Creating meeting for ${dateStr} and adding ${userIds.length} active users`);
-          meeting = await createCompleteMeeting({
-            platform,
+          meeting = await manageMeeting({
             date: dateStr,
+            platform,
             startTime,
             duration,
             meetingTitle,
             meetingDesc,
-            userIds
+            userIds,
+            operation: 'create',
+            syncFromCalendar: false
           });
         } else {
           // No active users for this date, create meeting without users
           console.log(`Creating meeting for ${dateStr} without users (no active subscriptions)`);
-          meeting = await createMeeting({
-            platform,
+          meeting = await manageMeeting({
             date: dateStr,
+            platform,
             startTime,
             duration,
             meetingTitle,
-            meetingDesc
+            meetingDesc,
+            operation: 'create',
+            syncFromCalendar: false
           });
         }
       } else {
         // Create meeting without users (admin-only meeting)
         console.log(`Creating admin-only meeting for ${dateStr}`);
-        meeting = await createMeeting({
-          platform,
+        meeting = await manageMeeting({
           date: dateStr,
+          platform,
           startTime,
           duration,
           meetingTitle,
-          meetingDesc
+          meetingDesc,
+          operation: 'create',
+          syncFromCalendar: false
         });
       }
       

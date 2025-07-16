@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
       meetingDesc: todayMeeting.meetingDesc,
       googleEventId: todayMeeting.googleEventId || null,
       zoomMeetingId: todayMeeting.zoomMeetingId || null,
-      zoomStartUrl: todayMeeting.zoomStartUrl || null
+      zoomStartUrl: todayMeeting.zoomStartUrl || null,
+      attendeeCount: todayMeeting.users?.length || 0
     };
 
     // Count active users for today

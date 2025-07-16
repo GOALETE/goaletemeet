@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sendMeetingInviteViaMessaging } from "@/lib/messaging";
-import { getOrCreateDailyMeeting } from "@/lib/meetingLink";
+import { manageMeeting } from "@/lib/meetingLink";
 import { InviteResult, MeetingWithUsers } from "@/types/meeting";
 import { getCronJobConfig } from "@/lib/cronConfig";
 
@@ -48,8 +48,28 @@ export async function GET(request: NextRequest) {
     
     if (cronConfig.cronJobsEnabled) {
       try {
-        // Use the optimized function that handles everything efficiently
-        todayMeeting = await getOrCreateDailyMeeting();
+        // Get today's date for meeting
+        const todayStr = today.toISOString().split('T')[0];
+        
+        // Get all active users for today
+        const activeSubscriptions = await prisma.subscription.findMany({
+          where: {
+            status: 'active',
+            startDate: { lte: today },
+            endDate: { gte: today }
+          },
+          select: { userId: true }
+        });
+
+        const userIds = activeSubscriptions.map(sub => sub.userId);
+        
+        // Use the streamlined function to get/create meeting with all users
+        todayMeeting = await manageMeeting({
+          date: todayStr,
+          userIds,
+          operation: 'getOrCreate',
+          syncFromCalendar: true
+        });
       } catch (meetingError) {
         const errorMessage = meetingError instanceof Error ? meetingError.message : String(meetingError);
         console.error("Failed to create or get meeting:", { error: errorMessage });

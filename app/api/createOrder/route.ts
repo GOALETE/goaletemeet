@@ -3,7 +3,7 @@ import Razorpay from "razorpay";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { canUserSubscribeForDates } from "@/lib/subscription";
-import { addUserToTodaysMeeting } from "@/lib/meetingLink";
+import { manageMeeting } from "@/lib/meetingLink";
 import { toPaise, fromPaise } from "@/lib/pricing";
 import { sendAdminNotificationEmail, sendFamilyAdminNotificationEmail } from "@/lib/email";
 import { sendImmediateInviteViaMessaging } from "@/lib/messaging";
@@ -298,6 +298,40 @@ export async function PATCH(request: NextRequest) {
     ));
     // Send emails to all users
     const { sendWelcomeEmail, sendMeetingInvite, sendAdminNotificationEmail } = await import("@/lib/email");
+    
+    // For family plans registering for today, handle meeting creation intelligently
+    let sharedTodayMeeting: any = null;
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    today.setHours(0, 0, 0, 0);
+    
+    // Process family plan users together for today's meetings
+    if (updatedSubs.length > 1) {
+      // Check if any subscription starts today
+      const todaySubscriptions = updatedSubs.filter(sub => {
+        const subscriptionStartDate = new Date(sub.startDate);
+        subscriptionStartDate.setHours(0, 0, 0, 0);
+        return subscriptionStartDate.getTime() === today.getTime();
+      });
+      
+      if (todaySubscriptions.length > 0) {
+        console.log(`Family plan with ${todaySubscriptions.length} users starting today, creating/finding shared meeting`);
+        
+        // Create or get today's meeting for all family members at once
+        try {
+          const allUserIds = todaySubscriptions.map(sub => sub.userId);
+          sharedTodayMeeting = await manageMeeting({
+            date: today.toISOString().split('T')[0],
+            userIds: allUserIds,
+            operation: 'getOrCreate',
+            syncFromCalendar: true
+          });
+          console.log(`Created/found shared meeting ${sharedTodayMeeting.id} for ${allUserIds.length} family members`);
+        } catch (meetingError) {
+          console.error(`Error creating shared meeting for family plan:`, meetingError);
+        }
+      }
+    }
+    
     await Promise.all(updatedSubs.map(async (subscription) => {
       // Send welcome email
       await sendWelcomeEmail({
@@ -313,8 +347,6 @@ export async function PATCH(request: NextRequest) {
       });
       
       // Send meeting invite if subscription starts today (using new messaging service)
-      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      today.setHours(0, 0, 0, 0);
       const subscriptionStartDate = new Date(subscription.startDate);
       subscriptionStartDate.setHours(0, 0, 0, 0);
       
@@ -322,8 +354,17 @@ export async function PATCH(request: NextRequest) {
         try {
           console.log(`Subscription starts today for ${subscription.user.email}, sending immediate invite`);
           
-          // Add user to today's meeting and get the meeting details
-          const todayMeeting = await addUserToTodaysMeeting(subscription.userId);
+          // Use shared meeting for family plans, or create individual meeting for single plans
+          let todayMeeting = sharedTodayMeeting;
+          if (!todayMeeting) {
+            // Add user to today's meeting (this will create if doesn't exist)
+            todayMeeting = await manageMeeting({
+              date: today.toISOString().split('T')[0],
+              userIds: [subscription.userId],
+              operation: 'getOrCreate',
+              syncFromCalendar: true
+            });
+          }
           
           if (todayMeeting && todayMeeting.meetingLink) {
             const inviteSent = await sendImmediateInviteViaMessaging({
