@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
     
     const { email, emails, planType, startDate, endDate } = parsed.data;
     
-    // Normalize emails to always work with an array
-    const emailsToCheck = emails || (email ? [email] : []);
+    // Normalize emails to always work with an array and convert to lowercase
+    const emailsToCheck = (emails || (email ? [email] : [])).map(e => e.toLowerCase());
     
     // Log the subscription check attempt
     console.log(`Checking subscription for ${emailsToCheck.join(', ')}`, {

@@ -50,9 +50,6 @@ const ENVIRONMENT_VARIABLES = {
   ZOOM_ACCOUNT_ID: { required: false, description: 'Zoom account ID' },
   ZOOM_USER_ID: { required: false, description: 'Zoom user ID' },
   
-  // Cron Job Controls
-  ENABLE_CRON_JOBS: { required: false, description: 'Enable/disable cron job functionality' },
-  
   // Messaging Controls
   ENABLE_EMAIL_MESSAGING: { required: false, description: 'Enable/disable email messaging' },
   ENABLE_WHATSAPP_MESSAGING: { required: false, description: 'Enable/disable WhatsApp messaging' },
@@ -134,14 +131,6 @@ function checkEnvFileExists() {
   return true;
 }
 
-function validateCronJobConfiguration() {
-  console.log('\n🤖 Validating Cron Job Configuration...');
-  
-  const cronEnabled = process.env.ENABLE_CRON_JOBS !== 'false';
-  
-  console.log(`   Cron Jobs Enabled: ${cronEnabled ? '✅' : '❌'}`);
-}
-
 function validateMeetingIntegration() {
   console.log('\n📺 Validating Meeting Integration...');
   
@@ -180,7 +169,6 @@ function main() {
   const isValid = validateEnvironmentVariables();
   
   // Additional validations
-  validateCronJobConfiguration();
   validateMeetingIntegration();
   
   console.log('\n' + '='.repeat(60));
@@ -201,7 +189,6 @@ if (require.main === module) {
 module.exports = {
   validateEnvironmentVariables,
   checkEnvFileExists,
-  validateCronJobConfiguration,
   validateMeetingIntegration,
   ENVIRONMENT_VARIABLES
 };

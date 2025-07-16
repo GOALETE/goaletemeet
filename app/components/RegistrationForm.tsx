@@ -188,7 +188,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
       end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
       
       // Prepare emails array - for family plans, check both emails
-      const emailsToCheck = plan === "monthlyFamily" ? [email, secondEmail] : [email];
+      const emailsToCheck = plan === "monthlyFamily" ? [email.toLowerCase(), secondEmail.toLowerCase()] : [email.toLowerCase()];
       
       const response = await fetch("/api/check-subscription", {
         method: "POST",
@@ -326,7 +326,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
       end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
       
       // Prepare emails array for checking
-      const emailsToCheck = plan === "monthlyFamily" ? [email, secondEmail] : [email];
+      const emailsToCheck = plan === "monthlyFamily" ? [email.toLowerCase(), secondEmail.toLowerCase()] : [email.toLowerCase()];
       
       const checkResponse = await fetch("/api/check-subscription", {
         method: "POST",
@@ -354,7 +354,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
         body: JSON.stringify({
           firstName,
           lastName,
-          email,
+          email: email.toLowerCase(),
           phone,
           source,
           reference,
@@ -374,7 +374,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
           body: JSON.stringify({
             firstName: secondFirstName,
             lastName: secondLastName,
-            email: secondEmail,
+            email: secondEmail.toLowerCase(),
             phone: secondPhone,
             source: "Family Plan",
             reference: "",
@@ -1233,6 +1233,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                   {plan === 'daily' 
                     ? 'Session Date (IST)' 
                     : `Plan Start Date (IST)`}
+                  <span className="text-xs text-gray-500 ml-2">DD/MM/YYYY</span>
                 </label>                <input
                   type="date"
                   name="startDate"
@@ -1246,6 +1247,11 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none bg-white text-gray-900 transition duration-200 text-sm sm:text-base"
                   required
                 />
+                {startDate && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selected: {formatDateDDMMYYYY(startDate)}
+                  </p>
+                )}
               </div>
               
               <div className="flex items-start bg-blue-50 p-3 rounded-lg text-sm">

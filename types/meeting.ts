@@ -26,22 +26,3 @@ export interface MeetingResponse {
   message: string;
   meetings: MeetingWithUsers[];
 }
-
-// Response type for the cron job
-export interface CronJobResponse {
-  message: string;
-  todayMeeting: MeetingWithUsers;
-  invitesSent: InviteResult[];
-}
-
-// Individual invite result
-export interface InviteResult {
-  userId: string;
-  subscriptionId: string;
-  email: string;
-  planType?: string;
-  sentAt?: string;
-  status: 'sent' | 'failed';
-  error?: string;
-  meetingLink?: string;
-}

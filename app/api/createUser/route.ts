@@ -32,12 +32,12 @@ export async function POST(request: NextRequest) {
     console.log("Upserting user in database");
     // Use Prisma to create or update user
     const user = await prisma.user.upsert({
-      where: { email: parsed.data.email },
+      where: { email: parsed.data.email.toLowerCase() },
       update: {},
       create: {
         firstName: parsed.data.firstName,
         lastName: parsed.data.lastName,
-        email: parsed.data.email,
+        email: parsed.data.email.toLowerCase(),
         phone: parsed.data.phone,
         source: parsed.data.source,
         referenceName: parsed.data.reference,

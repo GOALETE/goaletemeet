@@ -19,13 +19,13 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
   revenue,
   handleRowClick
 }) => {
-  const [filter, setFilter] = useState<'all' | 'active' | 'finished' | 'upcoming' | 'expired'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'upcoming'>('all');
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
   });
 
-  // Filter subscriptions based on status
+  // Filter subscriptions based on status and view type
   const filteredSubscriptions = subscriptionUsers.filter(subscription => {
     if (!subscription) return false;
 
@@ -33,23 +33,20 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
     const startDate = new Date(subscription.startDate);
     const endDate = new Date(subscription.endDate);
     
-    // Status filter
+    // Status filter - only using 'expired', not 'finished'
     if (filter !== 'all') {
       if (filter === 'active' && !(startDate <= today && endDate >= today)) {
-        return false;
-      }
-      if (filter === 'finished' && !(endDate < today)) {
-        return false;
-      }
-      if (filter === 'upcoming' && !(startDate > today)) {
         return false;
       }
       if (filter === 'expired' && !(endDate < today)) {
         return false;
       }
+      if (filter === 'upcoming' && !(startDate > today)) {
+        return false;
+      }
     }
     
-    // Date filter from props (view type filtering)
+    // View type filtering - more inclusive for monthly subscriptions
     if (subscriptionView !== 'all') {
       const now = new Date();
       now.setHours(0, 0, 0, 0); // Normalize to start of day
@@ -61,17 +58,21 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
         weekEnd.setDate(weekStart.getDate() + 6); // End of week (Saturday)
         weekEnd.setHours(23, 59, 59, 999); // End of day
         
-        // Include subscriptions that are active or start within this week
-        if (!(
-          (startDate >= weekStart && startDate <= weekEnd) || // Starts this week
-          (endDate >= weekStart && startDate <= weekEnd) || // Active during this week
-          (startDate <= weekStart && endDate >= weekEnd) // Spans entire week
-        )) {
+        // For monthly subscriptions: show if they are active during this week OR start this week
+        // For daily subscriptions: show if they start or are active this week
+        const isActiveThisWeek = startDate <= weekEnd && endDate >= weekStart;
+        const startsThisWeek = startDate >= weekStart && startDate <= weekEnd;
+        
+        if (!(isActiveThisWeek || startsThisWeek)) {
           return false;
         }
       } else if (subscriptionView === 'upcoming') {
-        // Show subscriptions that start in the future
-        if (!(startDate > now)) {
+        // Show subscriptions that start in the future OR are currently active
+        // This ensures monthly subscriptions show up in upcoming tab
+        const isUpcoming = startDate > now;
+        const isCurrentlyActive = startDate <= now && endDate >= now;
+        
+        if (!(isUpcoming || isCurrentlyActive)) {
           return false;
         }
       }
@@ -185,9 +186,8 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
             >
               <option value="all">All Subscriptions</option>
               <option value="active">Active</option>
-              <option value="finished">Finished</option>
-              <option value="upcoming">Upcoming</option>
               <option value="expired">Expired</option>
+              <option value="upcoming">Upcoming</option>
             </select>
           </div>
         </div>
@@ -361,7 +361,7 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
                       if (startDate <= today && endDate >= today) {
                         status = 'active';
                       } else if (endDate < today) {
-                        status = 'finished';
+                        status = 'expired';
                       } else if (startDate > today) {
                         status = 'upcoming';
                       }
@@ -412,12 +412,12 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
                             <span className={`px-3 py-2 inline-flex items-center text-xs leading-5 font-bold rounded-full shadow-sm transition-all duration-300 group-hover:scale-105 
                               ${status === 'active' ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 border border-emerald-200' : 
                                 status === 'upcoming' ? 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border border-blue-200' : 
-                                  status === 'finished' ? 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-200' : 
+                                  status === 'expired' ? 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200' : 
                                     'bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 border border-amber-200'}`}>
                               <div className={`w-2 h-2 rounded-full mr-2 
                                 ${status === 'active' ? 'bg-emerald-500' : 
                                   status === 'upcoming' ? 'bg-blue-500' : 
-                                    status === 'finished' ? 'bg-gray-500' : 'bg-amber-500'}`}>
+                                    status === 'expired' ? 'bg-red-500' : 'bg-amber-500'}`}>
                               </div>
                               {status}
                             </span>

@@ -50,6 +50,11 @@ export default function AdminCalendar() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
+  // Calendar sync state
+  const [syncStep, setSyncStep] = useState(0); // 0: initial, 1: confirmation
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  
   // Form state
   const [platform, setPlatform] = useState('google-meet');
   const [startTime, setStartTime] = useState('21:00');
@@ -137,7 +142,7 @@ export default function AdminCalendar() {
         duration: Number(duration),
         meetingTitle,
         meetingDesc,
-        addActiveUsers: false // Always false now - users added by cron job
+        addActiveUsers: false // Always false now - users added by automated system
       };
 
       // Add either dates array or date range
@@ -192,6 +197,60 @@ export default function AdminCalendar() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  // Calendar sync handlers
+  const handleFirstSync = () => {
+    setSyncStep(1); // Move to confirmation step
+    setSyncStatus(null); // Clear any previous status
+  };
+
+  const handleConfirmSync = async () => {
+    setSyncLoading(true);
+    setSyncStatus(null);
+
+    try {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        throw new Error('Admin authentication required');
+      }
+
+      const response = await fetch('/api/admin/calendar-sync', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          days: 30 // Sync next 30 days
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Calendar sync failed');
+      }
+
+      setSyncStatus({
+        type: 'success',
+        message: `Successfully synced ${data.created || 0} meetings. ${data.updated || 0} existing meetings preserved.`
+      });
+      
+      // Refresh meetings after sync
+      fetchMeetings();
+      
+    } catch (error) {
+      console.error('Calendar sync error:', error);
+      setSyncStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Calendar sync failed'
+      });
+    } finally {
+      setSyncLoading(false);
+      setSyncStep(0); // Reset to initial state
+    }
+  };
+
   const handleDateClick = (dateString: string) => {
     console.log('Clicked on date:', dateString);
     
@@ -474,10 +533,98 @@ export default function AdminCalendar() {
         </div>
 
         {/* Meeting creation form */}
-        <div className="lg:col-span-2 order-1 lg:order-2">
+        <div className="lg:col-span-2 order-1 lg:order-2 space-y-6">
           {/* Today's Meeting Card */}
           <div className="mb-6">
             <TodayMeetingCard />
+          </div>
+          
+          {/* Calendar Sync Section */}
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-4 sm:p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                Calendar Sync
+              </h3>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Sync next 30 days of default meetings from Google Calendar to database. This will preserve all existing user attachments.
+              </p>
+              
+              {syncStep === 0 && (
+                <button
+                  onClick={handleFirstSync}
+                  disabled={syncLoading}
+                  className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  {syncLoading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                      Syncing...
+                    </div>
+                  ) : (
+                    'Start Calendar Sync'
+                  )}
+                </button>
+              )}
+              
+              {syncStep === 1 && (
+                <div className="space-y-3">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-amber-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.982 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span className="text-amber-800 font-medium">Confirmation Required</span>
+                    </div>
+                    <p className="text-amber-700 text-sm mt-1">
+                      Are you sure you want to sync calendar data? This will update the database with default meeting schedule for the next 30 days.
+                    </p>
+                  </div>
+                  
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={handleConfirmSync}
+                      disabled={syncLoading}
+                      className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-2 px-4 rounded-lg font-medium hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    >
+                      Confirm Sync
+                    </button>
+                    <button
+                      onClick={() => setSyncStep(0)}
+                      className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {syncStatus && (
+                <div className={`p-3 rounded-lg ${syncStatus.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                  <div className="flex items-center">
+                    {syncStatus.type === 'success' ? (
+                      <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                    <span className={`font-medium ${syncStatus.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                      {syncStatus.message}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-4 sm:p-6 lg:sticky lg:top-6">
@@ -533,11 +680,11 @@ export default function AdminCalendar() {
                   </li>
                   <li className="flex items-start">
                     <span className="text-indigo-500 mr-2">•</span>
-                    <span><strong>Daily Cron (10 AM):</strong> Automatically adds active users to meetings and sends invites</span>
+                    <span><strong>Daily Processing (10 AM):</strong> Automatically adds active users to meetings and sends invites</span>
                   </li>
                   <li className="flex items-start">
                     <span className="text-indigo-500 mr-2">•</span>
-                    <span><strong>Immediate Invites:</strong> Users registering after cron but before meeting get instant invites</span>
+                    <span><strong>Immediate Invites:</strong> Users registering after daily processing but before meeting get instant invites</span>
                   </li>
                   <li className="flex items-start">
                     <span className="text-indigo-500 mr-2">•</span>

@@ -93,7 +93,7 @@ export class MessagingService {
   }
 
   /**
-   * Send immediate invite for users who register after cron but before meeting
+   * Send immediate invite for users who register after daily processing but before meeting
    * @param data Meeting invite data
    * @returns Result of the immediate invite
    */

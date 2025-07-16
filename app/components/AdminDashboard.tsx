@@ -10,7 +10,6 @@ import SubscriptionsView from './adminviews/SubscriptionsView';
 import UpcomingRegistrationsView from './adminviews/UpcomingRegistrationsView';
 import TodayMeetingCard from './adminviews/TodayMeetingCard';
 import EarningsAnalyticsView from './adminviews/EarningsAnalyticsView';
-import CronManagementView from './adminviews/CronManagementView';
 
 type UserData = {
   id: string;
@@ -78,7 +77,7 @@ function useToast() {
 }
 
 export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'analytics' | 'cronManagement'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'analytics'>('users');
   const [subscriptionView, setSubscriptionView] = useState<'all' | 'thisWeek' | 'upcoming'>('all');
   
   // Tab-specific data states
@@ -95,7 +94,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   const [upcomingLoading, setUpcomingLoading] = useState(false);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [cronLoading, setCronLoading] = useState(false);
   
   // General states
   const [error, setError] = useState('');
@@ -334,19 +332,9 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       }
       
       const queryParams = new URLSearchParams();
-      queryParams.set('viewType', viewType);
-      if (viewType === 'thisWeek') {
-        const today = new Date();
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay());
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        queryParams.set('startDate', format(startOfWeek, 'yyyy-MM-dd'));
-        queryParams.set('endDate', format(endOfWeek, 'yyyy-MM-dd'));
-      } else if (viewType === 'upcoming') {
-        const today = new Date();
-        queryParams.set('startDate', format(today, 'yyyy-MM-dd'));
-      }
+      // Remove restrictive server-side filtering, let frontend handle view logic
+      // This ensures monthly subscriptions appear in all tabs appropriately
+      queryParams.set('pageSize', '1000'); // Get more records for client-side filtering
       
       const response = await fetch(`/api/admin/subscriptions?${queryParams.toString()}`, {
         headers: {
@@ -532,9 +520,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       case 'analytics':
         fetchAnalytics();
         break;
-      case 'cronManagement':
-        // No specific fetch needed for cron management
-        break;
     }
   }, [activeTab, subscriptionView, fetchUsers, fetchCalendarData, fetchUpcomingData, fetchNewSubscriptionData, fetchAnalytics]);
 
@@ -632,19 +617,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h2a2 2 0 002-2z" />
               </svg>
               <span>Calendar</span>
-            </button>
-            <button 
-              className={`px-4 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-[1.02] flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'cronManagement' 
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' 
-                  : 'text-gray-700 hover:bg-gray-100/70'
-              }`} 
-              onClick={() => setActiveTab('cronManagement')}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Cron Jobs</span>
             </button>
             <button 
               className={`px-4 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-[1.02] flex items-center space-x-2 whitespace-nowrap ${
@@ -748,10 +720,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         
         {activeTab === 'analytics' && (
           <EarningsAnalyticsView />
-        )}
-        
-        {activeTab === 'cronManagement' && (
-          <CronManagementView />
         )}
       </div>
 

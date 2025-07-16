@@ -70,7 +70,7 @@ export async function PATCH(request: NextRequest) {
       const updateData: any = {};
       if (firstName !== undefined) updateData.firstName = firstName;
       if (lastName !== undefined) updateData.lastName = lastName;
-      if (email !== undefined) updateData.email = email;
+      if (email !== undefined) updateData.email = email.toLowerCase();
       if (phone !== undefined) updateData.phone = phone;
       if (source !== undefined) updateData.source = source;
 
