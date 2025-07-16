@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import AdminCalendar from './adminviews/AdminCalendar';
 import UsersView from './adminviews/UsersView';
-import UserDetailModal from './adminviews/UserDetailModal';
+import UserDetailModal, { UserWithSubscriptions as UserDetailModalType } from './adminviews/UserDetailModal';
 import CreateUserModal from './adminviews/CreateUserModal';
 import SubscriptionsView from './adminviews/SubscriptionsView';
 import UpcomingRegistrationsView from './adminviews/UpcomingRegistrationsView';
@@ -97,14 +97,13 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   
   // General states
   const [error, setError] = useState('');
-  const [selectedUser, setSelectedUser] = useState<UserWithSubscriptions | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserDetailModalType | null>(null);
   const [showUserDetail, setShowUserDetail] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [refreshMeetingTrigger, setRefreshMeetingTrigger] = useState(0);
   
   // Filter states - simplified
   const [filterState, setFilterState] = useState({
-    plan: 'all',
     dateRange: 'all',
     startDate: '',
     endDate: '',
@@ -140,7 +139,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     setUsersLoading(true);
     // Build query parameters based on current filters
     const queryParams = new URLSearchParams();
-    if (filterState.plan !== 'all') queryParams.set('planType', filterState.plan);
     if (filterState.status !== 'all') queryParams.set('status', filterState.status);
     if (filterState.paymentStatus !== 'all') queryParams.set('paymentStatus', filterState.paymentStatus);
     
@@ -415,7 +413,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       const queryParams = new URLSearchParams();
       if (!isFullExport) {
         // Apply current filters only if not full export
-        if (filterState.plan !== 'all') queryParams.set('planType', filterState.plan);
         if (filterState.status !== 'all') queryParams.set('status', filterState.status);
         if (filterState.paymentStatus !== 'all') queryParams.set('paymentStatus', filterState.paymentStatus);
         
@@ -529,7 +526,6 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       fetchUsers();
     }
   }, [
-    filterState.plan, 
     filterState.dateRange, 
     filterState.startDate, 
     filterState.endDate, 
@@ -544,6 +540,59 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     fetchUsers,
     activeTab
   ]);
+
+  // Handle user click to fetch detailed user data
+  const handleUserClick = async (userId: string) => {
+    try {
+      const adminPasscode = sessionStorage.getItem('adminPasscode');
+      if (!adminPasscode) {
+        setError('Admin authentication required');
+        return;
+      }
+
+      const response = await fetch(`/api/admin/user?id=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${adminPasscode}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user details');
+      }
+
+      const data = await response.json();
+      
+      // Convert the detailed user data to UserWithSubscriptions format
+      const userWithSubscriptions: UserDetailModalType = {
+        id: data.user.id,
+        firstName: data.user.firstName,
+        lastName: data.user.lastName,
+        name: `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim(),
+        email: data.user.email,
+        phone: data.user.phone,
+        source: data.user.source,
+        createdAt: data.user.createdAt,
+        role: data.user.role,
+        subscriptions: data.user.subscriptions.map((sub: any) => ({
+          id: sub.id,
+          planType: sub.planType,
+          startDate: sub.startDate,
+          endDate: sub.endDate,
+          status: sub.status,
+          paymentStatus: sub.paymentStatus,
+          duration: sub.duration,
+          price: sub.price || 0,
+          orderId: sub.orderId
+        }))
+      };
+
+      setSelectedUser(userWithSubscriptions);
+      setShowUserDetail(true);
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      setError('Failed to fetch user details');
+    }
+  };
 
   // Add the actual dashboard UI here
   return (
@@ -683,7 +732,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             setSortOrder={setSortOrder}
             setPage={setPage}
             setPageSize={setPageSize}
-            handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
+            handleRowClick={handleUserClick}
             downloadCSV={downloadCSV}
             downloadFullDBExport={() => downloadCSV(true)}
             onCreateUser={() => setShowCreateUser(true)}
@@ -699,7 +748,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             loading={upcomingLoading}
             upcomingMeetings={upcomingMeetings}
             upcomingRegistrations={upcomingRegistrations}
-            handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
+            handleRowClick={handleUserClick}
             setActiveTab={(tab: string) => setActiveTab(tab as typeof activeTab)}
           />
         )}
@@ -714,7 +763,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             subscriptionUsers={subscriptionUsers}
             subscriptionsLoading={subscriptionsLoading}
             revenue={revenue}
-            handleRowClick={userId => { const user = users.find(u => u.id === userId); setSelectedUser(user ? user as UserWithSubscriptions : null); setShowUserDetail(true); }}
+            handleRowClick={handleUserClick}
           />
         )}
         
