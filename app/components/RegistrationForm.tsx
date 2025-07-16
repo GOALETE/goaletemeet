@@ -172,6 +172,12 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
   // Check for existing subscription conflicts - debounced implementation
   const checkSubscriptionConflict = useCallback(async () => {
     if (!email || !email.includes('@') || !startDate) return;
+    
+    // For family plans, also check if second email is provided
+    if (plan === "monthlyFamily" && (!secondEmail || !secondEmail.includes('@'))) {
+      return; // Don't check until both emails are provided
+    }
+    
     setIsCheckingSubscription(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -180,23 +186,28 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
       const start = new Date(startDate);
       const end = new Date(startDate);
       end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
+      
+      // Prepare emails array - for family plans, check both emails
+      const emailsToCheck = plan === "monthlyFamily" ? [email, secondEmail] : [email];
+      
       const response = await fetch("/api/check-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          emails: emailsToCheck, // Changed from single email to array
           planType: plan,
           startDate: start.toISOString(),
           endDate: end.toISOString()
         }),
       });
+      
       const data = await response.json();
       if (!data.canSubscribe) {
         setErrorMessage(data.message);
         setSuccessMessage(null);
       } else {
-        // Set success message when user can subscribe
-        const planText = plan === 'daily' ? 'daily session' : 'monthly plan';
+        // Set success message when user(s) can subscribe
+        const planText = plan === 'daily' ? 'daily session' : plan === 'monthlyFamily' ? 'family monthly plan' : 'monthly plan';
         let dateText = '';
         if (plan === 'daily') {
           dateText = `on ${formatDateDDMMYYYY(startDate)}`;
@@ -206,7 +217,9 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
           endDateObj.setDate(endDateObj.getDate() + PLAN_PRICING[plan].duration - 1);
           dateText = `from ${formatDateDDMMYYYY(startDate)} to ${formatDateDDMMYYYY(endDateObj.toISOString().split('T')[0])}`;
         }
-        setSuccessMessage(`You can subscribe to the ${planText} ${dateText} (IST)!`);
+        
+        const userText = plan === "monthlyFamily" ? "Both users" : "You";
+        setSuccessMessage(`${userText} can subscribe to the ${planText} ${dateText} (IST)!`);
         setErrorMessage(null);
       }
     } catch (error) {
@@ -215,19 +228,24 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
     } finally {
       setIsCheckingSubscription(false);
     }
-  }, [email, plan, startDate]); // Dependencies
+  }, [email, secondEmail, plan, startDate]); // Added secondEmail to dependencies
   
   // Check for subscription conflicts when user changes plan or date
   useEffect(() => {
-    // Only check if email is entered
+    // Only check if primary email is entered
     if (email && email.includes('@')) {
+      // For family plans, also wait for second email
+      if (plan === "monthlyFamily" && (!secondEmail || !secondEmail.includes('@'))) {
+        return; // Don't check until both emails are provided
+      }
+      
       // Use a timer to avoid too many API calls during rapid changes
       const timer = setTimeout(() => {
         checkSubscriptionConflict();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [email, plan, startDate, checkSubscriptionConflict]);
+  }, [email, secondEmail, plan, startDate, checkSubscriptionConflict]); // Added secondEmail to dependencies
   
   // Update duration when plan changes
   const handlePlanChange = (newPlan: "daily" | "monthly" | "monthlyFamily") => {
@@ -307,11 +325,14 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
       const end = new Date(startDate);
       end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
       
+      // Prepare emails array for checking
+      const emailsToCheck = plan === "monthlyFamily" ? [email, secondEmail] : [email];
+      
       const checkResponse = await fetch("/api/check-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          emails: emailsToCheck, // Changed from single email to array
           planType: plan,
           startDate: start.toISOString(),
           endDate: end.toISOString()
@@ -1145,8 +1166,15 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                     placeholder="email@example.com"
                     value={secondEmail}
                     onChange={(e) => {
-                      setSecondEmail(e.target.value);
-                      setFieldErrors({...fieldErrors, secondEmail: ''});
+                      handleInputChange(setSecondEmail, 'secondEmail', e.target.value);
+                      setErrorMessage(null);
+                      setSuccessMessage(null);
+                    }}
+                    onBlur={() => {
+                      validateField('secondEmail', secondEmail, validationRules.secondEmail, email);
+                      if (secondEmail && secondEmail.includes('@') && !fieldErrors.secondEmail && email && email.includes('@')) {
+                        checkSubscriptionConflict();
+                      }
                     }}
                     className={`w-full p-3 border ${fieldErrors.secondEmail ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
                     required
