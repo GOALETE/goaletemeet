@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // Send invitation email for admin-created subscriptions
+      // Send invitation email for admin-added subscriptions
       try {
         // Find meeting for the start date if it exists
         const meeting = await prisma.meeting.findFirst({

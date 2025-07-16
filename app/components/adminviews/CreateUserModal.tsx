@@ -25,7 +25,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     lastName: '',
     email: '',
     phone: '',
-    source: 'admin-created',
+    source: 'admin-added',
     reference: ''
   });
   
@@ -114,7 +114,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         lastName: '',
         email: '',
         phone: '',
-        source: 'admin-created',
+        source: 'admin-added',
         reference: ''
       });
       
@@ -137,7 +137,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       lastName: '',
       email: '',
       phone: '',
-      source: 'admin-created',
+      source: 'admin-added',
       reference: ''
     });
     onClose();
@@ -256,7 +256,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
               onChange={handleInputChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             >
-              <option value="admin-created">Admin Created</option>
+              <option value="admin-added">Admin Added</option>
               <option value="direct-contact">Direct Contact</option>
               <option value="referral">Referral</option>
               <option value="social-media">Social Media</option>

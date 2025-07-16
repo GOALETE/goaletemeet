@@ -458,7 +458,7 @@ export async function getTodayActiveSubscriptions() {
 /**
  /**
  * Gets or creates a meeting link for today
- * Enhanced version that prioritizes admin-created meetings
+ * Enhanced version that prioritizes admin-added meetings
  * @returns The meeting object for today
  */
 export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | null> {

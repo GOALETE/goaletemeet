@@ -30,37 +30,57 @@ export async function GET(req: NextRequest) {
     endDate.setHours(23, 59, 59, 999);
     startDate.setHours(0, 0, 0, 0);
     
-    // Base where clause for subscriptions
+    // Base where clause for subscriptions - include admin subscriptions regardless of date
     const dateWhereClause = {
       OR: [
-        // Subscriptions that start within the date range
-        {
-          startDate: {
-            gte: startDate,
-            lte: endDate
-          }
-        },
-        // Subscriptions that end within the date range
-        {
-          endDate: {
-            gte: startDate,
-            lte: endDate
-          }
-        },
-        // Subscriptions that span the date range
+        // Regular subscriptions within date range
         {
           AND: [
             {
-              startDate: {
-                lte: startDate
+              paymentStatus: {
+                notIn: ['admin-added', 'admin-created'] // Exclude admin subscriptions from date filtering
               }
             },
             {
-              endDate: {
-                gte: endDate
-              }
+              OR: [
+                // Subscriptions that start within the date range
+                {
+                  startDate: {
+                    gte: startDate,
+                    lte: endDate
+                  }
+                },
+                // Subscriptions that end within the date range
+                {
+                  endDate: {
+                    gte: startDate,
+                    lte: endDate
+                  }
+                },
+                // Subscriptions that span the date range
+                {
+                  AND: [
+                    {
+                      startDate: {
+                        lte: startDate
+                      }
+                    },
+                    {
+                      endDate: {
+                        gte: endDate
+                      }
+                    }
+                  ]
+                }
+              ]
             }
           ]
+        },
+        // Always include admin subscriptions regardless of date
+        {
+          paymentStatus: {
+            in: ['admin-added', 'admin-created']
+          }
         }
       ]
     };
@@ -74,7 +94,7 @@ export async function GET(req: NextRequest) {
           dateWhereClause,
           {
             paymentStatus: {
-              in: ['completed', 'paid', 'success']
+              in: ['completed', 'paid', 'success', 'admin-added', 'admin-created']
             }
           }
         ]
@@ -133,13 +153,14 @@ export async function GET(req: NextRequest) {
     
     const revenue = subscriptions
       .filter(sub => {
-        const isValidPayment = sub.paymentStatus === 'completed' || 
-                              sub.paymentStatus === 'paid' || 
-                              sub.paymentStatus === 'success' ||
-                              sub.paymentStatus === 'complete' ||
-                              sub.paymentStatus === 'successful' ||
-                              !sub.paymentStatus || // Include null/undefined payment status
-                              sub.paymentStatus === ''; // Include empty payment status
+        // More inclusive payment status logic - exclude only explicitly failed/cancelled/pending statuses
+        // Include both admin-added and admin-created subscriptions in revenue calculation
+        const isInvalidPayment = sub.paymentStatus === 'failed' || 
+                                sub.paymentStatus === 'cancelled' || 
+                                sub.paymentStatus === 'canceled' ||
+                                sub.paymentStatus === 'pending' ||
+                                sub.paymentStatus === 'initiated';
+        const isValidPayment = !isInvalidPayment;
         console.log(`Subscription ${sub.id}: paymentStatus='${sub.paymentStatus}', price=${(sub as any).price}, isValidPayment=${isValidPayment}`);
         return isValidPayment;
       })
@@ -151,8 +172,8 @@ export async function GET(req: NextRequest) {
     console.log('Payment statuses found:', [...new Set(subscriptions.map(s => s.paymentStatus))]);
     console.log('Prices found:', subscriptions.map(s => (s as any).price));
     
-    // Use all revenue if filtered revenue is 0
-    const finalRevenue = revenue > 0 ? revenue : allRevenue;
+    // Use the revenue from valid payments
+    const finalRevenue = revenue;
     console.log('Final revenue used:', finalRevenue);
     
     // Plan type breakdown
@@ -223,14 +244,13 @@ export async function GET(req: NextRequest) {
         subscriptionsByPlan['unlimited']++;
       }
       
-      // Revenue by plan (use inclusive payment status logic)
-      const isValidPayment = sub.paymentStatus === 'completed' || 
-                            sub.paymentStatus === 'paid' || 
-                            sub.paymentStatus === 'success' ||
-                            sub.paymentStatus === 'complete' ||
-                            sub.paymentStatus === 'successful' ||
-                            !sub.paymentStatus || 
-                            sub.paymentStatus === '';
+      // Revenue by plan (use inclusive payment status logic - include both admin statuses)
+      const isInvalidPayment = sub.paymentStatus === 'failed' || 
+                              sub.paymentStatus === 'cancelled' || 
+                              sub.paymentStatus === 'canceled' ||
+                              sub.paymentStatus === 'pending' ||
+                              sub.paymentStatus === 'initiated';
+      const isValidPayment = !isInvalidPayment;
       
       if (isValidPayment) {
         if (planType === 'daily' || planType === 'daily') {
@@ -259,13 +279,13 @@ export async function GET(req: NextRequest) {
     const revenueByDay = allDays.map(day => {
       const dayRevenue = subscriptions
         .filter(sub => {
-          const isValidPayment = sub.paymentStatus === 'completed' || 
-                                sub.paymentStatus === 'paid' || 
-                                sub.paymentStatus === 'success' ||
-                                sub.paymentStatus === 'complete' ||
-                                sub.paymentStatus === 'successful' ||
-                                !sub.paymentStatus || 
-                                sub.paymentStatus === '';
+          // Include both admin-added and admin-created subscriptions in daily revenue calculation
+          const isInvalidPayment = sub.paymentStatus === 'failed' || 
+                                  sub.paymentStatus === 'cancelled' || 
+                                  sub.paymentStatus === 'canceled' ||
+                                  sub.paymentStatus === 'pending' ||
+                                  sub.paymentStatus === 'initiated';
+          const isValidPayment = !isInvalidPayment;
           return isSameDay(sub.startDate, parseISO(day)) && isValidPayment;
         })
         .reduce((sum, sub) => sum + ((sub as any).price || 0), 0);

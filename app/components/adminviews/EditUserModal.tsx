@@ -47,7 +47,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         throw new Error('Admin authentication required');
       }
 
-      // Prepare the request body, excluding source if it's admin-created
+      // Prepare the request body, excluding source if it's admin-added
       const requestBody: any = {
         userId: user.id,
         firstName: formData.firstName,
@@ -56,8 +56,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         phone: formData.phone,
       };
 
-      // Only include source if it's not admin-created
-      if (formData.source !== 'admin-created') {
+      // Only include source if it's not admin-added
+      if (formData.source !== 'admin-added') {
         requestBody.source = formData.source;
       }
 
@@ -82,14 +82,14 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
       if (data.user) {
         onUserUpdated(data.user);
       } else {
-        // Fallback update - preserve original source if it was admin-created
+        // Fallback update - preserve original source if it was admin-added
         onUserUpdated({
           ...user,
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
           phone: formData.phone,
-          source: formData.source === 'admin-created' ? user.source : formData.source,
+          source: formData.source === 'admin-added' ? user.source : formData.source,
         });
       }
 
@@ -229,7 +229,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
             {/* Source Field */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Source</label>
-              {formData.source === 'admin-created' ? (
+              {formData.source === 'admin-added' ? (
                 <div className="relative">
                   <input
                     type="text"
@@ -244,7 +244,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
                     </svg>
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
-                    This field cannot be edited for admin-created users.
+                    This field cannot be edited for admin-added users.
                   </p>
                 </div>
               ) : (

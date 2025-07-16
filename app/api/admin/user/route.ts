@@ -115,12 +115,12 @@ export async function PATCH(request: NextRequest) {
           userId: userId,
           planType: 'UNLIMITED',
           status: 'active',
-          paymentStatus: 'admin-created',
+          paymentStatus: 'admin-added',
           startDate,
           endDate,
           duration: 36500, // ~100 years in days
           price: 0,
-          orderId: `admin-created-${Date.now()}`
+          orderId: `admin-added-${Date.now()}`
         }
       });
     }
