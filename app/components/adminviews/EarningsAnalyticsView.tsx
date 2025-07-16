@@ -66,6 +66,9 @@ export default function EarningsAnalyticsView() {
       
       const data = await response.json();
       console.log('Analytics API Response:', data); // Debug logging
+      console.log('Revenue by Day:', data.revenueByDay); // Debug chart data
+      console.log('Subscriptions by Day:', data.subscriptionsByDay); // Debug chart data
+      console.log('Date Range:', { startDate, endDate, dateRange }); // Debug date range
       setAnalyticsData(data);
       setLoading(false);
     } catch (error) {
@@ -340,9 +343,17 @@ export default function EarningsAnalyticsView() {
               <div className="h-80 mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 overflow-hidden">
                 <div className="h-full flex items-end justify-between space-x-1 pb-8 relative">
                   {analyticsData.revenueByDay && analyticsData.revenueByDay.length > 0 ? (
-                    analyticsData.revenueByDay.slice(-14).map((item, index) => {
+                    analyticsData.revenueByDay.map((item, index) => {
+                      // Use all data, not just last 14 days for debugging
                       const maxRevenue = Math.max(...analyticsData.revenueByDay.map(d => d.revenue));
                       const height = maxRevenue > 0 ? (item.revenue / maxRevenue) * 85 : 2; // Use 85% max height to leave space for labels
+                      
+                      // Debug logging for each bar
+                      if (index === 0) {
+                        console.log('Revenue Chart - Max Revenue:', maxRevenue);
+                        console.log('Revenue Chart - All data:', analyticsData.revenueByDay);
+                        console.log('Revenue Chart - Non-zero days:', analyticsData.revenueByDay.filter(d => d.revenue > 0));
+                      }
                       
                       return (
                         <div key={index} className="flex flex-col items-center group relative" style={{ minWidth: '20px', maxWidth: '60px', flex: '1' }}>
@@ -384,9 +395,17 @@ export default function EarningsAnalyticsView() {
               <div className="h-80 mt-6 bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6 overflow-hidden">
                 <div className="h-full flex items-end justify-between space-x-1 pb-8 relative">
                   {analyticsData.subscriptionsByDay && analyticsData.subscriptionsByDay.length > 0 ? (
-                    analyticsData.subscriptionsByDay.slice(-14).map((item, index) => {
+                    analyticsData.subscriptionsByDay.map((item, index) => {
+                      // Use all data, not just last 14 days for debugging
                       const maxCount = Math.max(...analyticsData.subscriptionsByDay.map(d => d.count));
                       const height = maxCount > 0 ? (item.count / maxCount) * 85 : 2; // Use 85% max height to leave space for labels
+                      
+                      // Debug logging for each bar
+                      if (index === 0) {
+                        console.log('Subscriptions Chart - Max Count:', maxCount);
+                        console.log('Subscriptions Chart - All data:', analyticsData.subscriptionsByDay);
+                        console.log('Subscriptions Chart - Non-zero days:', analyticsData.subscriptionsByDay.filter(d => d.count > 0));
+                      }
                       
                       return (
                         <div key={index} className="flex flex-col items-center group relative" style={{ minWidth: '20px', maxWidth: '60px', flex: '1' }}>
@@ -434,7 +453,12 @@ export default function EarningsAnalyticsView() {
                                            plan === 'monthly' ? 'Monthly' :
                                            plan === 'unlimited' ? 'Unlimited' :
                                            plan.charAt(0).toUpperCase() + plan.slice(1);
-                    const percentage = analyticsData.totalSubscriptions > 0 ? (count / analyticsData.totalSubscriptions) * 100 : 0;
+                    
+                    // Calculate percentage based on total of all plan counts (not totalSubscriptions)
+                    // This accounts for family-monthly being split into 2 monthly entries
+                    const totalPlanSubscriptions = Object.values(analyticsData.subscriptionsByPlan).reduce((sum, c) => sum + c, 0);
+                    const percentage = totalPlanSubscriptions > 0 ? (count / totalPlanSubscriptions) * 100 : 0;
+                    
                     return (
                       <div key={plan} className="group">
                         <div className="flex justify-between mb-2">
@@ -477,7 +501,10 @@ export default function EarningsAnalyticsView() {
                                            plan === 'monthly' ? 'Monthly' :
                                            plan === 'unlimited' ? 'Unlimited' :
                                            plan.charAt(0).toUpperCase() + plan.slice(1);
+                    
+                    // Calculate percentage based on total revenue (this should be correct already)
                     const percentage = analyticsData.totalRevenue > 0 ? (revenue / analyticsData.totalRevenue) * 100 : 0;
+                    
                     return (
                       <div key={plan} className="group">
                         <div className="flex justify-between mb-2">

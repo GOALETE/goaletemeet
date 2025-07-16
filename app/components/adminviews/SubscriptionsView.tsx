@@ -19,7 +19,7 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
   revenue,
   handleRowClick
 }) => {
-  const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'upcoming'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'upcoming' | 'cancelled'>('all');
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
@@ -33,15 +33,36 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
     const startDate = new Date(subscription.startDate);
     const endDate = new Date(subscription.endDate);
     
-    // Status filter - only using 'expired', not 'finished'
+    // Status filter - handle cancelled status properly
     if (filter !== 'all') {
-      if (filter === 'active' && !(startDate <= today && endDate >= today)) {
+      // First determine the actual status (respecting cancelled from DB)
+      const today = new Date();
+      const startDate = new Date(subscription.startDate);
+      const endDate = new Date(subscription.endDate);
+      let actualStatus = subscription.status;
+      
+      // Only calculate status if it's not explicitly set to cancelled/canceled
+      if (!actualStatus || (actualStatus !== 'cancelled' && actualStatus !== 'canceled')) {
+        if (startDate <= today && endDate >= today) {
+          actualStatus = 'active';
+        } else if (endDate < today) {
+          actualStatus = 'expired';
+        } else if (startDate > today) {
+          actualStatus = 'upcoming';
+        }
+      }
+      
+      // Apply the filter based on actual status
+      if (filter === 'active' && actualStatus !== 'active') {
         return false;
       }
-      if (filter === 'expired' && !(endDate < today)) {
+      if (filter === 'expired' && actualStatus !== 'expired') {
         return false;
       }
-      if (filter === 'upcoming' && !(startDate > today)) {
+      if (filter === 'upcoming' && actualStatus !== 'upcoming') {
+        return false;
+      }
+      if (filter === 'cancelled' && !(actualStatus === 'cancelled' || actualStatus === 'canceled')) {
         return false;
       }
     }
@@ -81,27 +102,51 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
     return true;
   });
 
-  // Calculate active subscriptions
+  // Calculate active subscriptions (respecting cancelled status)
   const activeSubscriptions = filteredSubscriptions.filter(subscription => {
     if (!subscription) return false;
     const today = new Date();
     const startDate = new Date(subscription.startDate);
     const endDate = new Date(subscription.endDate);
+    
+    // If subscription is cancelled, it's not active
+    if (subscription.status === 'cancelled' || subscription.status === 'canceled') {
+      return false;
+    }
+    
     return startDate <= today && endDate >= today;
   });
 
-  // Calculate upcoming subscriptions
+  // Calculate upcoming subscriptions (respecting cancelled status)
   const upcomingSubscriptions = filteredSubscriptions.filter(subscription => {
     if (!subscription) return false;
+    
+    // If subscription is cancelled, it's not upcoming
+    if (subscription.status === 'cancelled' || subscription.status === 'canceled') {
+      return false;
+    }
+    
     return new Date(subscription.startDate) > new Date();
   });
 
-  // Calculate expired subscriptions
+  // Calculate expired subscriptions (respecting cancelled status)
   const expiredSubscriptions = filteredSubscriptions.filter(subscription => {
     if (!subscription) return false;
     const today = new Date();
     const endDate = new Date(subscription.endDate);
+    
+    // If subscription is cancelled, it's not just expired
+    if (subscription.status === 'cancelled' || subscription.status === 'canceled') {
+      return false;
+    }
+    
     return endDate < today;
+  });
+
+  // Calculate cancelled subscriptions
+  const cancelledSubscriptions = filteredSubscriptions.filter(subscription => {
+    if (!subscription) return false;
+    return subscription.status === 'cancelled' || subscription.status === 'canceled';
   });
 
   return (
@@ -188,13 +233,14 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
               <option value="active">Active</option>
               <option value="expired">Expired</option>
               <option value="upcoming">Upcoming</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
         </div>
       </div>
       
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
         <div className="bg-gradient-to-br from-blue-50 to-indigo-100 backdrop-blur-sm rounded-2xl shadow-xl border border-blue-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
@@ -257,6 +303,20 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
             <div className="p-3 bg-gradient-to-r from-red-500 to-pink-600 rounded-xl">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-br from-gray-50 to-slate-100 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 transform hover:scale-[1.02] transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-gray-800 mb-1">Cancelled</h3>
+              <p className="text-3xl font-bold bg-gradient-to-r from-gray-600 to-slate-800 bg-clip-text text-transparent">{cancelledSubscriptions.length}</p>
+            </div>
+            <div className="p-3 bg-gradient-to-r from-gray-500 to-slate-600 rounded-xl">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
           </div>
@@ -358,12 +418,15 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
                       const endDate = new Date(subscription.endDate);
                       let status = subscription.status;
                       
-                      if (startDate <= today && endDate >= today) {
-                        status = 'active';
-                      } else if (endDate < today) {
-                        status = 'expired';
-                      } else if (startDate > today) {
-                        status = 'upcoming';
+                      // Only calculate status if it's not explicitly set to cancelled/canceled
+                      if (!status || (status !== 'cancelled' && status !== 'canceled')) {
+                        if (startDate <= today && endDate >= today) {
+                          status = 'active';
+                        } else if (endDate < today) {
+                          status = 'expired';
+                        } else if (startDate > today) {
+                          status = 'upcoming';
+                        }
                       }
                       
                       return (
@@ -413,13 +476,16 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
                               ${status === 'active' ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 border border-emerald-200' : 
                                 status === 'upcoming' ? 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border border-blue-200' : 
                                   status === 'expired' ? 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200' : 
-                                    'bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 border border-amber-200'}`}>
+                                    (status === 'cancelled' || status === 'canceled') ? 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-300' :
+                                      'bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 border border-amber-200'}`}>
                               <div className={`w-2 h-2 rounded-full mr-2 
                                 ${status === 'active' ? 'bg-emerald-500' : 
                                   status === 'upcoming' ? 'bg-blue-500' : 
-                                    status === 'expired' ? 'bg-red-500' : 'bg-amber-500'}`}>
+                                    status === 'expired' ? 'bg-red-500' : 
+                                      (status === 'cancelled' || status === 'canceled') ? 'bg-gray-500' :
+                                        'bg-amber-500'}`}>
                               </div>
-                              {status}
+                              {status === 'cancelled' || status === 'canceled' ? 'cancelled' : status}
                             </span>
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap">

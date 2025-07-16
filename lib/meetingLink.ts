@@ -812,14 +812,21 @@ async function syncCalendarEvent(date: string): Promise<MeetingWithUsers | null>
       timeMax,
       singleEvents: true,
       orderBy: 'startTime',
-      maxResults: 10 // Limit results for efficiency
+      maxResults: 50, // Increased to catch more events
+      q: 'goalete' // Search for "goalete" case-insensitive
     });
     
     const events = response.data.items || [];
-    console.log(`Found ${events.length} calendar events for ${date}`);
+    console.log(`Found ${events.length} calendar events containing "goalete" for ${date}`);
     
-    // Look for events with Google Meet conference data (regardless of title)
+    // Look for events with Google Meet conference data and "goalete" in title/description
     for (const event of events) {
+      // Check if event contains "goalete" (case insensitive)
+      const eventText = `${event.summary || ''} ${event.description || ''}`.toLowerCase();
+      if (!eventText.includes('goalete')) {
+        continue;
+      }
+      
       if (event.conferenceData && event.conferenceData.entryPoints) {
         const videoEntryPoint = event.conferenceData.entryPoints.find(
           (entry: any) => entry.entryPointType === 'video'
