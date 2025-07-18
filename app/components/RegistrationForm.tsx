@@ -11,7 +11,8 @@ declare global {
   }
 }
 
-export default function RegistrationForm() {  // Add custom styles for 3D card flip
+export default function RegistrationForm() {
+  // Add custom styles for 3D card flip
   useEffect(() => {
     // Add the custom CSS needed for card flipping
     const style = document.createElement('style');

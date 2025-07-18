@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format, addDays, differenceInDays } from 'date-fns';
+import { useRefresh } from '../../hooks/useRefresh';
 
 // Helper function to check if a date is today
 const isToday = (dateString: string): boolean => {
@@ -57,6 +58,9 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
   const [price, setPrice] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Use refresh system
+  const { triggerRefresh } = useRefresh();
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -194,6 +198,12 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
 
       const data = await response.json();
       showToast(data.message, 'success');
+      
+      // Trigger refresh for users, subscriptions, and meetings
+      triggerRefresh('users');
+      triggerRefresh('subscriptions');
+      triggerRefresh('meetings');
+      triggerRefresh('analytics');
       
       // Call callback to refresh data
       if (onUserAdded) {

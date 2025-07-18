@@ -1,3 +1,5 @@
+import { RefreshProvider } from '../hooks/useRefresh';
+
 export const metadata = {
   title: 'Admin Dashboard | Goalete Meet',
   description: 'Admin dashboard for Goalete Meet application',
@@ -9,8 +11,10 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <section>
-      {children}
-    </section>
+    <RefreshProvider>
+      <section>
+        {children}
+      </section>
+    </RefreshProvider>
   );
 }

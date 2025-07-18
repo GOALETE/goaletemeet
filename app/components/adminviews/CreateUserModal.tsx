@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRefresh } from '../../hooks/useRefresh';
 
 type NewUser = {
   firstName: string;
@@ -31,6 +32,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Use refresh system
+  const { triggerRefresh } = useRefresh();
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -107,6 +111,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       if (onUserCreated) {
         onUserCreated(data);
       }
+      
+      // Trigger refresh for users
+      triggerRefresh('users');
       
       // Reset form
       setFormData({

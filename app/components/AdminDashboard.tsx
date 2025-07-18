@@ -10,6 +10,7 @@ import SubscriptionsView from './adminviews/SubscriptionsView';
 import UpcomingRegistrationsView from './adminviews/UpcomingRegistrationsView';
 import TodayMeetingCard from './adminviews/TodayMeetingCard';
 import EarningsAnalyticsView from './adminviews/EarningsAnalyticsView';
+import { useRefresh, useRefreshListener } from '../hooks/useRefresh';
 
 type UserData = {
   id: string;
@@ -79,6 +80,9 @@ function useToast() {
 export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<'users' | 'calendar' | 'upcoming' | 'subscriptions' | 'analytics'>('users');
   const [subscriptionView, setSubscriptionView] = useState<'all' | 'thisWeek' | 'upcoming'>('all');
+  
+  // Use the refresh system
+  const { triggerRefresh, refreshTriggers, isRefreshing } = useRefresh();
   
   // Tab-specific data states
   const [users, setUsers] = useState<UserData[]>([]);
@@ -211,12 +215,45 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       }
       
       setUsersLoading(false);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching users data:', error);
       setError('Error fetching users data');
       setUsersLoading(false);
     }
   }, [filterState, sortBy, sortOrder, page, pageSize]);
+
+  // Global loading state for data refresh
+  const [globalRefreshLoading, setGlobalRefreshLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  // Global data refresh function
+  const refreshAllData = useCallback(async () => {
+    setGlobalRefreshLoading(true);
+    try {
+      // Refresh data based on the active tab
+      switch (activeTab) {
+        case 'users':
+          await fetchUsers();
+          break;
+        case 'calendar':
+          await fetchCalendarData();
+          break;
+        case 'upcoming':
+          await fetchUpcomingData();
+          break;
+        case 'subscriptions':
+          await fetchNewSubscriptionData(subscriptionView);
+          break;
+        case 'analytics':
+          await fetchAnalytics();
+          break;
+      }
+      setLastUpdated(new Date());
+    } finally {
+      setGlobalRefreshLoading(false);
+    }
+  }, [activeTab, fetchUsers, subscriptionView]);
 
   // Tab-specific fetch functions
   const fetchAnalytics = useCallback(async () => {
@@ -479,6 +516,37 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     }
   };
 
+  // Add refresh listeners for each tab (placed after all functions are declared)
+  useRefreshListener(['users', 'all'], useCallback(() => {
+    if (activeTab === 'users') {
+      fetchUsers();
+    }
+  }, [activeTab, fetchUsers]));
+
+  useRefreshListener(['meetings', 'calendar', 'all'], useCallback(() => {
+    if (activeTab === 'calendar') {
+      fetchCalendarData();
+    }
+  }, [activeTab, fetchCalendarData]));
+
+  useRefreshListener(['subscriptions', 'all'], useCallback(() => {
+    if (activeTab === 'subscriptions') {
+      fetchNewSubscriptionData(subscriptionView);
+    }
+  }, [activeTab, subscriptionView, fetchNewSubscriptionData]));
+
+  useRefreshListener(['analytics', 'all'], useCallback(() => {
+    if (activeTab === 'analytics') {
+      fetchAnalytics();
+    }
+  }, [activeTab, fetchAnalytics]));
+
+  useRefreshListener(['all'], useCallback(() => {
+    if (activeTab === 'upcoming') {
+      fetchUpcomingData();
+    }
+  }, [activeTab, fetchUpcomingData]));
+
   useEffect(() => {
     // Check if admin is authenticated before making any API calls
     const checkAuthAndFetch = async () => {
@@ -546,6 +614,45 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     activeTab,
     fetchUsers
   ]);
+
+  // Handle tab change with refresh mechanism
+  const handleTabChange = (newTab: typeof activeTab) => {
+    setActiveTab(newTab);
+  };
+
+  // Auto-refresh timer for active tab (every 5 minutes)
+  useEffect(() => {
+    const autoRefreshInterval = setInterval(() => {
+      // Only auto-refresh if user is active (has interacted recently)
+      const lastActivity = sessionStorage.getItem('lastAdminActivity');
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+      
+      if (lastActivity && (now - parseInt(lastActivity)) < fiveMinutes) {
+        refreshAllData();
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    // Track user activity
+    const updateActivity = () => {
+      sessionStorage.setItem('lastAdminActivity', Date.now().toString());
+    };
+
+    // Listen for user interactions
+    document.addEventListener('mousedown', updateActivity);
+    document.addEventListener('keydown', updateActivity);
+    document.addEventListener('scroll', updateActivity);
+
+    // Set initial activity
+    updateActivity();
+
+    return () => {
+      clearInterval(autoRefreshInterval);
+      document.removeEventListener('mousedown', updateActivity);
+      document.removeEventListener('keydown', updateActivity);
+      document.removeEventListener('scroll', updateActivity);
+    };
+  }, [refreshAllData]);
 
   // Handle user click to fetch detailed user data
   const handleUserClick = async (userId: string) => {
@@ -639,6 +746,28 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             </h1>
             <p className="text-gray-600 mt-1">Manage users, meetings, and analytics with ease</p>
           </div>
+          <div className="ml-auto flex items-center space-x-4">
+            {lastUpdated && (
+              <div className="text-sm text-gray-500">
+                Last updated: {format(lastUpdated, 'HH:mm:ss')}
+              </div>
+            )}
+            <button
+              onClick={() => refreshAllData()}
+              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              disabled={globalRefreshLoading || usersLoading || calendarLoading || upcomingLoading || subscriptionsLoading || analyticsLoading}
+            >
+              <svg 
+                className={`w-4 h-4 ${globalRefreshLoading ? 'animate-spin' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>{globalRefreshLoading ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+          </div>
         </div>
       </div>
       
@@ -653,7 +782,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
                   ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' 
                   : 'text-gray-700 hover:bg-gray-100/70'
               }`} 
-              onClick={() => setActiveTab('users')}
+              onClick={() => handleTabChange('users')}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -666,7 +795,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
                   ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' 
                   : 'text-gray-700 hover:bg-gray-100/70'
               }`} 
-              onClick={() => setActiveTab('calendar')}
+              onClick={() => handleTabChange('calendar')}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h2a2 2 0 002-2z" />
@@ -679,7 +808,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
                   ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' 
                   : 'text-gray-700 hover:bg-gray-100/70'
               }`} 
-              onClick={() => setActiveTab('upcoming')}
+              onClick={() => handleTabChange('upcoming')}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -692,7 +821,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
                   ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' 
                   : 'text-gray-700 hover:bg-gray-100/70'
               }`} 
-              onClick={() => setActiveTab('subscriptions')}
+              onClick={() => handleTabChange('subscriptions')}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -705,7 +834,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
                   ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' 
                   : 'text-gray-700 hover:bg-gray-100/70'
               }`} 
-              onClick={() => setActiveTab('analytics')}
+              onClick={() => handleTabChange('analytics')}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -754,7 +883,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
             upcomingMeetings={upcomingMeetings}
             upcomingRegistrations={upcomingRegistrations}
             handleRowClick={handleUserClick}
-            setActiveTab={(tab: string) => setActiveTab(tab as typeof activeTab)}
+            setActiveTab={(tab: string) => handleTabChange(tab as typeof activeTab)}
           />
         )}
         
@@ -792,7 +921,15 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
           handleModalSort={() => {}}
           onNavigateToCalendar={() => {
             setShowUserDetail(false);
-            setActiveTab('calendar');
+            handleTabChange('calendar');
+          }}
+          onUserUpdated={(updatedUser) => {
+            // Update the selected user state
+            setSelectedUser(updatedUser);
+            // Trigger refresh for relevant data types
+            triggerRefresh('users');
+            triggerRefresh('subscriptions');
+            showToast('User updated successfully!', 'success');
           }}
         />
       )}
@@ -802,9 +939,31 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         show={showCreateUser}
         onClose={() => setShowCreateUser(false)}
         onUserCreated={(newUser) => {
-          // Refresh the users list
-          fetchUsers();
+          // Optimistically add the new user to the list
+          const userWithDefaults = {
+            ...newUser,
+            plan: undefined,
+            start: undefined,
+            end: undefined,
+            status: undefined,
+            price: undefined,
+            paymentStatus: undefined,
+            role: 'user'
+          };
+          
+          setUsers(prevUsers => [userWithDefaults, ...prevUsers]);
+          setFilteredUsers(prevFiltered => [userWithDefaults, ...prevFiltered]);
+          setTotal(prevTotal => prevTotal + 1);
+          setUserStats(prevStats => ({
+            ...prevStats,
+            total: prevStats.total + 1
+          }));
+          
+          // Trigger refresh to get accurate data
+          triggerRefresh('users');
+          
           setShowCreateUser(false);
+          showToast('User created successfully!', 'success');
         }}
       />
     </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays } from 'date-fns';
 import TodayMeetingCard from './TodayMeetingCard';
+import { useRefresh } from '../../hooks/useRefresh';
 
 // Helper function to display UTC time stored in DB as IST
 const displayUTCAsIST = (utcTimeString: string): Date => {
@@ -49,6 +50,9 @@ export default function AdminCalendar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  
+  // Use refresh system
+  const { triggerRefresh } = useRefresh();
   
   // Calendar sync state
   const [syncStep, setSyncStep] = useState(0); // 0: initial, 1: confirmation, 2: progress
@@ -187,6 +191,10 @@ export default function AdminCalendar() {
       
       // Refresh the calendar to show the new meetings
       fetchMeetings();
+      
+      // Trigger refresh for meetings and related data
+      triggerRefresh('meetings');
+      triggerRefresh('calendar');
     } catch (error) {
       console.error('Error creating meetings:', error);
       showToast('Failed to create meetings: ' + (error instanceof Error ? error.message : String(error)), 'error');
@@ -267,8 +275,14 @@ export default function AdminCalendar() {
       // Show toast notification instead of status message
       showToast(`Enhanced sync completed: ${data.created || 0} created, ${data.updated || 0} updated, ${data.deleted || 0} deleted. User attachments preserved.`, 'success');
       
-      // Refresh meetings after sync
+      // Refresh meetings after sync AND trigger other refreshes
       fetchMeetings();
+      
+      // Trigger refresh for all affected areas since meetings might affect users, analytics, etc.
+      triggerRefresh('meetings');
+      triggerRefresh('calendar');
+      triggerRefresh('users'); // Users might be affected by meeting changes
+      triggerRefresh('analytics'); // Analytics might be affected
       
       // Auto-reset after 5 seconds to allow time to see the cards
       setTimeout(() => {

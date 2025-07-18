@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRefresh } from '../../hooks/useRefresh';
 import { UserWithSubscriptions } from './UserDetailModal';
 
 interface EditUserModalProps {
@@ -17,6 +18,9 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  
+  // Use refresh system
+  const { triggerRefresh } = useRefresh();
   
   // Form state
   const [formData, setFormData] = useState({
@@ -93,6 +97,10 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         });
       }
 
+      // Trigger refresh for users and subscriptions
+      triggerRefresh('users');
+      triggerRefresh('subscriptions');
+
       // Close modal after a short delay
       setTimeout(() => {
         onClose();
@@ -134,11 +142,15 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
 
       setSuccessMessage('User deleted successfully');
       
+      // Trigger refresh for users and subscriptions
+      triggerRefresh('users');
+      triggerRefresh('subscriptions');
+      triggerRefresh('analytics');
+      
       // Close modal and refresh the list
       setTimeout(() => {
         onClose();
-        // Trigger a refresh of the user list by calling onUserUpdated with null
-        // The parent component should handle this to refresh the user list
+        // Force a page reload as a fallback for user deletion
         window.location.reload();
       }, 1500);
 

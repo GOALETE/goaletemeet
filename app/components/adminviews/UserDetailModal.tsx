@@ -2,6 +2,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import AddUserToMeetingModal from './AddUserToMeetingModal';
 import EditUserModal from './EditUserModal';
+import { useRefresh } from '../../hooks/useRefresh';
 
 export type Subscription = {
   id: string;
@@ -62,6 +63,9 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
   const [successMessage, setSuccessMessage] = React.useState('');
   const [showAddToMeeting, setShowAddToMeeting] = React.useState(false);
   const [showEditModal, setShowEditModal] = React.useState(false);
+
+  // Use refresh system
+  const { triggerRefresh } = useRefresh();
 
   if (!show || !user) return null;
 
@@ -124,6 +128,11 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
         const data = await response.json();
         setSuccessMessage(`Successfully ${action}d unlimited access`);
+        
+        // Trigger refresh for users, subscriptions, and analytics
+        triggerRefresh('users');
+        triggerRefresh('subscriptions');
+        triggerRefresh('analytics');
         
         // If a callback was provided, call it with the updated user from the response
         if (onUserUpdated && data.user) {
@@ -596,6 +605,11 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
         onClose={() => setShowAddToMeeting(false)}
         user={user}
         onUserAdded={() => {
+          // Trigger refresh for multiple data types since adding a user affects several areas
+          triggerRefresh('users');
+          triggerRefresh('subscriptions'); 
+          triggerRefresh('meetings');
+          
           // Refresh user data if needed
           if (onUserUpdated) {
             onUserUpdated(user);
@@ -617,6 +631,10 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
         onClose={() => setShowEditModal(false)}
         onUserUpdated={(updatedUser) => {
           setShowEditModal(false);
+          
+          // Trigger refresh for relevant data
+          triggerRefresh('users');
+          
           if (onUserUpdated) {
             onUserUpdated(updatedUser);
           }
