@@ -362,7 +362,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
     }
   }, []);
 
-  const fetchNewSubscriptionData = useCallback(async (viewType: 'all' | 'thisWeek' | 'upcoming' = subscriptionView) => {
+  const fetchNewSubscriptionData = useCallback(async (viewType: 'all' | 'thisWeek' | 'upcoming') => {
     setSubscriptionsLoading(true);
     try {
       const adminPasscode = sessionStorage.getItem('adminPasscode');
@@ -395,7 +395,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
       setError('Error fetching subscription data');
       setSubscriptionsLoading(false);
     }
-  }, [subscriptionView]);
+  }, []); // Removed subscriptionView dependency
 
   const fetchStatistics = async () => {
     try {
@@ -592,7 +592,7 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
         fetchAnalytics();
         break;
     }
-  }, [activeTab, subscriptionView, fetchCalendarData, fetchUpcomingData, fetchNewSubscriptionData, fetchAnalytics]);
+  }, [activeTab, fetchCalendarData, fetchUpcomingData, fetchAnalytics]); // Removed fetchNewSubscriptionData and subscriptionView
 
   // Filter-specific effect only for users tab
   useEffect(() => {
