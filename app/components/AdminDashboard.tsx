@@ -517,35 +517,35 @@ export default function AdminDashboard({ initialUsers = [] }: AdminDashboardProp
   };
 
   // Add refresh listeners for each tab (placed after all functions are declared)
-  useRefreshListener(['users', 'all'], useCallback(() => {
+  useRefreshListener(['users', 'all'], () => {
     if (activeTab === 'users') {
       fetchUsers();
     }
-  }, [activeTab, fetchUsers]));
+  });
 
-  useRefreshListener(['meetings', 'calendar', 'all'], useCallback(() => {
+  useRefreshListener(['meetings', 'calendar', 'all'], () => {
     if (activeTab === 'calendar') {
       fetchCalendarData();
     }
-  }, [activeTab, fetchCalendarData]));
+  });
 
-  useRefreshListener(['subscriptions', 'all'], useCallback(() => {
+  useRefreshListener(['subscriptions', 'all'], () => {
     if (activeTab === 'subscriptions') {
       fetchNewSubscriptionData(subscriptionView);
     }
-  }, [activeTab, subscriptionView, fetchNewSubscriptionData]));
+  });
 
-  useRefreshListener(['analytics', 'all'], useCallback(() => {
+  useRefreshListener(['analytics', 'all'], () => {
     if (activeTab === 'analytics') {
       fetchAnalytics();
     }
-  }, [activeTab, fetchAnalytics]));
+  });
 
-  useRefreshListener(['all'], useCallback(() => {
+  useRefreshListener(['all'], () => {
     if (activeTab === 'upcoming') {
       fetchUpcomingData();
     }
-  }, [activeTab, fetchUpcomingData]));
+  });
 
   useEffect(() => {
     // Check if admin is authenticated before making any API calls

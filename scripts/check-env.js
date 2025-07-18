@@ -25,6 +25,8 @@ const requiredEnvVars = [
   { name: 'ZOOM_CLIENT_ID', description: 'Zoom client ID', optional: true },
   { name: 'ZOOM_CLIENT_SECRET', description: 'Zoom client secret', optional: true },
   { name: 'ZOOM_ACCOUNT_ID', description: 'Zoom account ID', optional: true },
+  // Notification control
+  { name: 'DISABLE_ORGANIZER_NOTIFICATIONS', description: 'Disable Google Calendar organizer notifications (true/false)', optional: true },
 ];
 
 let missingVars = 0;

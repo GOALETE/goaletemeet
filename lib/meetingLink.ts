@@ -29,6 +29,30 @@ export function getSpecialEmails(): string[] {
 }
 
 /**
+ * Check if Google Calendar notifications to organizer should be disabled
+ * Controls email flooding to admin inbox
+ * @returns boolean - true if notifications should be disabled
+ */
+function shouldDisableOrganizerNotifications(): boolean {
+  // Default to true (disable notifications) to prevent inbox flooding
+  // Can be overridden by setting DISABLE_ORGANIZER_NOTIFICATIONS=false
+  const envValue = process.env.DISABLE_ORGANIZER_NOTIFICATIONS;
+  return envValue !== 'false'; // Only enable if explicitly set to 'false'
+}
+
+/**
+ * Get the sendUpdates parameter for Google Calendar API
+ * @returns 'none' | 'all' | 'externalOnly'
+ */
+function getSendUpdatesMode(): 'none' | 'all' | 'externalOnly' {
+  if (shouldDisableOrganizerNotifications()) {
+    return 'none'; // No notifications to anyone including organizer
+  }
+  // If notifications are enabled, only send to external domains
+  return 'externalOnly';
+}
+
+/**
  * Create a meeting link for the given platform, date, and timeslot.
  * This is a simple function that only returns the URL string.
  * For more functionality use createMeeting or other higher-level functions.
@@ -124,7 +148,8 @@ export async function google_create_meet({
       event = await calendar.events.insert({
         calendarId: calendarId,
         conferenceDataVersion: 1, // Required for Google Meet integration per API docs
-        sendUpdates: 'none', // Don't send emails during creation (users added later)
+        sendUpdates: getSendUpdatesMode(), // Use helper function to control notifications
+        sendNotifications: !shouldDisableOrganizerNotifications(), // Control organizer notifications
         requestBody: {
           // Required fields per API documentation
           summary: finalMeetingTitle,
@@ -159,13 +184,19 @@ export async function google_create_meet({
           guestsCanSeeOtherGuests: true, // Allow attendees to see each other (required for meetings)
           anyoneCanAddSelf: false, // Prevent unauthorized self-addition
           
-          // Notification settings
+          // Notification settings - configurable to prevent admin inbox flooding
           reminders: {
             useDefault: false,
-            overrides: [
-              { method: 'email', minutes: 60 }, // 1 hour before
-              { method: 'email', minutes: 15 }  // 15 minutes before
-            ]
+            overrides: shouldDisableOrganizerNotifications() 
+              ? [
+                  // Only popup reminder for admin calendar when notifications disabled
+                  { method: 'popup', minutes: 15 }
+                ]
+              : [
+                  // Email reminders when notifications are enabled
+                  { method: 'email', minutes: 60 }, // 1 hour before
+                  { method: 'email', minutes: 15 }  // 15 minutes before
+                ]
           },
           
           // Calendar display settings
@@ -202,7 +233,8 @@ export async function google_create_meet({
       // Fallback: Create event without explicit conference data - Google will auto-generate hangoutLink
       event = await calendar.events.insert({
         calendarId: calendarId,
-        sendUpdates: 'none',
+        sendUpdates: getSendUpdatesMode(), // Use helper function to control notifications
+        sendNotifications: !shouldDisableOrganizerNotifications(), // Control organizer notifications
         requestBody: {
           // Required fields
           summary: finalMeetingTitle,
@@ -227,12 +259,19 @@ export async function google_create_meet({
           guestsCanSeeOtherGuests: true,
           anyoneCanAddSelf: false,
           
+          // Notification settings - configurable to prevent admin inbox flooding
           reminders: {
             useDefault: false,
-            overrides: [
-              { method: 'email', minutes: 60 },
-              { method: 'email', minutes: 15 }
-            ]
+            overrides: shouldDisableOrganizerNotifications() 
+              ? [
+                  // Only popup reminder for admin calendar when notifications disabled
+                  { method: 'popup', minutes: 15 }
+                ]
+              : [
+                  // Email reminders when notifications are enabled
+                  { method: 'email', minutes: 60 }, // 1 hour before
+                  { method: 'email', minutes: 15 }  // 15 minutes before
+                ]
           },
           
           transparency: 'opaque',
@@ -375,7 +414,8 @@ export async function google_add_user_to_meeting(eventId: string, email: string,
     await calendar.events.patch({
       calendarId: calendarId,
       eventId: eventId,
-      sendUpdates: 'externalOnly', // Cross-domain support: send to external domains only
+      sendUpdates: getSendUpdatesMode(), // Use helper function to control notifications
+      sendNotifications: !shouldDisableOrganizerNotifications(), // Control organizer notifications
       requestBody: {
         // Only update attendees field - patch is most efficient for partial updates
         attendees: updatedAttendees
@@ -451,7 +491,8 @@ export async function google_add_users_to_meeting(eventId: string, users: { emai
     await calendar.events.patch({
       calendarId: calendarId,
       eventId: eventId,
-      sendUpdates: 'externalOnly', // Critical for cross-domain invites - sends to external domains
+      sendUpdates: getSendUpdatesMode(), // Use helper function to control notifications
+      sendNotifications: !shouldDisableOrganizerNotifications(), // Control organizer notifications
       requestBody: {
         // Only update attendees field - patch is most efficient for partial updates
         attendees: updatedAttendees

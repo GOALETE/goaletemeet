@@ -101,6 +101,10 @@ export function useRefresh() {
 export function useRefreshListener(events: DataRefreshEvent | DataRefreshEvent[], callback: () => void | Promise<void>) {
   const { refreshTriggers } = useRefresh();
   
+  // Use ref to store the callback to avoid re-running effect when callback changes
+  const callbackRef = React.useRef(callback);
+  callbackRef.current = callback;
+  
   React.useEffect(() => {
     const eventArray = Array.isArray(events) ? events : [events];
     const shouldTrigger = eventArray.some(event => refreshTriggers[event] > 0);
@@ -108,12 +112,12 @@ export function useRefreshListener(events: DataRefreshEvent | DataRefreshEvent[]
     if (shouldTrigger) {
       // Use a small delay to debounce multiple rapid refresh triggers
       const timeoutId = setTimeout(() => {
-        callback();
+        callbackRef.current();
       }, 100);
       
       return () => clearTimeout(timeoutId);
     }
-  }, [refreshTriggers, events, callback]);
+  }, [refreshTriggers, events]); // Removed callback from dependencies
 }
 
 // Hook for mutations that trigger refreshes

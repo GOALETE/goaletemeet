@@ -56,6 +56,9 @@ VERCEL_CRON_SECRET="vercel-specific-cron-secret"
 DEFAULT_MEETING_TIME=21:00               # 9 PM IST (daily meeting time)
 DEFAULT_MEETING_DURATION=60              # Meeting duration in minutes  
 DEFAULT_MEETING_PLATFORM=google-meet     # Default meeting platform
+
+# Notification Control
+DISABLE_ORGANIZER_NOTIFICATIONS=true     # Disable admin email notifications (recommended)
 ```
 
 ## Service Configuration Details
