@@ -105,11 +105,28 @@ export function useRefreshListener(events: DataRefreshEvent | DataRefreshEvent[]
   const callbackRef = React.useRef(callback);
   callbackRef.current = callback;
   
+  // Track previous trigger values to detect changes - initialize with current values
+  const prevTriggersRef = React.useRef<Record<DataRefreshEvent, number>>({
+    users: 0,
+    meetings: 0,
+    subscriptions: 0,
+    analytics: 0,
+    calendar: 0,
+    all: 0
+  });
+  
   React.useEffect(() => {
     const eventArray = Array.isArray(events) ? events : [events];
-    const shouldTrigger = eventArray.some(event => refreshTriggers[event] > 0);
     
-    if (shouldTrigger) {
+    // Check if any of the relevant events have incremented since last render
+    const hasNewTrigger = eventArray.some(event => 
+      refreshTriggers[event] > prevTriggersRef.current[event]
+    );
+    
+    if (hasNewTrigger) {
+      // Update the previous triggers reference only after detecting a change
+      prevTriggersRef.current = { ...refreshTriggers };
+      
       // Use a small delay to debounce multiple rapid refresh triggers
       const timeoutId = setTimeout(() => {
         callbackRef.current();
