@@ -24,7 +24,7 @@ export const PLAN_PRICING = {
     amount: 3999,        // Price in INR
     display: "Rs. 3999", // Formatted display price
     duration: 30,        // Duration in days
-    name: "Monthly Family Plan",
+    name: "Combo Plan",
     description: "Share the journey with someone important in your life! This plan offers full access for two people, with savings over two individual memberships. Perfect for couples, friends, or colleagues who want to achieve goals together."
   }
 };

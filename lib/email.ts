@@ -408,7 +408,7 @@ export async function sendFamilyAdminNotificationEmail({
         <h1>👨‍👩‍👧‍👦 New Family Registration Alert</h1>
       </div>
       
-      <p>A new <b>Monthly Family Plan</b> registration and payment has been completed.</p>
+      <p>A new <b>Combo Plan</b> registration and payment has been completed.</p>
       
       <div class="section">
         <h2>Family Members</h2>
@@ -441,7 +441,7 @@ export async function sendFamilyAdminNotificationEmail({
         <table>
           <tr>
             <td>Plan Type:</td>
-            <td>Monthly Family Plan</td>
+            <td>Combo Plan</td>
           </tr>
           <tr>
             <td>Start Date:</td>
