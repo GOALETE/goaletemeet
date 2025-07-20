@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sendMeetingInvite } from "@/lib/email";
-import { createMeetingLink } from "@/lib/meetingLink";
+import { manageMeeting } from "@/lib/meetingLink";
 import { format } from "date-fns";
 
 export async function GET(req: NextRequest) {
@@ -91,9 +91,52 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    console.log(`👥 Found ${usersWithActiveSubscriptions.length} users with active subscriptions for today`);
+    // Check if there's already a meeting for today - we'll use manageMeeting to handle this
+    // Get active users for today first
+    const activeUsers = await prisma.user.findMany({
+      where: {
+        subscriptions: {
+          some: {
+            AND: [
+              {
+                startDate: {
+                  lte: istDate
+                }
+              },
+              {
+                endDate: {
+                  gte: istDate
+                }
+              },
+              {
+                status: 'active'
+              },
+              {
+                OR: [
+                  { paymentStatus: 'completed' },
+                  { paymentStatus: 'paid' },
+                  { paymentStatus: 'success' },
+                  { paymentStatus: 'admin-added' },
+                  { paymentStatus: 'admin-created' },
+                  { paymentStatus: '' }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true
+      }
+    });
 
-    if (usersWithActiveSubscriptions.length === 0) {
+    const activeUserIds = activeUsers.map(user => user.id);
+    console.log(`👥 Found ${activeUsers.length} users with active subscriptions for today`);
+
+    if (activeUsers.length === 0) {
       console.log('✅ No users with active subscriptions for today. Cron job completed.');
       return NextResponse.json({
         message: "No users with active subscriptions for today",
@@ -103,56 +146,37 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Check if there's already a meeting for today
-    let todayMeeting = await prisma.meeting.findFirst({
-      where: {
-        meetingDate: new Date(todayStr)
-      }
+    // Use .env or fallback values
+    let platform: 'google-meet' | 'zoom' = 'google-meet';
+    if (process.env.DEFAULT_MEETING_PLATFORM === 'zoom') platform = 'zoom';
+    else if (process.env.DEFAULT_MEETING_PLATFORM === 'google-meet') platform = 'google-meet';
+    const startTimeStr = process.env.DEFAULT_MEETING_TIME || '21:00';
+    const durationMin = process.env.DEFAULT_MEETING_DURATION ? Number(process.env.DEFAULT_MEETING_DURATION) : 60;
+    const meetingTitle = process.env.DEFAULT_MEETING_TITLE || `Daily Meeting - ${format(istDate, 'dd-MM-yy')}`;
+    const meetingDesc = process.env.DEFAULT_MEETING_DESCRIPTION || `Daily meeting for Goalete subscribers on ${format(istDate, 'EEEE, dd-MM-yy')}`;
+
+    // Create or get meeting and add active users using the meeting management API
+    console.log('🎯 Creating/updating meeting with active users...');
+    const todayMeeting = await manageMeeting({
+      date: todayStr,
+      platform,
+      startTime: startTimeStr,
+      duration: durationMin,
+      meetingTitle,
+      meetingDesc,
+      userIds: activeUserIds,
+      operation: 'getOrCreate',
+      syncFromCalendar: false
     });
 
-    // If no meeting exists for today, create one
-    if (!todayMeeting) {
-      console.log('🎯 No meeting found for today, creating new meeting...');
-      
-      // Create meeting link using the correct function signature
-      const meetingLink = await createMeetingLink({
-        platform: 'google-meet',
-        date: todayStr,
-        startTime: '09:00',
-        duration: 60, // 1 hour
-        meetingTitle: `Daily Meeting - ${format(istDate, 'MMMM dd, yyyy')}`,
-        meetingDesc: `Daily meeting for Goalete subscribers on ${format(istDate, 'EEEE, MMMM dd, yyyy')}`
-      });
+    console.log(`✅ Meeting ready for ${todayStr}: ${todayMeeting.id} with ${todayMeeting.users?.length || 0} users`);
 
-      // Create meeting record in database
-      const startDateTime = new Date(`${todayStr}T09:00:00+05:30`); // 9 AM IST
-      const endDateTime = new Date(`${todayStr}T10:00:00+05:30`);   // 10 AM IST
-
-      todayMeeting = await prisma.meeting.create({
-        data: {
-          meetingDate: new Date(todayStr),
-          platform: 'google',
-          meetingLink: meetingLink,
-          startTime: startDateTime,
-          endTime: endDateTime,
-          meetingTitle: `Daily Meeting - ${format(istDate, 'MMM dd, yyyy')}`,
-          meetingDesc: `Daily meeting for Goalete subscribers`,
-          createdBy: 'cron-job',
-          isDefault: false
-        }
-      });
-
-      console.log(`✅ Created new meeting for ${todayStr}: ${todayMeeting.id}`);
-    } else {
-      console.log(`📋 Meeting already exists for ${todayStr}: ${todayMeeting.id}`);
-    }
-
-    // Send invites to all eligible users
+    // Send invites to all active users
     let successCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
 
-    for (const user of usersWithActiveSubscriptions) {
+    for (const user of activeUsers) {
       try {
         console.log(`📧 Sending invite to: ${user.email}`);
         
@@ -161,12 +185,12 @@ export async function GET(req: NextRequest) {
             name: `${user.firstName} ${user.lastName}`.trim(),
             email: user.email
           },
-          meetingTitle: todayMeeting.meetingTitle,
-          meetingDescription: todayMeeting.meetingDesc || 'Daily meeting for Goalete subscribers',
+          meetingTitle: `${todayMeeting.meetingTitle} - ${format(istDate, 'dd-MM-yy')}` || `${process.env.DEFAULT_MEETING_TITLE}- ${format(istDate, 'dd-MM-yy')}` || `Daily Meeting - ${format(istDate, 'dd-MM-yy')}`,
+          meetingDescription: todayMeeting.meetingDesc || process.env.DEFAULT_MEETING_DESCRIPTION || 'Daily meeting for Goalete subscribers',
           meetingLink: todayMeeting.meetingLink,
           startTime: todayMeeting.startTime,
           endTime: todayMeeting.endTime,
-          platform: todayMeeting.platform
+          platform: todayMeeting.platform || process.env.DEFAULT_MEETING_PLATFORM || 'google-meet'
         });
 
         if (inviteResult) {
@@ -192,7 +216,7 @@ export async function GET(req: NextRequest) {
       timestamp: new Date().toISOString(),
       meetingId: todayMeeting.id,
       meetingLink: todayMeeting.meetingLink,
-      totalUsers: usersWithActiveSubscriptions.length,
+      totalUsers: activeUsers.length,
       successfulInvites: successCount,
       failedInvites: errorCount,
       errors: errors.length > 0 ? errors : undefined

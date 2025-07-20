@@ -136,22 +136,20 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        // If meeting exists, send invite
+        // If meeting exists, send invite using .env as fallback for missing fields
         if (meeting) {
-          // Import email service
           const { sendMeetingInvite } = await import('@/lib/email');
-          
           await sendMeetingInvite({
             recipient: {
               name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email.split('@')[0],
               email: user.email
             },
-            meetingTitle: meeting.meetingTitle || `GOALETE Meeting ${new Date(meeting.meetingDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}`,
-            meetingDescription: meeting.meetingDesc || '',
+            meetingTitle: meeting.meetingTitle || process.env.DEFAULT_MEETING_TITLE || `GOALETE Meeting ${new Date(meeting.meetingDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}`,
+            meetingDescription: meeting.meetingDesc || process.env.DEFAULT_MEETING_DESCRIPTION || '',
             meetingLink: meeting.meetingLink || '',
-            startTime: meeting.startTime,
-            endTime: meeting.endTime,
-            platform: meeting.platform
+            startTime: meeting.startTime || process.env.DEFAULT_MEETING_TIME || '',
+            endTime: meeting.endTime || '',
+            platform: meeting.platform || process.env.DEFAULT_MEETING_PLATFORM || 'google-meet'
           });
         }
       } catch (emailError) {
