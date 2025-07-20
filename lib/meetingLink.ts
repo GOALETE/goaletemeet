@@ -1,7 +1,9 @@
 import prisma from './prisma';
 import axios from 'axios';
 import { google } from 'googleapis';
+import { format } from 'date-fns';
 import { MeetingWithUsers } from '../types/meeting';
+import { getCalendarClient, getAuthenticatedJWT, getAdminEmail } from './googleAuth';
 
 /**
  * Enhanced error handling for the Google API calls
@@ -15,6 +17,42 @@ interface ApiError extends Error {
 }
 
 /**
+ * Gets special email addresses that should be included in every meeting
+ * These emails are set in the SPECIAL_EMAILS environment variable as a comma-separated list
+ * @returns Array of email addresses
+ */
+export function getSpecialEmails(): string[] {
+  const specialEmailsStr = process.env.SPECIAL_EMAILS || '';
+  if (!specialEmailsStr) return [];
+  
+  return specialEmailsStr.split(',').map(email => email.trim()).filter(email => email !== '');
+}
+
+/**
+ * Check if Google Calendar notifications to organizer should be disabled
+ * Controls email flooding to admin inbox
+ * @returns boolean - true if notifications should be disabled
+ */
+function shouldDisableOrganizerNotifications(): boolean {
+  // Default to true (disable notifications) to prevent inbox flooding
+  // Can be overridden by setting DISABLE_ORGANIZER_NOTIFICATIONS=false
+  const envValue = process.env.DISABLE_ORGANIZER_NOTIFICATIONS;
+  return envValue !== 'false'; // Only enable if explicitly set to 'false'
+}
+
+/**
+ * Get the sendUpdates parameter for Google Calendar API
+ * @returns 'none' | 'all' | 'externalOnly'
+ */
+function getSendUpdatesMode(): 'none' | 'all' | 'externalOnly' {
+  if (shouldDisableOrganizerNotifications()) {
+    return 'none'; // No notifications to anyone including organizer
+  }
+  // If notifications are enabled, only send to external domains
+  return 'externalOnly';
+}
+
+/**
  * Create a meeting link for the given platform, date, and timeslot.
  * This is a simple function that only returns the URL string.
  * For more functionality use createMeeting or other higher-level functions.
@@ -22,147 +60,452 @@ interface ApiError extends Error {
  * @param date ISO date string (YYYY-MM-DD)
  * @param startTime string (HH:MM, 24-hour format)
  * @param duration number (minutes)
+ * @param meetingTitle optional title for the meeting
+ * @param meetingDesc optional description for the meeting
  * @returns Promise<string> meeting link
  */
 export async function createMeetingLink({
   platform,
   date,
   startTime,
-  duration
+  duration,
+  meetingTitle,
+  meetingDesc
 }: {
   platform: 'google-meet' | 'zoom',
   date: string,
   startTime: string,
-  duration: number
+  duration: number,
+  meetingTitle?: string,
+  meetingDesc?: string
 }): Promise<string> {
   if (platform === 'google-meet') {
-    const { join_url } = await google_create_meet({ date, startTime, duration });
+    const { join_url } = await google_create_meet({ date, startTime, duration, meetingTitle, meetingDesc });
     return join_url;
   } else if (platform === 'zoom') {
-    const { join_url } = await zoom_create_meet({ date, startTime, duration });
+    const { join_url } = await zoom_create_meet({ date, startTime, duration, meetingTitle, meetingDesc });
     return join_url;
   } else {
     throw new Error('Unsupported platform');
   }
 }
 
-// Replace google_create_meet to use Google Calendar API
-export async function google_create_meet({ date, startTime, duration }: { date: string, startTime: string, duration: number }): Promise<{ join_url: string, id: string }> {
+// Enhanced Google Meet creation with proper conference data following Google Calendar API guidelines
+export async function google_create_meet({ 
+  date, 
+  startTime, 
+  duration,
+  meetingTitle,
+  meetingDesc
+}: { 
+  date: string, 
+  startTime: string, 
+  duration: number,
+  meetingTitle?: string,
+  meetingDesc?: string
+}): Promise<{ join_url: string, id: string }> {
   try {
-    const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-    const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-    const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
-
-    if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
-      throw new Error('Google Meet API credentials are not set');
-    }
-
+    // Get configuration from environment or defaults
+    const dateString = format(new Date(date), 'dd-MM-yy');
+    const finalMeetingTitle = meetingTitle 
+      ? `${meetingTitle} ${dateString}` 
+      : process.env.DEFAULT_MEETING_TITLE 
+        ? `${process.env.DEFAULT_MEETING_TITLE} ${dateString}` 
+        : `GOALETE Club Session ${dateString}`;
+    const finalMeetingDesc = meetingDesc || process.env.DEFAULT_MEETING_DESCRIPTION || 'Join us for a GOALETE Club session to learn how to achieve any goal in life.';
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
+    
     console.log(`Creating Google Meet for date: ${date}, time: ${startTime}, duration: ${duration} minutes`);
+    console.log(`Using calendar ID: ${calendarId}`);
 
-    const jwtClient = new google.auth.JWT({
-      email: GOOGLE_CLIENT_EMAIL,
-      key: GOOGLE_PRIVATE_KEY,
-      scopes: ['https://www.googleapis.com/auth/calendar'],
-    });
+    // Use service account authentication with Domain-Wide Delegation
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+
+    // Create timezone-aware datetime objects
+    const IST_TIMEZONE = 'Asia/Kolkata';
+    
+    // Parse the input time as IST and create proper Date objects
+    const [hours, minutes] = startTime.split(':').map(Number);
+    
+    // Create IST datetime string and parse it correctly
+    const istDateTimeString = `${date}T${startTime}:00.000+05:30`;
+    const istDateTime = new Date(istDateTimeString);
+    
+    // For Google Calendar, we need the IST time
+    const endDateTime = new Date(istDateTime.getTime() + (duration * 60 * 1000));
+
+    // Generate a unique request ID for conference creation following Google guidelines
+    const conferenceRequestId = `goalete-meet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    console.log(`Conference request ID: ${conferenceRequestId}`);
+
+    // Create event following Google Calendar API v3 specification
+    let event: any = null;
     
     try {
-      await jwtClient.authorize();
-    } catch (authError) {
-      console.error('Google Calendar API authorization failed:', authError);
-      throw new Error(`Google Calendar API authorization failed: ${authError instanceof Error ? authError.message : String(authError)}`);
-    }
-    
-    const calendar = google.calendar({ version: 'v3', auth: jwtClient });
-
-    const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
-    const endDateTime = new Date(startDateTime);
-    endDateTime.setMinutes(endDateTime.getMinutes() + duration);
-
-    // Create meeting with proper error handling
-    let event;
-    try {
+      // Create event with proper Google Meet conference data
       event = await calendar.events.insert({
-        calendarId: GOOGLE_CALENDAR_ID,
+        calendarId: calendarId,
+        conferenceDataVersion: 1, // Required for Google Meet integration per API docs
+        sendUpdates: getSendUpdatesMode(), // Use helper function to control notifications
+        sendNotifications: !shouldDisableOrganizerNotifications(), // Control organizer notifications
         requestBody: {
-          summary: 'GOALETE Club Session',
-          description: 'Join us for a GOALETE Club session to learn how to achieve any goal in life.',
-          start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Kolkata' },
-          end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Kolkata' },
-          conferenceData: {
-            createRequest: { requestId: `${Date.now()}-goalete` }
+          // Required fields per API documentation
+          summary: finalMeetingTitle,
+          start: { 
+            dateTime: istDateTime.toISOString(), 
+            timeZone: IST_TIMEZONE
           },
-        },
-        conferenceDataVersion: 1
+          end: { 
+            dateTime: endDateTime.toISOString(), 
+            timeZone: IST_TIMEZONE
+          },
+          
+          // Optional but recommended fields
+          description: finalMeetingDesc,
+          location: 'Google Meet (Online)',
+          status: 'confirmed',
+          
+          // Conference data creation following Google Calendar API v3 specification
+          conferenceData: {
+            createRequest: {
+              requestId: conferenceRequestId,
+              conferenceSolutionKey: {
+                type: 'hangoutsMeet'
+              }
+            }
+          },
+          
+          // Security and access control settings
+          visibility: 'private', // Event is private to organization
+          guestsCanInviteOthers: false, // Prevent unauthorized invitations
+          guestsCanModify: false, // Prevent event modifications by guests
+          guestsCanSeeOtherGuests: true, // Allow attendees to see each other (required for meetings)
+          anyoneCanAddSelf: false, // Prevent unauthorized self-addition
+          
+          // Notification settings - configurable to prevent admin inbox flooding
+          reminders: {
+            useDefault: false,
+            overrides: shouldDisableOrganizerNotifications() 
+              ? [
+                  // Only popup reminder for admin calendar when notifications disabled
+                  { method: 'popup', minutes: 15 }
+                ]
+              : [
+                  // Email reminders when notifications are enabled
+                  { method: 'email', minutes: 60 }, // 1 hour before
+                  { method: 'email', minutes: 15 }  // 15 minutes before
+                ]
+          },
+          
+          // Calendar display settings
+          transparency: 'opaque', // Event blocks time on calendar
+          
+          // Extended properties for tracking and security (optional)
+          extendedProperties: {
+            private: {
+              'securityLevel': 'invite-only-strict',
+              'meetingType': 'subscription-based',
+              'createdBy': 'goalete-service-account',
+              'version': '5.0',
+              'authMethod': 'service-account',
+              'crossDomainEnabled': 'true',
+              'timezone': IST_TIMEZONE,
+              'conferenceRequestId': conferenceRequestId,
+              'createdAt': new Date().toISOString(),
+              'platform': 'google-meet',
+              'accessControl': 'restricted-invite-only'
+            },
+            shared: {
+              'platform': 'goalete',
+              'eventSource': 'automated-system',
+              'supportsExternalDomains': 'true',
+              'securityLevel': 'high'
+            }
+          }
+        }
       });
-    } catch (eventError) {
-      console.error('Google Calendar event creation failed:', eventError);
-      const apiError = eventError as ApiError;
-      if (apiError.response?.status === 403) {
-        throw new Error('Google Calendar access denied. Please check your API permissions.');
-      } else if (apiError.response?.status === 401) {
-        throw new Error('Google Calendar authentication failed. Please check your credentials.');
-      } else {
-        throw new Error(`Google Calendar event creation failed: ${apiError.message || 'Unknown error'}`);
+    } catch (conferenceError) {
+      console.log('ERROR: Conference data creation failed, trying fallback method:', 
+        conferenceError instanceof Error ? conferenceError.message : String(conferenceError));
+      
+      // Fallback: Create event without explicit conference data - Google will auto-generate hangoutLink
+      event = await calendar.events.insert({
+        calendarId: calendarId,
+        sendUpdates: getSendUpdatesMode(), // Use helper function to control notifications
+        sendNotifications: !shouldDisableOrganizerNotifications(), // Control organizer notifications
+        requestBody: {
+          // Required fields
+          summary: finalMeetingTitle,
+          start: { 
+            dateTime: istDateTime.toISOString(), 
+            timeZone: IST_TIMEZONE
+          },
+          end: { 
+            dateTime: endDateTime.toISOString(), 
+            timeZone: IST_TIMEZONE
+          },
+          
+          // Optional fields
+          description: `${finalMeetingDesc}\n\nGoogle Meet link will be generated automatically.`,
+          location: 'Google Meet (Online)',
+          status: 'confirmed',
+          
+          // Security settings (maintained in fallback)
+          visibility: 'private',
+          guestsCanInviteOthers: false,
+          guestsCanModify: false,
+          guestsCanSeeOtherGuests: true,
+          anyoneCanAddSelf: false,
+          
+          // Notification settings - configurable to prevent admin inbox flooding
+          reminders: {
+            useDefault: false,
+            overrides: shouldDisableOrganizerNotifications() 
+              ? [
+                  // Only popup reminder for admin calendar when notifications disabled
+                  { method: 'popup', minutes: 15 }
+                ]
+              : [
+                  // Email reminders when notifications are enabled
+                  { method: 'email', minutes: 60 }, // 1 hour before
+                  { method: 'email', minutes: 15 }  // 15 minutes before
+                ]
+          },
+          
+          transparency: 'opaque',
+          
+          extendedProperties: {
+            private: {
+              'goaleTeApp': 'true',
+              'securityLevel': 'invite-only-strict',
+              'meetingType': 'subscription-based',
+              'createdBy': 'goalete-service-account',
+              'version': '5.0',
+              'authMethod': 'service-account',
+              'crossDomainEnabled': 'true',
+              'timezone': IST_TIMEZONE,
+              'createdAt': new Date().toISOString(),
+              'platform': 'google-meet',
+              'accessControl': 'restricted-invite-only',
+              'conferenceMethod': 'fallback-hangout'
+            },
+            shared: {
+              'platform': 'goalete',
+              'eventSource': 'automated-system',
+              'supportsExternalDomains': 'true',
+              'securityLevel': 'high'
+            }
+          }
+        }
+      });
+    }
+
+    if (!event) {
+      throw new Error('Google Calendar API returned empty response');
+    }
+
+    // Extract event data from response
+    const calendarEvent = event.data;
+    const createdEventId = calendarEvent.id;
+    
+    if (!createdEventId) {
+      throw new Error('Failed to create Google Calendar event: No event ID returned');
+    }
+  
+    // Extract Google Meet link from conference data (preferred method)
+    let join_url = '';
+    const conferenceData = calendarEvent.conferenceData;
+    
+    if (conferenceData && conferenceData.entryPoints) {
+      // Find video entry point (Google Meet link)
+      const videoEntryPoint = conferenceData.entryPoints.find(
+        (entry: any) => entry.entryPointType === 'video'
+      );
+      
+      if (videoEntryPoint && videoEntryPoint.uri) {
+        join_url = videoEntryPoint.uri;
+        console.log(`Google Meet link generated from conference data: ${join_url}`);
       }
     }
     
-    if (!event?.data) {
-      throw new Error('Google Calendar API returned empty response');
+    // Fallback to hangoutLink if conference data not available
+    if (!join_url && calendarEvent.hangoutLink) {
+      join_url = calendarEvent.hangoutLink;
+      console.log(`Using hangoutLink as fallback: ${join_url}`);
     }
     
-    const entryPoints = event.data.conferenceData?.entryPoints as Array<{ entryPointType: string, uri: string }>;
-    const join_url = entryPoints?.find((e) => e.entryPointType === 'video')?.uri || '';
-    
+    // If no meeting link available immediately, store a placeholder for later update
     if (!join_url) {
-      throw new Error('Failed to create Google Meet link: No video entry point found');
+      console.warn('No Google Meet link available immediately - conference creation might be pending');
+      join_url = 'pending-meet-link-creation';
     }
     
-    const id = event.data.id || '';
-    if (!id) {
-      throw new Error('Failed to create Google Meet event: No event ID returned');
-    }
+    console.log(`✅ Successfully created Google Calendar event with ID: ${createdEventId}`);
+    console.log(`📅 Event URL: ${calendarEvent.htmlLink || 'Not available'}`);
+    console.log(`🔗 Meeting URL: ${join_url}`);
+    console.log(`🎯 Conference status: ${conferenceData?.createRequest?.status || conferenceData?.status || 'auto-generated'}`);
     
-    console.log(`Successfully created Google Meet with ID: ${id}`);
-    return { join_url, id };
-  } catch (error) {
-    console.error('Error creating Google Meet:', error);
-    throw error; // Re-throw to allow retry mechanism to work
+    return { join_url, id: createdEventId };
+    
+  } catch (eventError) {
+    console.error('❌ Google Calendar event creation failed:', eventError);
+    const apiError = eventError as ApiError;
+    
+    // Enhanced error handling with specific Google Calendar API error codes
+    if (apiError.response?.status === 403) {
+      throw new Error('Google Calendar access denied. Verify service account has Calendar API access and proper calendar permissions.');
+    } else if (apiError.response?.status === 401) {
+      throw new Error('Google Calendar authentication failed. Check service account credentials and ensure proper authentication setup.');
+    } else if (apiError.response?.status === 400) {
+      const errorMsg = apiError.response?.data?.error?.message || 'Invalid request parameters';
+      console.error('Bad request details:', apiError.response?.data?.error?.details);
+      throw new Error(`Google Calendar bad request: ${errorMsg}`);
+    } else if (apiError.response?.status === 409) {
+      throw new Error('Event creation conflict. A conflicting event may already exist at this time.');
+    } else if (apiError.response?.status === 404) {
+      throw new Error('Calendar not found. Verify the calendar ID exists and is accessible.');
+    } else {
+      throw new Error(`Google Calendar event creation failed: ${apiError.message || 'Unknown error'}`);
+    }
   }
 }
 
-export async function google_add_user_to_meeting(eventId: string, email: string, name?: string) {
-  const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-  const GOOGLE_PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-  const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
+// Credit-optimized function to add a single user using patch (most efficient for minimal updates)
+export async function google_add_user_to_meeting(eventId: string, email: string, name?: string): Promise<void> {
+  try {
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
 
-  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
-    throw new Error('Google Meet API credentials are not set');
+    // Step 1: Get current event attendees only (minimal fields for efficiency)
+    const event = await calendar.events.get({
+      calendarId: calendarId,
+      eventId: eventId,
+      fields: 'attendees'
+    });
+
+    if (!event.data) {
+      throw new Error(`Event with ID ${eventId} not found`);
+    }
+
+    const attendees = event.data.attendees || [];
+    
+    // Quick check if user is already an attendee (avoid unnecessary API call)
+    const existingAttendee = attendees.find((attendee: any) => attendee.email === email);
+    if (existingAttendee) {
+      console.log(`User ${email} is already an attendee of event ${eventId}`);
+      return;
+    }
+
+    // Step 2: Prepare new attendee
+    const newAttendee = { 
+      email, 
+      displayName: name || email.split('@')[0],
+      responseStatus: 'accepted' as const, // Auto-accept for seamless experience
+      additionalGuests: 0, // Security: prevent additional guests
+      optional: false // Required attendance
+    };
+    
+    const updatedAttendees = [...attendees, newAttendee];
+
+    // Step 3: Use patch for partial update (most credit-efficient for single field updates)
+    await calendar.events.patch({
+      calendarId: calendarId,
+      eventId: eventId,
+      sendUpdates: getSendUpdatesMode(), // Use helper function to control notifications
+      sendNotifications: !shouldDisableOrganizerNotifications(), // Control organizer notifications
+      requestBody: {
+        // Only update attendees field - patch is most efficient for partial updates
+        attendees: updatedAttendees
+      }
+    });
+
+    console.log(`✅ Credit-optimized: Added ${email} to event ${eventId} (patch method)`);
+    console.log(`📊 API efficiency: 2 quota units (1 get + 1 patch) - most efficient for single user`);
+  } catch (error) {
+    console.error(`Error adding user ${email} to Google Calendar event ${eventId}:`, error);
+    throw new Error(`Failed to add user to Google Calendar event: ${error instanceof Error ? error.message : String(error)}`);
   }
-  const jwtClient = new google.auth.JWT({
-    email: GOOGLE_CLIENT_EMAIL,
-    key: GOOGLE_PRIVATE_KEY,
-    scopes: ['https://www.googleapis.com/auth/calendar'],
-  });
-  await jwtClient.authorize();
-  const calendar = google.calendar({ version: 'v3', auth: jwtClient });
+}
 
-  const event = await calendar.events.get({
-    calendarId: GOOGLE_CALENDAR_ID,
-    eventId: eventId,
-    auth: jwtClient
-  });
+// Credit-optimized batch function using get + patch (most efficient for attendee updates)
+export async function google_add_users_to_meeting(eventId: string, users: { email: string, name?: string }[]): Promise<void> {
+  if (users.length === 0) {
+    console.log('No users to add to meeting');
+    return;
+  }
 
-  const attendees = event.data.attendees || [];
-  attendees.push({ email, displayName: name || email.split('@')[0] });
+  try {
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
 
-  await calendar.events.patch({
-    calendarId: GOOGLE_CALENDAR_ID,
-    eventId: eventId,
-    requestBody: {
-      attendees
-    },
-    auth: jwtClient
-  });
+    // Step 1: Get current attendees only (minimal fields for maximum efficiency)
+    const event = await calendar.events.get({
+      calendarId: calendarId,
+      eventId: eventId,
+      fields: 'attendees' // Only fetch attendees to minimize data transfer
+    });
+
+    if (!event.data) {
+      throw new Error(`Event with ID ${eventId} not found`);
+    }
+
+    const existingAttendees = event.data.attendees || [];
+    const existingEmails = new Set(existingAttendees.map((attendee: any) => attendee.email));
+    
+    // Filter out users who are already attendees (optimization to avoid API overhead)
+    const newUsers = users.filter(user => !existingEmails.has(user.email));
+    
+    if (newUsers.length === 0) {
+      console.log('All users are already attendees of the event');
+      return;
+    }
+
+    // Step 2: Prepare new attendees with cross-domain security settings
+    const newAttendees = newUsers.map(user => ({
+      email: user.email,
+      displayName: user.name || user.email.split('@')[0],
+      responseStatus: 'accepted' as const, // Auto-accept for seamless experience
+      additionalGuests: 0, // Prevent additional guests for security
+      comment: '', // No special comments
+      optional: false // Required attendance
+    }));
+
+    const updatedAttendees = [...existingAttendees, ...newAttendees];
+
+    // Analyze domains for cross-domain tracking
+    const domainAnalysis = newUsers.reduce((acc, user) => {
+      const domain = user.email.split('@')[1] || 'unknown';
+      acc[domain] = (acc[domain] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const domainBreakdown = Object.entries(domainAnalysis)
+      .map(([domain, count]) => `${domain}:${count}`)
+      .join(';');
+
+    // Step 3: Use patch for attendee-only update (most credit-efficient approach)
+    await calendar.events.patch({
+      calendarId: calendarId,
+      eventId: eventId,
+      sendUpdates: getSendUpdatesMode(), // Use helper function to control notifications
+      sendNotifications: !shouldDisableOrganizerNotifications(), // Control organizer notifications
+      requestBody: {
+        // Only update attendees field - patch is most efficient for partial updates
+        attendees: updatedAttendees
+      }
+    });
+
+    console.log(`✅ Credit-optimized batch: Added ${newUsers.length} users to event ${eventId} with auto-acceptance`);
+    console.log(`📊 API efficiency: 2 quota units (1 get + 1 patch) for ${newUsers.length} users - optimal approach`);
+    console.log(`Domain breakdown: ${domainBreakdown}`);
+  } catch (error) {
+    console.error(`Error adding users to Google Calendar event ${eventId}:`, error);
+    throw new Error(`Failed to add users to Google Calendar event: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 
@@ -193,7 +536,19 @@ async function get_zoom_token(): Promise<string> {
   }
 }
 
-export async function zoom_create_meet({ date, startTime, duration }: { date: string, startTime: string, duration: number }): Promise<{ join_url: string, id: string, start_url: string }> {
+export async function zoom_create_meet({ 
+  date, 
+  startTime, 
+  duration,
+  meetingTitle,
+  meetingDesc
+}: { 
+  date: string, 
+  startTime: string, 
+  duration: number,
+  meetingTitle?: string,
+  meetingDesc?: string
+}): Promise<{ join_url: string, id: string, start_url: string }> {
   const ZOOM_USER_ID = process.env.ZOOM_USER_ID;
   
   if (!ZOOM_USER_ID) {
@@ -203,22 +558,27 @@ export async function zoom_create_meet({ date, startTime, duration }: { date: st
   // Get access token
   const accessToken = await get_zoom_token();
   
-  // Construct start time in ISO format (Zoom expects UTC)
-  const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
-  
-  // Create a Date object and convert to UTC
-  const utcDate = new Date(startDateTime.toISOString());
-  
-  // Format as ISO string (Zoom's expected format)
-  const startTimeUTC = utcDate.toISOString();
+  // Construct start time - parse IST input and convert to UTC for Zoom API
+  const istDateTimeString = `${date}T${startTime}:00.000+05:30`;
+  const istDateTime = new Date(istDateTimeString);
+  const startTimeUTC = istDateTime.toISOString();
+
+  // Format date for meeting title
+  const dateString = format(new Date(date), 'dd-MM-yy');
+  const finalMeetingTitle = meetingTitle 
+    ? `${meetingTitle} ${dateString}` 
+    : process.env.DEFAULT_MEETING_TITLE 
+      ? `${process.env.DEFAULT_MEETING_TITLE} ${dateString}` 
+      : `GOALETE Club Session ${dateString}`;
+  const finalMeetingDesc = meetingDesc || process.env.DEFAULT_MEETING_DESCRIPTION || 'Join us for a GOALETE Club session to learn how to achieve any goal in life.';
 
   const meetingConfig = {
-    topic: 'GOALETE Club Session',
+    topic: finalMeetingTitle,
     type: 2, // Scheduled meeting
     start_time: startTimeUTC,
     duration: duration, // in minutes
     timezone: 'Asia/Kolkata',
-    agenda: 'Join us for a GOALETE Club session to learn how to achieve any goal in life.',
+    agenda: finalMeetingDesc,
     settings: {
       host_video: true,
       participant_video: true,
@@ -251,127 +611,335 @@ export async function zoom_create_meet({ date, startTime, duration }: { date: st
 }
 
 /**
- * Core function 1: Create a meeting on the specified platform and store in database
- * @param args.platform 'google-meet' | 'zoom'
- * @param args.date ISO date string (YYYY-MM-DD)
- * @param args.startTime string (HH:MM, 24-hour format)
- * @param args.duration number (minutes)
- * @param args.meetingTitle optional title for the meeting
- * @param args.meetingDesc optional description for the meeting
- * @returns Meeting record
+ * STREAMLINED MEETING MANAGEMENT SYSTEM
+ * This replaces multiple redundant functions with a unified approach
  */
-export async function createMeeting({
-  platform,
-  date,
-  startTime,
-  duration,
-  meetingTitle,
-  meetingDesc
-}: {
-  platform: 'google-meet' | 'zoom',
-  date: string,
-  startTime: string,
-  duration: number,
-  meetingTitle?: string,
-  meetingDesc?: string
-}): Promise<MeetingWithUsers> {
-  let meetingLink = '';
-  let googleEventId: string | undefined = undefined;
-  let zoomMeetingId: string | undefined = undefined;
-  let zoomStartUrl: string | undefined = undefined;
 
-  if (platform === 'google-meet') {
-    const { join_url, id } = await google_create_meet({ date, startTime, duration });
-    meetingLink = join_url;
-    googleEventId = id;  
-  } 
-  else if (platform === 'zoom') {
-    const response = await zoom_create_meet({ date, startTime, duration });
-    meetingLink = response.join_url;
-    zoomMeetingId = response.id?.toString();
-    
-    // The start_url is in the response data, not in the id
-    if (response.start_url) {
-      zoomStartUrl = response.start_url;
-    }
+/**
+ * Core unified function for all meeting operations
+ * Handles: creation, retrieval, calendar sync, user management
+ * @param options Meeting operation configuration
+ * @returns Meeting record with users
+ */
+export async function manageMeeting({
+  date,
+  platform = 'google-meet',
+  startTime = '21:00',
+  duration = 60,
+  meetingTitle,
+  meetingDesc,
+  userIds = [],
+  operation = 'getOrCreate',
+  syncFromCalendar = true
+}: {
+  date: string;
+  platform?: 'google-meet' | 'zoom';
+  startTime?: string;
+  duration?: number;
+  meetingTitle?: string;
+  meetingDesc?: string;
+  userIds?: string[];
+  operation?: 'getOrCreate' | 'create' | 'get';
+  syncFromCalendar?: boolean;
+}): Promise<MeetingWithUsers> {
+  const dateObj = new Date(date);
+  
+  // Step 1: Try to find existing meeting in database
+  let existingMeeting = await prisma.meeting.findFirst({
+    where: {
+      meetingDate: {
+        gte: new Date(dateObj.setHours(0, 0, 0, 0)),
+        lt: new Date(dateObj.setHours(23, 59, 59, 999))
+      }
+    },
+    include: { users: true },
+    orderBy: { createdAt: 'desc' }
+  }) as MeetingWithUsers | null;
+
+  // Step 2: If no database meeting and sync enabled, check Google Calendar
+  if (!existingMeeting && syncFromCalendar && operation !== 'create') {
+    console.log(`No meeting found in database for ${date}, checking Google Calendar`);
+    existingMeeting = await syncCalendarEvent(date);
   }
 
-  const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
-  const endDateTime = new Date(startDateTime);
-  endDateTime.setMinutes(endDateTime.getMinutes() + duration);
+  // Step 3: Handle based on operation type
+  switch (operation) {
+    case 'get':
+      if (!existingMeeting) {
+        throw new Error(`No meeting found for date ${date}`);
+      }
+      return await addUsersToMeeting(existingMeeting, userIds);
 
+    case 'create':
+      if (existingMeeting) {
+        throw new Error(`Meeting already exists for date ${date}`);
+      }
+      return await createNewMeeting({
+        date, platform, startTime, duration, meetingTitle, meetingDesc, userIds
+      });
+
+    case 'getOrCreate':
+    default:
+      if (existingMeeting) {
+        return await addUsersToMeeting(existingMeeting, userIds);
+      }
+      return await createNewMeeting({
+        date, platform, startTime, duration, meetingTitle, meetingDesc, userIds
+      });
+  }
+}
+
+/**
+ * Internal function: Create new meeting with platform integration
+ */
+async function createNewMeeting({
+  date, platform, startTime, duration, meetingTitle, meetingDesc, userIds
+}: {
+  date: string;
+  platform: 'google-meet' | 'zoom';
+  startTime: string;
+  duration: number;
+  meetingTitle?: string;
+  meetingDesc?: string;
+  userIds: string[];
+}): Promise<MeetingWithUsers> {
+  const finalTitle = meetingTitle || getDefaultMeetingTitle(date);
+  const finalDesc = meetingDesc || getDefaultMeetingDescription();
+  
+  // Create platform meeting
+  let meetingLink = '';
+  let googleEventId: string | undefined;
+  let zoomMeetingId: string | undefined;
+  let zoomStartUrl: string | undefined;
+
+  if (platform === 'google-meet') {
+    const { join_url, id } = await google_create_meet({ 
+      date, startTime, duration,
+      meetingTitle: finalTitle,
+      meetingDesc: finalDesc
+    });
+    meetingLink = join_url;
+    googleEventId = id;
+  } else if (platform === 'zoom') {
+    const response = await zoom_create_meet({ 
+      date, startTime, duration,
+      meetingTitle: finalTitle,
+      meetingDesc: finalDesc
+    });
+    meetingLink = response.join_url;
+    zoomMeetingId = response.id?.toString();
+    zoomStartUrl = response.start_url;
+  }
+
+  // Create database record
+  const istDateTime = new Date(`${date}T${startTime}:00.000+05:30`);
+  const endDateTime = new Date(istDateTime.getTime() + (duration * 60 * 1000));
+  
   const meeting = await prisma.meeting.create({
     data: {
       meetingDate: new Date(date),
       platform,
       meetingLink,
-      startTime: startDateTime,
+      startTime: istDateTime,
       endTime: endDateTime,
-      createdBy: 'admin',
-      meetingTitle: meetingTitle || 'GOALETE Club Session',
-      meetingDesc: meetingDesc || 'Join us for a GOALETE Club session to learn how to achieve any goal in life.',
+      createdBy: 'system',
+      meetingTitle: finalTitle,
+      meetingDesc: finalDesc,
       googleEventId,
       zoomMeetingId,
-      zoomStartUrl
+      zoomStartUrl,
+      isDefault: false
     },
     include: { users: true }
   });
+
+  console.log(`Created ${platform} meeting for ${date} with ID: ${meeting.id}`);
+  
+  // Add users if provided
+  if (userIds.length > 0) {
+    return await addUsersToMeeting(meeting, userIds);
+  }
+  
   return meeting;
 }
 
 /**
- * Core function 2: Update meeting with users
- * This function updates a meeting by adding users both in the platform and in the database
- * @param meetingId database ID of the meeting
- * @param userIds array of user IDs to add to the meeting
- * @returns Updated meeting record
+ * Internal function: Add users to existing meeting
  */
-export async function updateMeetingWithUsers(
-  meetingId: string, 
+async function addUsersToMeeting(
+  meeting: MeetingWithUsers, 
   userIds: string[]
 ): Promise<MeetingWithUsers> {
-  // Fetch the meeting to check platform
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: meetingId },
-    include: { users: true }
+  if (userIds.length === 0) {
+    return meeting;
+  }
+
+  // Filter out users already in meeting
+  const existingUserIds = new Set(meeting.users?.map(user => user.id) || []);
+  const newUserIds = userIds.filter(id => !existingUserIds.has(id));
+  
+  if (newUserIds.length === 0) {
+    console.log('All users are already in the meeting');
+    return meeting;
+  }
+
+  // Get user details
+  const newUsers = await prisma.user.findMany({
+    where: { id: { in: newUserIds } },
+    select: { id: true, email: true, firstName: true, lastName: true }
   });
-  
-  if (!meeting) {
-    throw new Error(`Meeting with ID ${meetingId} not found`);
+
+  if (newUsers.length === 0) {
+    return meeting;
   }
-  
-  // Add users to the platform's meeting
-  for (const userId of userIds) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, firstName: true, lastName: true }
-    });
-    
-    if (!user?.email) continue;
-    
-    const name = user.firstName 
-      ? (user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName) 
-      : user.email.split('@')[0];
-    
-    if (meeting.platform === 'google-meet' && meeting.googleEventId) {
-      await google_add_user_to_meeting(meeting.googleEventId, user.email, name);
-    } else if (meeting.platform === 'zoom' && meeting.zoomMeetingId) {
-      await zoom_add_user_to_meeting(meeting.zoomMeetingId, user.email, name);
+
+  // Add to platform
+  try {
+    const usersForPlatform = newUsers
+      .filter(user => user.email)
+      .map(user => ({
+        email: user.email,
+        name: user.firstName 
+          ? (user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName) 
+          : user.email.split('@')[0]
+      }));
+
+    if (meeting.platform === 'google-meet' && meeting.googleEventId && usersForPlatform.length > 0) {
+      await google_add_users_to_meeting(meeting.googleEventId, usersForPlatform);
+    } else if (meeting.platform === 'zoom' && meeting.zoomMeetingId && usersForPlatform.length > 0) {
+      for (const user of usersForPlatform) {
+        try {
+          await zoom_add_user_to_meeting(meeting.zoomMeetingId!, user.email, user.name);
+        } catch (error) {
+          console.error(`Error adding ${user.email} to Zoom meeting:`, error);
+        }
+      }
     }
+  } catch (platformError) {
+    console.error('Error adding users to platform meeting:', platformError);
   }
-  
-  // Update the meeting in the database with the users
+
+  // Update database
   const updatedMeeting = await prisma.meeting.update({
-    where: { id: meetingId },
+    where: { id: meeting.id },
     data: {
       users: {
-        connect: userIds.map(id => ({ id }))
+        connect: newUsers.map(user => ({ id: user.id }))
       }
     },
     include: { users: true }
   });
-  
+
+  console.log(`Added ${newUsers.length} users to meeting ${meeting.id}`);
   return updatedMeeting;
+}
+
+/**
+ * Internal function: Sync existing calendar event to database
+ */
+async function syncCalendarEvent(date: string): Promise<MeetingWithUsers | null> {
+  try {
+    const impersonateUser = getAdminEmail();
+    const calendar = await getCalendarClient(impersonateUser);
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
+    
+    const dateObj = new Date(date);
+    const timeMin = new Date(dateObj.setHours(0, 0, 0, 0)).toISOString();
+    const timeMax = new Date(dateObj.setHours(23, 59, 59, 999)).toISOString();
+    
+    const response = await calendar.events.list({
+      calendarId,
+      timeMin,
+      timeMax,
+      singleEvents: true,
+      orderBy: 'startTime',
+      maxResults: 50, // Increased to catch more events
+      q: 'goalete' // Search for "goalete" case-insensitive
+    });
+    
+    const events = response.data.items || [];
+    console.log(`Found ${events.length} calendar events containing "goalete" for ${date}`);
+    
+    // Look for events with Google Meet conference data and "goalete" in title/description
+    for (const event of events) {
+      // Check if event contains "goalete" (case insensitive)
+      const eventText = `${event.summary || ''} ${event.description || ''}`.toLowerCase();
+      if (!eventText.includes('goalete')) {
+        continue;
+      }
+      
+      if (event.conferenceData && event.conferenceData.entryPoints) {
+        const videoEntryPoint = event.conferenceData.entryPoints.find(
+          (entry: any) => entry.entryPointType === 'video'
+        );
+        
+        if (videoEntryPoint && videoEntryPoint.uri && event.start && event.end) {
+          const startTimeStr = event.start.dateTime || event.start.date;
+          const endTimeStr = event.end.dateTime || event.end.date;
+          
+          if (!startTimeStr || !endTimeStr) continue;
+          
+          console.log(`Syncing calendar event ${event.id} with meeting link`);
+          
+          try {
+            const meeting = await prisma.meeting.create({
+              data: {
+                meetingDate: new Date(date),
+                platform: 'google-meet',
+                meetingLink: videoEntryPoint.uri,
+                startTime: new Date(startTimeStr),
+                endTime: new Date(endTimeStr),
+                createdBy: 'calendar-sync',
+                meetingTitle: event.summary || getDefaultMeetingTitle(date),
+                meetingDesc: event.description || getDefaultMeetingDescription(),
+                googleEventId: event.id || undefined,
+                isDefault: false
+              },
+              include: { users: true }
+            });
+            
+            console.log(`Synced calendar event to database as meeting ${meeting.id}`);
+            return meeting;
+          } catch (dbError: any) {
+            if (dbError.code === 'P2002') {
+              // Meeting already exists, fetch it
+              return await prisma.meeting.findFirst({
+                where: {
+                  meetingDate: {
+                    gte: new Date(date + 'T00:00:00.000Z'),
+                    lt: new Date(date + 'T23:59:59.999Z')
+                  }
+                },
+                include: { users: true },
+                orderBy: { createdAt: 'desc' }
+              });
+            }
+            throw dbError;
+          }
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error syncing calendar for ${date}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Helper functions
+ */
+function getDefaultMeetingTitle(date?: string): string {
+  const dateString = date ? format(new Date(date), 'dd-MM-yy') : format(new Date(), 'dd-MM-yy');
+  return process.env.DEFAULT_MEETING_TITLE 
+    ? `${process.env.DEFAULT_MEETING_TITLE} ${dateString}` 
+    : `GOALETE Club Session ${dateString}`;
+}
+
+function getDefaultMeetingDescription(): string {
+  return process.env.DEFAULT_MEETING_DESCRIPTION || 
+    'Join us for a GOALETE Club session to learn how to achieve any goal in life.';
 }
 
 // Platform-specific API operations
@@ -409,81 +977,122 @@ export async function zoom_add_user_to_meeting(meetingId: string, email: string,
 }
 
 /**
- * Get a meeting for a specific date, or create one if it doesn't exist
- * This is particularly useful for cron jobs and handling immediate meeting invites
- * @param date ISO date string (YYYY-MM-DD)
- * @param userId Optional user ID to add to the meeting
- * @returns Meeting record
+ * SIMPLIFIED WRAPPER FUNCTIONS FOR BACKWARD COMPATIBILITY
+ * These replace the old redundant functions with calls to the unified manageMeeting function
+ */
+
+/**
+ * @deprecated Use manageMeeting instead. Kept for backward compatibility.
  */
 export async function getOrCreateMeetingForDate(
   date: string,
   userId?: string
 ): Promise<MeetingWithUsers> {
-  const dateObj = new Date(date);
-  
-  // Check if there's already a meeting for this date
-  const existingMeeting = await prisma.meeting.findFirst({
-    where: {
-      meetingDate: {
-        gte: new Date(dateObj.setHours(0, 0, 0, 0)),
-        lt: new Date(dateObj.setHours(23, 59, 59, 999))
-      }
-    },
-    include: { users: true },
-    orderBy: {
-      createdAt: "desc"
-    }
+  return await manageMeeting({
+    date,
+    userIds: userId ? [userId] : [],
+    operation: 'getOrCreate',
+    syncFromCalendar: true
   });
+}
+
+/**
+ * @deprecated Use manageMeeting instead. Kept for backward compatibility.
+ */
+export async function addUserToTodaysMeeting(userId: string, targetDate?: string): Promise<MeetingWithUsers> {
+  const dateToUse = targetDate || new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).toISOString().split('T')[0];
   
-  // If a meeting exists
-  if (existingMeeting) {
-    // If userId is provided, add the user to the meeting
-    if (userId) {
-      // Check if user is already added to avoid duplicates
-      const isUserAlreadyAdded = existingMeeting.users?.some(user => user.id === userId);
-      
-      if (!isUserAlreadyAdded) {
-        return await updateMeetingWithUsers(existingMeeting.id, [userId]);
-      }
-    }
-    return existingMeeting;
-  }
-  
-  // No meeting exists, create a new one
-  const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || "google-meet";
-  const defaultTime = process.env.DEFAULT_MEETING_TIME || "21:00";
-  const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || "60");
-    // Create meeting with or without the user
-  if (userId) {
-    return await createCompleteMeeting({
-      platform: defaultPlatform as 'google-meet' | 'zoom',
-      date,
-      startTime: defaultTime,
-      duration: defaultDuration,
-      userIds: [userId],
-      meetingTitle: "GOALETE Club Daily Session",
-      meetingDesc: "Join us for a GOALETE Club session to learn how to achieve any goal in life."
+  return await manageMeeting({
+    date: dateToUse,
+    userIds: [userId],
+    operation: 'getOrCreate',
+    syncFromCalendar: true
+  });
+}
+
+/**
+ * @deprecated Use manageMeeting instead. Kept for backward compatibility.
+ */
+export async function getOrCreateDailyMeeting(targetDate?: string): Promise<MeetingWithUsers | null> {
+  try {
+    const dateToUse = targetDate || new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).toISOString().split('T')[0];
+    
+    // Get active users for today
+    const today = new Date(dateToUse);
+    const activeSubscriptions = await prisma.subscription.findMany({
+      where: {
+        status: 'active',
+        startDate: { lte: today },
+        endDate: { gte: today }
+      },
+      select: { userId: true }
     });
-  } else {
-    return await createMeeting({
-      platform: defaultPlatform as 'google-meet' | 'zoom',
-      date,
-      startTime: defaultTime,
-      duration: defaultDuration,
-      meetingTitle: "GOALETE Club Daily Session",
-      meetingDesc: "Join us for a GOALETE Club session to learn how to achieve any goal in life."
+
+    const userIds = activeSubscriptions.map(sub => sub.userId);
+    
+    return await manageMeeting({
+      date: dateToUse,
+      userIds,
+      operation: 'getOrCreate',
+      syncFromCalendar: true
     });
+  } catch (error) {
+    console.error('Error in getOrCreateDailyMeeting:', error);
+    return null;
   }
 }
 
 /**
- * Create a new meeting from scratch with multiple users (if provided)
- * This is a convenience function that combines createMeeting and updateMeetingWithUsers
- * @param platform 'google-meet' | 'zoom'
- * @param date ISO date string (YYYY-MM-DD)
- * @param meetingDetails Optional meeting details (title, description, etc.)
- * @param userIds Optional array of user IDs to add to the meeting
- * @returns Meeting record
+ * @deprecated Use manageMeeting with addUsersToMeeting instead. Kept for backward compatibility.
+ */
+export async function updateMeetingWithUsers(
+  meetingId: string, 
+  userIds: string[]
+): Promise<MeetingWithUsers> {
+  const meeting = await prisma.meeting.findUnique({
+    where: { id: meetingId },
+    include: { users: true }
+  });
+  
+  if (!meeting) {
+    throw new Error(`Meeting with ID ${meetingId} not found`);
+  }
+  
+  return await addUsersToMeeting(meeting as MeetingWithUsers, userIds);
+}
+
+/**
+ * @deprecated Use manageMeeting instead. Kept for backward compatibility.
+ */
+export async function createMeeting({
+  platform,
+  date,
+  startTime,
+  duration,
+  meetingTitle,
+  meetingDesc
+}: {
+  platform: 'google-meet' | 'zoom',
+  date: string,
+  startTime: string,
+  duration: number,
+  meetingTitle?: string,
+  meetingDesc?: string
+}): Promise<MeetingWithUsers> {
+  return await manageMeeting({
+    date,
+    platform,
+    startTime,
+    duration,
+    meetingTitle,
+    meetingDesc,
+    operation: 'create',
+    syncFromCalendar: false
+  });
+}
+
+/**
+ * @deprecated Use manageMeeting instead. Kept for backward compatibility.
  */
 export async function createCompleteMeeting({
   platform,
@@ -502,66 +1111,22 @@ export async function createCompleteMeeting({
   meetingDesc?: string,
   userIds?: string[]
 }): Promise<MeetingWithUsers> {
-  // Create the meeting
-  const meeting = await createMeeting({
-    platform,
+  return await manageMeeting({
     date,
+    platform,
     startTime,
     duration,
     meetingTitle,
-    meetingDesc
+    meetingDesc,
+    userIds,
+    operation: 'create',
+    syncFromCalendar: false
   });
-  
-  // If there are users to add, update the meeting with users
-  if (userIds.length > 0) {
-    return await updateMeetingWithUsers(meeting.id, userIds);
-  }
-    return meeting;
 }
 
 /**
- * Create a meeting link with retry capability
- * @param options Meeting creation options
- * @param maxRetries Maximum retry attempts (default: 3)
- * @returns Promise with meeting link and ID
+ * @deprecated Use syncCalendarEvent directly. Kept for backward compatibility.
  */
-export async function createMeetingLinkWithRetry({
-  platform,
-  date,
-  startTime,
-  duration
-}: {
-  platform: 'google-meet' | 'zoom',
-  date: string,
-  startTime: string,
-  duration: number
-}, maxRetries: number = 3): Promise<string> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await createMeetingLink({ platform, date, startTime, duration });
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`Meeting creation attempt ${attempt}/${maxRetries} failed:`, {
-        error: lastError.message,
-        platform,
-        date,
-        startTime,
-        duration,
-        stack: lastError.stack,
-        timestamp: new Date().toISOString()
-      });
-      
-      if (attempt < maxRetries) {
-        // Exponential backoff
-        const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s, ...
-        console.log(`Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  // If we've exhausted all retries, throw the last error
-  throw lastError || new Error('Failed to create meeting link after multiple attempts');
+export async function findAndSyncExistingGoogleEvent(date: string): Promise<MeetingWithUsers | null> {
+  return await syncCalendarEvent(date);
 }

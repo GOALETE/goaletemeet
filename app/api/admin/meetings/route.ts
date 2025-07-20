@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "../../../../lib/prisma";
 import { z } from "zod";
-import { createMeeting } from '../../../../lib/meetingLink';
+import { manageMeeting } from '../../../../lib/meetingLink';
 import { addDays, format, parseISO } from 'date-fns';
 
 // Schema for creating meetings
@@ -16,6 +16,7 @@ const createMeetingSchema = z.object({
   duration: z.number().min(15).max(240), // Duration in minutes
   meetingTitle: z.string().optional(),
   meetingDesc: z.string().optional(),
+  addActiveUsers: z.boolean().optional().default(true), // Whether to automatically add active users
 }).refine(data => data.dates !== undefined || data.dateRange !== undefined, {
   message: "Either specific dates or a date range must be provided"
 });
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const { platform, startTime, duration, meetingTitle, meetingDesc } = parsed.data;
+    const { platform, startTime, duration, meetingTitle, meetingDesc, addActiveUsers } = parsed.data;
     let dates: string[] = [];
 
     // Handle either individual dates or date range
@@ -80,15 +81,65 @@ export async function POST(request: NextRequest) {
     // Create meetings for each date
     const createdMeetings = [];
     for (const dateStr of dates) {
-      // Use the meeting creation logic
-      const meeting = await createMeeting({
-        platform,
-        date: dateStr,
-        startTime,
-        duration,
-        meetingTitle,
-        meetingDesc
-      });
+      let meeting;
+      
+      if (addActiveUsers) {
+        // Get active users for this specific date
+        const dateObj = parseISO(dateStr);
+        const activeSubscriptions = await prisma.subscription.findMany({
+          where: {
+            status: 'active',
+            startDate: { lte: dateObj },
+            endDate: { gte: dateObj }
+          },
+          select: { userId: true }
+        });
+        
+        const userIds = activeSubscriptions.map(sub => sub.userId);
+        
+        if (userIds.length > 0) {
+          // Create meeting first, then add users (optimized workflow)
+          console.log(`Creating meeting for ${dateStr} and adding ${userIds.length} active users`);
+          meeting = await manageMeeting({
+            date: dateStr,
+            platform,
+            startTime,
+            duration,
+            meetingTitle,
+            meetingDesc,
+            userIds,
+            operation: 'create',
+            syncFromCalendar: false
+          });
+        } else {
+          // No active users for this date, create meeting without users
+          console.log(`Creating meeting for ${dateStr} without users (no active subscriptions)`);
+          meeting = await manageMeeting({
+            date: dateStr,
+            platform,
+            startTime,
+            duration,
+            meetingTitle,
+            meetingDesc,
+            operation: 'create',
+            syncFromCalendar: false
+          });
+        }
+      } else {
+        // Create meeting without users (admin-only meeting)
+        console.log(`Creating admin-only meeting for ${dateStr}`);
+        meeting = await manageMeeting({
+          date: dateStr,
+          platform,
+          startTime,
+          duration,
+          meetingTitle,
+          meetingDesc,
+          operation: 'create',
+          syncFromCalendar: false
+        });
+      }
+      
       createdMeetings.push(meeting);
     }
     
@@ -151,22 +202,14 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    // Convert UTC times to IST for front-end display
-    const meetingsWithISTTime = meetings.map(meeting => {
-      const startTimeIST = new Date(meeting.startTime);
-      startTimeIST.setUTCHours(startTimeIST.getUTCHours() + 5, startTimeIST.getUTCMinutes() + 30);
-      
-      const endTimeIST = new Date(meeting.endTime);
-      endTimeIST.setUTCHours(endTimeIST.getUTCHours() + 5, endTimeIST.getUTCMinutes() + 30);
-      
-      return {
-        ...meeting,
-        startTimeIST: startTimeIST.toISOString(),
-        endTimeIST: endTimeIST.toISOString()
-      };
-    });
+    // Return meetings with UTC timestamps - frontend will convert to IST for display
+    const meetingsWithUTCTime = meetings.map(meeting => ({
+      ...meeting,
+      startTimeUTC: meeting.startTime.toISOString(),
+      endTimeUTC: meeting.endTime.toISOString()
+    }));
     
-    return NextResponse.json({ meetings: meetingsWithISTTime });
+    return NextResponse.json({ meetings: meetingsWithUTCTime });
     
   } catch (error) {
     console.error("Error fetching meetings:", error);

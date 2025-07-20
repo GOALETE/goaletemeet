@@ -1,278 +1,245 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sendMeetingInvite } from "@/lib/email";
-import { getOrCreateDailyMeetingLink } from "@/lib/subscription";
-import { InviteResult, MeetingWithUsers } from "@/types/meeting";
-import { z } from "zod";
+import { manageMeeting } from "@/lib/meetingLink";
+import { format } from "date-fns";
 
-// Validation schema for request parameters (if any)
-const requestParamsSchema = z.object({
-  apiKey: z.string().optional(),
-  testMode: z.boolean().optional()
-});
-
-// This function will be triggered by a CRON job (e.g., using Vercel Cron)
-export async function GET(request: NextRequest) {
-  // Start tracking metrics for this job
-  const jobStartTime = Date.now();
-  const metrics = {
-    invitesSent: 0,
-    invitesFailed: 0,
-    totalDuration: 0,
-    errors: [] as string[]
-  };
-
+export async function GET(req: NextRequest) {
   try {
-    // Validate request parameters if any
-    const params = requestParamsSchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
-    if (!params.success) {
+    console.log('🚀 Daily cron job started at:', new Date().toISOString());
+    
+    // Check if cron jobs are enabled
+    if (process.env.ENABLE_CRON_JOBS === 'false') {
+      console.log('⚠️ Cron jobs are disabled via ENABLE_CRON_JOBS environment variable');
       return NextResponse.json({ 
-        success: false,
-        message: "Invalid request parameters",
-        details: params.error.flatten(),
+        message: "Cron jobs are disabled",
+        status: "disabled",
         timestamp: new Date().toISOString()
-      }, { status: 400 });
+      }, { status: 200 });
     }
 
-    // Check API key if provided and required
-    const apiKey = params.data.apiKey;
-    const expectedApiKey = process.env.CRON_API_KEY;
+    // Verify cron job authentication (Vercel provides a special header)
+    const authHeader = req.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
     
-    if (expectedApiKey && apiKey !== expectedApiKey) {
-      console.warn("Unauthorized cron job attempt with invalid API key");
-      return NextResponse.json({ 
-        success: false,
-        message: "Unauthorized access",
-        timestamp: new Date().toISOString()
-      }, { status: 401 });
+    // If CRON_SECRET is set, verify it; otherwise allow the request (for Vercel's built-in cron)
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      console.log('❌ Unauthorized cron job request');
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // Get current date in IST
-    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    today.setHours(0, 0, 0, 0); // Set to start of day
+    // Get today's date in IST
+    const today = new Date();
+    const istDate = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const todayStr = format(istDate, 'yyyy-MM-dd');
     
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    console.log(`Running daily invite cron job for ${today.toISOString().split('T')[0]}`);
-    
-    // Get or create today's meeting with retry
-    let todayMeeting: MeetingWithUsers | null = null;
-    try {
-      todayMeeting = await getOrCreateDailyMeetingLink();
-    } catch (meetingError) {
-      const errorMessage = meetingError instanceof Error ? meetingError.message : String(meetingError);
-      console.error("Failed to create or get meeting:", { error: errorMessage });
-      metrics.errors.push(`Meeting creation failed: ${errorMessage}`);
-      
-      return NextResponse.json({ 
-        success: false,
-        message: "Failed to get or create meeting for today",
-        error: errorMessage,
-        timestamp: new Date().toISOString() 
-      }, { status: 500 });
-    }
+    console.log(`📅 Processing invites for date: ${todayStr} (IST)`);
 
-    if (!todayMeeting) {
-      const errorMessage = "Failed to get or create meeting for today";
-      console.error(errorMessage);
-      metrics.errors.push(errorMessage);
-      
-      return NextResponse.json({ 
-        success: false,
-        message: errorMessage,
-        timestamp: new Date().toISOString() 
-      }, { status: 500 });
-    }
-    
-    if (!todayMeeting.meetingLink) {
-      const errorMessage = "Today's meeting has no valid meeting link";
-      console.error(errorMessage);
-      metrics.errors.push(errorMessage);
-      
-      return NextResponse.json({ 
-        success: false,
-        message: errorMessage,
-        timestamp: new Date().toISOString() 
-      }, { status: 500 });
-    }
-    
-    console.log(`Using meeting for today: ${todayMeeting.id} with platform ${todayMeeting.platform}`);
-    
-    // Find all active subscriptions that:
-    // 1. Have already started (startDate <= today)
-    // 2. Haven't ended yet (endDate >= today)
-    const activeSubscriptions = await prisma.subscription.findMany({
+    // Find all users with active subscriptions for today
+    const usersWithActiveSubscriptions = await prisma.user.findMany({
       where: {
-        status: "active",
-        startDate: { lte: today },
-        endDate: { gte: today }
+        subscriptions: {
+          some: {
+            AND: [
+              {
+                startDate: {
+                  lte: istDate
+                }
+              },
+              {
+                endDate: {
+                  gte: istDate
+                }
+              },
+              {
+                status: 'active'
+              },
+              {
+                OR: [
+                  { paymentStatus: 'completed' },
+                  { paymentStatus: 'paid' },
+                  { paymentStatus: 'success' },
+                  { paymentStatus: 'admin-added' },
+                  { paymentStatus: 'admin-created' },
+                  { paymentStatus: '' }
+                ]
+              }
+            ]
+          }
+        }
       },
       include: {
-        user: true
+        subscriptions: {
+          where: {
+            AND: [
+              {
+                startDate: {
+                  lte: istDate
+                }
+              },
+              {
+                endDate: {
+                  gte: istDate
+                }
+              },
+              {
+                status: 'active'
+              }
+            ]
+          }
+        }
       }
     });
 
-    console.log(`Found ${activeSubscriptions.length} active subscriptions for today`);
-    
-    if (activeSubscriptions.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: "No active subscriptions found for today",
-        timestamp: new Date().toISOString(),
-        invitesSent: []
-      }, { status: 200 });
-    }    // Use the meeting details
-    const meetingLink = todayMeeting.meetingLink;
-    const platform = todayMeeting.platform;
-    const meetingTitle = todayMeeting.meetingTitle || "GOALETE Club Daily Session";
-    const meetingDesc = todayMeeting.meetingDesc || "Join us for today's GOALETE Club session to learn how to achieve any goal in life.";
-    
-    // Get meeting time settings from environment variables or use meeting time if available
-    const meetingStartTime = todayMeeting.startTime || (() => {
-      const defaultTime = process.env.DEFAULT_MEETING_TIME || "21:00"; // format: "HH:MM"
-      const [hours, minutes] = defaultTime.split(':').map(Number);
-      const startTime = new Date(today);
-      startTime.setHours(hours || 21, minutes || 0, 0, 0);
-      return startTime;
-    })();
-    
-    const meetingEndTime = todayMeeting.endTime || (() => {
-      const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || "60"); // minutes
-      const endTime = new Date(meetingStartTime);
-      endTime.setMinutes(meetingStartTime.getMinutes() + defaultDuration);
-      return endTime;
-    })();
-
-    // Process each subscription and send invites with enhanced error handling
-    const results: InviteResult[] = [];
-    
-    // Track job progress
-    let processedCount = 0;
-    const totalSubscriptions = activeSubscriptions.length;
-    
-    for (const subscription of activeSubscriptions) {
-      processedCount++;
-      const startTime = Date.now();
-      const userEmail = subscription.user.email;
-      
-      try {
-        console.log(`Processing invite ${processedCount}/${totalSubscriptions} for user ${userEmail}`);
-        
-        // Send calendar invite with retry mechanism from the email library
-        const success = await sendMeetingInvite({
-          recipient: {
-            name: `${subscription.user.firstName} ${subscription.user.lastName}`,
-            email: userEmail
-          },
-          meetingTitle,
-          meetingDescription: meetingDesc,
-          meetingLink,
-          startTime: meetingStartTime,
-          endTime: meetingEndTime,
-          platform: platform === "zoom" ? "Zoom" : "Google Meet",
-          hostLink: todayMeeting.zoomStartUrl || undefined
-        });
-        
-        if (!success) {
-          throw new Error(`Email sending failed after retries for ${userEmail}`);
+    // Check if there's already a meeting for today - we'll use manageMeeting to handle this
+    // Get active users for today first
+    const activeUsers = await prisma.user.findMany({
+      where: {
+        subscriptions: {
+          some: {
+            AND: [
+              {
+                startDate: {
+                  lte: istDate
+                }
+              },
+              {
+                endDate: {
+                  gte: istDate
+                }
+              },
+              {
+                status: 'active'
+              },
+              {
+                OR: [
+                  { paymentStatus: 'completed' },
+                  { paymentStatus: 'paid' },
+                  { paymentStatus: 'success' },
+                  { paymentStatus: 'admin-added' },
+                  { paymentStatus: 'admin-created' },
+                  { paymentStatus: '' }
+                ]
+              }
+            ]
+          }
         }
-        
-        metrics.invitesSent++;
-        
-        // Return the subscription info for the response
-        results.push({
-          userId: subscription.userId,
-          subscriptionId: subscription.id,
-          email: userEmail,
-          planType: subscription.planType,
-          sentAt: new Date().toISOString(),
-          status: "sent",
-          meetingLink
-        });
-        
-        console.log(`Successfully sent invite to ${userEmail} (${processedCount}/${totalSubscriptions})`);
-      } catch (error) {
-        metrics.invitesFailed++;
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const stack = error instanceof Error ? error.stack : undefined;
-        
-        console.error(`Failed to send invite to ${userEmail}:`, {
-          error: errorMessage,
-          stack,
-          subscriptionId: subscription.id,
-          userId: subscription.userId,
-          timestamp: new Date().toISOString()
-        });
-        
-        metrics.errors.push(`${userEmail}: ${errorMessage}`);
-        
-        results.push({
-          userId: subscription.userId,
-          subscriptionId: subscription.id,
-          email: userEmail,
-          status: "failed",
-          error: errorMessage
-        });
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true
       }
-      
-      // Log processing time for this subscription
-      const processingTime = Date.now() - startTime;
-      console.log(`Processing time for ${userEmail}: ${processingTime}ms`);
+    });
+
+    const activeUserIds = activeUsers.map(user => user.id);
+    console.log(`👥 Found ${activeUsers.length} users with active subscriptions for today`);
+
+    if (activeUsers.length === 0) {
+      console.log('✅ No users with active subscriptions for today. Cron job completed.');
+      return NextResponse.json({
+        message: "No users with active subscriptions for today",
+        date: todayStr,
+        timestamp: new Date().toISOString(),
+        usersProcessed: 0
+      });
     }
 
-    // Calculate job metrics
-    metrics.totalDuration = Date.now() - jobStartTime;
-    
-    // Count success and failures
-    const successful = results.filter(r => r.status === "sent").length;
-    const failed = results.filter(r => r.status === "failed").length;
-    
-    console.log(`Sent ${successful} invites successfully, ${failed} failed, total duration: ${metrics.totalDuration}ms`);
+    // Use .env or fallback values
+    let platform: 'google-meet' | 'zoom' = 'google-meet';
+    if (process.env.DEFAULT_MEETING_PLATFORM === 'zoom') platform = 'zoom';
+    else if (process.env.DEFAULT_MEETING_PLATFORM === 'google-meet') platform = 'google-meet';
+    const startTimeStr = process.env.DEFAULT_MEETING_TIME || '21:00';
+    const durationMin = process.env.DEFAULT_MEETING_DURATION ? Number(process.env.DEFAULT_MEETING_DURATION) : 60;
+    const meetingTitle = process.env.DEFAULT_MEETING_TITLE || `Daily Meeting - ${format(istDate, 'dd-MM-yy')}`;
+    const meetingDesc = process.env.DEFAULT_MEETING_DESCRIPTION || `Daily meeting for Goalete subscribers on ${format(istDate, 'EEEE, dd-MM-yy')}`;
 
-    // Return the results
-    return NextResponse.json({
-      success: true,
-      message: `Sent ${successful} invites successfully, ${failed} failed`,
-      timestamp: new Date().toISOString(),
-      metrics: {
-        duration: metrics.totalDuration,
-        successRate: totalSubscriptions > 0 ? (successful / totalSubscriptions) * 100 : 0
-      },
-      meetingDetails: {
-        id: todayMeeting.id,
-        date: today.toISOString().split('T')[0],
-        platform,
-        startTime: meetingStartTime.toISOString(),
-        endTime: meetingEndTime.toISOString(),
-        title: meetingTitle
-      },
-      invitesSent: results
-    }, { status: 200 });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const stack = error instanceof Error ? error.stack : undefined;
-    
-    metrics.totalDuration = Date.now() - jobStartTime;
-    
-    console.error("Error in daily invite cron job:", {
-      error: errorMessage,
-      stack,
-      metrics,
-      timestamp: new Date().toISOString()
+    // Create or get meeting and add active users using the meeting management API
+    console.log('🎯 Creating/updating meeting with active users...');
+    const todayMeeting = await manageMeeting({
+      date: todayStr,
+      platform,
+      startTime: startTimeStr,
+      duration: durationMin,
+      meetingTitle,
+      meetingDesc,
+      userIds: activeUserIds,
+      operation: 'getOrCreate',
+      syncFromCalendar: false
     });
-    
-    return NextResponse.json({
-      success: false,
-      message: "Failed to process daily invites",
-      error: errorMessage,
-      metrics: {
-        duration: metrics.totalDuration,
-        invitesSent: metrics.invitesSent,
-        invitesFailed: metrics.invitesFailed,
-        errors: metrics.errors.slice(0, 5) // Only include first 5 errors
+
+    console.log(`✅ Meeting ready for ${todayStr}: ${todayMeeting.id} with ${todayMeeting.users?.length || 0} users`);
+
+    // Send invites to all active users
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    for (const user of activeUsers) {
+      try {
+        console.log(`📧 Sending invite to: ${user.email}`);
+        
+        const inviteResult = await sendMeetingInvite({
+          recipient: {
+            name: `${user.firstName} ${user.lastName}`.trim(),
+            email: user.email
+          },
+          meetingTitle: `${todayMeeting.meetingTitle} - ${format(istDate, 'dd-MM-yy')}` || `${process.env.DEFAULT_MEETING_TITLE}- ${format(istDate, 'dd-MM-yy')}` || `Daily Meeting - ${format(istDate, 'dd-MM-yy')}`,
+          meetingDescription: todayMeeting.meetingDesc || process.env.DEFAULT_MEETING_DESCRIPTION || 'Daily meeting for Goalete subscribers',
+          meetingLink: todayMeeting.meetingLink,
+          startTime: todayMeeting.startTime,
+          endTime: todayMeeting.endTime,
+          platform: todayMeeting.platform || process.env.DEFAULT_MEETING_PLATFORM || 'google-meet'
+        });
+
+        if (inviteResult) {
+          successCount++;
+          console.log(`✅ Successfully sent invite to: ${user.email}`);
+        } else {
+          errorCount++;
+          const error = `Failed to send invite to ${user.email}`;
+          errors.push(error);
+          console.error(`❌ ${error}`);
+        }
+      } catch (error) {
+        errorCount++;
+        const errorMsg = `Exception sending invite to ${user.email}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        errors.push(errorMsg);
+        console.error(`❌ ${errorMsg}`);
+      }
+    }
+
+    const summary = {
+      message: "Daily cron job completed",
+      date: todayStr,
+      timestamp: new Date().toISOString(),
+      meetingId: todayMeeting.id,
+      meetingLink: todayMeeting.meetingLink,
+      totalUsers: activeUsers.length,
+      successfulInvites: successCount,
+      failedInvites: errorCount,
+      errors: errors.length > 0 ? errors : undefined
+    };
+
+    console.log('🎉 Daily cron job completed:', summary);
+
+    return NextResponse.json(summary);
+
+  } catch (error) {
+    console.error("❌ Error in daily cron job:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to execute daily cron job",
+        message: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
       },
-      timestamp: new Date().toISOString()
-    }, { status: 500 });
+      { status: 500 }
+    );
   }
+}
+
+// Also support POST for manual testing
+export async function POST(req: NextRequest) {
+  return GET(req);
 }

@@ -1,7 +1,9 @@
 import prisma from './prisma';
-import { createCompleteMeeting } from './meetingLink';
+import { manageMeeting } from './meetingLink';
 import type { Meeting } from '@/generated/prisma';
 import { MeetingWithUsers } from '../types/meeting';
+import { PLAN_PRICING, PLAN_TYPES } from './pricing';
+import type { PlanType } from './pricing';
 
 // Format date helper function for DD:MM:YY format in IST timezone
 const formatDateDDMMYY = (date: Date): string => {
@@ -103,7 +105,7 @@ export async function checkActiveSubscription(email: string) {
  * @param email User's email address
  * @param startDate Proposed subscription start date
  * @param endDate Proposed subscription end date
- * @param planType The type of plan being purchased ('daily' or 'monthly')
+ * @param planType The type of plan being purchased (PLAN_TYPES.DAILY or PLAN_TYPES.MONTHLY)
  * @returns Object indicating if user can subscribe and reason if not
  */
 export async function canUserSubscribeForDates(
@@ -186,9 +188,9 @@ export async function canUserSubscribeForDates(
     // We have overlapping subscriptions - check the specific cases
     
     // Case 1: User has a daily plan and is trying to buy a monthly plan that overlaps
-    const dailySub = overlappingSubscriptions.find((sub: any) => sub.planType === 'daily');
+    const dailySub = overlappingSubscriptions.find((sub: any) => sub.planType === PLAN_TYPES.DAILY);
     const hasOverlappingDailyPlan = !!dailySub;
-    if (hasOverlappingDailyPlan && planType === 'monthly' && dailySub) {
+    if (hasOverlappingDailyPlan && planType === PLAN_TYPES.MONTHLY && dailySub) {
       // Format dates for clearer messaging
       const formattedSubStart = formatDateDDMMYY(dailySub.startDate);
       const formattedSubEnd = formatDateDDMMYY(dailySub.endDate);
@@ -197,37 +199,30 @@ export async function canUserSubscribeForDates(
       
       return {
         canSubscribe: false,
-        reason: `Cannot purchase a monthly plan that overlaps with your existing daily plan from ${formattedSubStart}${formattedSubStart !== formattedSubEnd ? ` to ${formattedSubEnd}` : ''}. Please select non-overlapping dates.`,
-        subscriptionDetails: dailySub,
-        conflictingDates: {
-          start: dailySub.startDate.toISOString(),
-          end: dailySub.endDate.toISOString()
-        }
+        reason: `Cannot purchase a ${PLAN_PRICING[PLAN_TYPES.MONTHLY].name} that overlaps with your existing ${PLAN_PRICING[PLAN_TYPES.DAILY].name} from ${formattedSubStart}${formattedSubStart !== formattedSubEnd ? ` to ${formattedSubEnd}` : ''}. Please select non-overlapping dates.`,
+        subscriptionDetails: null
       };
     }
     
     // Case 2: User has a monthly plan and is trying to buy a daily plan that falls within that month
-    const monthlySub = overlappingSubscriptions.find((sub: any) => sub.planType === 'monthly');
+    const monthlySub = overlappingSubscriptions.find((sub: any) => sub.planType === PLAN_TYPES.MONTHLY);
     const hasOverlappingMonthlyPlan = !!monthlySub;
-    if (hasOverlappingMonthlyPlan && planType === 'daily' && monthlySub) {
+    if (hasOverlappingMonthlyPlan && planType === PLAN_TYPES.DAILY && monthlySub) {
       // Format dates for clearer messaging
       const formattedSubStart = formatDateDDMMYY(monthlySub.startDate);
       const formattedSubEnd = formatDateDDMMYY(monthlySub.endDate);
       const formattedNewStart = formatDateDDMMYY(startDate);
+      const formattedNewEnd = formatDateDDMMYY(endDate);
       
       return {
         canSubscribe: false,
-        reason: `Cannot purchase a daily plan that overlaps with your existing monthly plan from ${formattedSubStart} to ${formattedSubEnd}. Please select a date outside your monthly plan.`,
-        subscriptionDetails: monthlySub,
-        conflictingDates: {
-          start: monthlySub.startDate.toISOString(),
-          end: monthlySub.endDate.toISOString()
-        }
+        reason: `Cannot purchase a ${PLAN_PRICING[PLAN_TYPES.DAILY].name} that overlaps with your existing ${PLAN_PRICING[PLAN_TYPES.MONTHLY].name} from ${formattedSubStart} to ${formattedSubEnd}. Please select non-overlapping dates.`,
+        subscriptionDetails: null
       };
     }
     
     // Case 3: User has a daily plan and is trying to buy another daily plan for the same slot
-    const hasOverlappingDailyForDaily = planType === 'daily' && hasOverlappingDailyPlan;
+    const hasOverlappingDailyForDaily = planType === PLAN_TYPES.DAILY && hasOverlappingDailyPlan;
     if (hasOverlappingDailyForDaily && dailySub) {
       // Format dates for clearer messaging
       const formattedSubStart = formatDateDDMMYY(dailySub.startDate);
@@ -275,7 +270,7 @@ export async function canUserSubscribeForDates(
 /**
  * Check if a user can subscribe
  * @param email User's email address
- * @param planType The type of plan being purchased ('daily' or 'monthly')
+ * @param planType The type of plan being purchased (PLAN_TYPES.DAILY or PLAN_TYPES.MONTHLY)
  * @param startDate Optional start date for the new subscription
  * @param endDate Optional end date for the new subscription
  * @returns Object indicating if user can subscribe and reason if not
@@ -313,7 +308,7 @@ export async function canUserSubscribe(email: string, planType?: string, startDa
     const currentEndDate = subscriptionStatus.subscriptionDetails?.endDate;
     const formattedEndDate = currentEndDate ? formatDateDDMMYY(currentEndDate) : 'unknown date';
       // If user has a monthly plan and tries to buy any other plan (overlapping)
-    if (currentPlanType === 'monthly' && subscriptionStatus.subscriptionDetails) {
+    if (currentPlanType === PLAN_TYPES.MONTHLY && subscriptionStatus.subscriptionDetails) {
       return {
         canSubscribe: false,
         reason: `You already have an active monthly subscription until ${formattedEndDate}. Please wait for it to expire or check non-overlapping dates.`,
@@ -326,7 +321,7 @@ export async function canUserSubscribe(email: string, planType?: string, startDa
     }
     
     // If user has a daily plan and tries to buy any other plan (without specific dates)
-    if (currentPlanType === 'daily' && subscriptionStatus.subscriptionDetails) {
+    if (currentPlanType === PLAN_TYPES.DAILY && subscriptionStatus.subscriptionDetails) {
       return {
         canSubscribe: false,
         reason: `You already have an active daily subscription until ${formattedEndDate}. Please wait for it to expire or check non-overlapping dates.`,
@@ -458,6 +453,7 @@ export async function getTodayActiveSubscriptions() {
 /**
  /**
  * Gets or creates a meeting link for today
+ * Enhanced version that prioritizes admin-added meetings
  * @returns The meeting object for today
  */
 export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | null> {
@@ -473,11 +469,16 @@ export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | 
           gte: new Date(istDate.getFullYear(), istDate.getMonth(), istDate.getDate(), 0, 0, 0),
           lt: new Date(istDate.getFullYear(), istDate.getMonth(), istDate.getDate() + 1, 0, 0, 0)
         }
-      }
+      },
+      include: { users: true }
     });
+    
     if (existingMeeting) {
+      console.log(`Found existing meeting for today: ${existingMeeting.id} (${existingMeeting.createdBy})`);
       return existingMeeting;
     }
+
+    console.log(`No existing meeting found for today, creating default meeting`);
 
     // Get all users with active subscriptions for today
     const activeSubscriptions = await prisma.subscription.findMany({
@@ -488,22 +489,38 @@ export async function getOrCreateDailyMeetingLink(): Promise<MeetingWithUsers | 
       },
       select: { userId: true }
     });
-    const userIds = activeSubscriptions.map(sub => sub.userId);    // Get default meeting settings from environment variables
+    const userIds = activeSubscriptions.map(sub => sub.userId);
+
+    // Get default meeting settings from environment variables
     const defaultPlatform = process.env.DEFAULT_MEETING_PLATFORM || 'google-meet';
     const defaultTime = process.env.DEFAULT_MEETING_TIME || '21:00';
     const defaultDuration = parseInt(process.env.DEFAULT_MEETING_DURATION || '60');
     const todayStr = istDate.toISOString().split('T')[0];
 
-    // Create the meeting with all users for today
-    const meeting = await createCompleteMeeting({
-      platform: defaultPlatform as 'google-meet' | 'zoom',
+    console.log(`Creating default meeting with platform: ${defaultPlatform}, time: ${defaultTime}, duration: ${defaultDuration} minutes`);
+
+    // Create the meeting with all users for today using unified function
+    const meeting = await manageMeeting({
       date: todayStr,
+      platform: defaultPlatform as 'google-meet' | 'zoom',
       startTime: defaultTime,
       duration: defaultDuration,
       meetingTitle: 'GOALETE Club Daily Session',
       meetingDesc: 'Join us for a GOALETE Club session to learn how to achieve any goal in life.',
-      userIds
+      userIds,
+      operation: 'getOrCreate',
+      syncFromCalendar: true
     });
+    
+    // Mark this as a system-generated default meeting
+    await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: { 
+        createdBy: 'system-default',
+        isDefault: true 
+      }
+    });
+    
     return meeting;
   } catch (error) {
     console.error('Error creating daily meeting link:', error);

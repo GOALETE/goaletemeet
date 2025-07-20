@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { sendMeetingInvite } from "@/lib/email";
-import { getOrCreateMeetingForDate } from '@/lib/meetingLink';
+import { manageMeeting } from '@/lib/meetingLink';
 
 // Define schema for request validation
 const inviteSchema = z.object({
@@ -37,7 +37,12 @@ export async function POST(request: NextRequest) {
     const todayStr = today.toISOString().split('T')[0];
     
     // Get or create today's meeting and add the user to it
-    let todayMeeting = await getOrCreateMeetingForDate(todayStr, userId);
+    let todayMeeting = await manageMeeting({
+      date: todayStr,
+      userIds: [userId],
+      operation: 'getOrCreate',
+      syncFromCalendar: true
+    });
 
     // Refresh meeting details
     const meeting = await prisma.meeting.findUnique({ where: { id: todayMeeting.id } });

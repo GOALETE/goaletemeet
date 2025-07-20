@@ -34,13 +34,14 @@ export async function GET(request: NextRequest) {
       meetingLink: todayMeeting.meetingLink,
       startTime: todayMeeting.startTime.toISOString(),
       endTime: todayMeeting.endTime.toISOString(),
-      startTimeIST: todayMeeting.startTime.toISOString(),
-      endTimeIST: todayMeeting.endTime.toISOString(),
+      startTimeUTC: todayMeeting.startTime.toISOString(),
+      endTimeUTC: todayMeeting.endTime.toISOString(),
       meetingTitle: todayMeeting.meetingTitle,
       meetingDesc: todayMeeting.meetingDesc,
       googleEventId: todayMeeting.googleEventId || null,
       zoomMeetingId: todayMeeting.zoomMeetingId || null,
-      zoomStartUrl: todayMeeting.zoomStartUrl || null
+      zoomStartUrl: todayMeeting.zoomStartUrl || null,
+      attendeeCount: todayMeeting.users?.length || 0
     };
 
     // Count active users for today

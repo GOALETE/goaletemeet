@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
-import { canUserSubscribeForDates, getOrCreateDailyMeetingLink } from "@/lib/subscription";
-import { toPaise, fromPaise } from "@/lib/pricing";
+import { canUserSubscribeForDates } from "@/lib/subscription";
+import { manageMeeting } from "@/lib/meetingLink";
+import { toPaise, fromPaise, PLAN_TYPES } from "@/lib/pricing";
 import { sendAdminNotificationEmail, sendFamilyAdminNotificationEmail } from "@/lib/email";
+import { sendImmediateInviteViaMessaging } from "@/lib/messaging";
 
 // Get Razorpay keys from environment variables
-const key_id = process.env.RAZORPAY_KEY_ID;
+const key_id = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
 // Validate Razorpay keys are present
@@ -94,13 +96,13 @@ export async function POST(request: NextRequest) {
         details: subscriptionCheck.reason,
         subscriptionDetails: subscriptionCheck.subscriptionDetails
       }, { status: 409 }); // 409 Conflict
-    }    // Handle monthlyFamily plan logic
-    if (planType === "monthlyFamily") {
+    }    // Handle comboPlan logic
+    if (planType === PLAN_TYPES.COMBO_PLAN) {
       // Validate second user ID
       if (!secondUserId) {
-        return NextResponse.json({ message: "Second user ID required for family plan." }, { status: 400 });
+        return NextResponse.json({ message: "Second user ID required for combo plan." }, { status: 400 });
       }
-      
+
       // Fetch both users by their IDs
       const [user1, user2] = await Promise.all([
         prisma.user.findUnique({ where: { id: userId } }),
@@ -296,6 +298,40 @@ export async function PATCH(request: NextRequest) {
     ));
     // Send emails to all users
     const { sendWelcomeEmail, sendMeetingInvite, sendAdminNotificationEmail } = await import("@/lib/email");
+    
+    // For family plans registering for today, handle meeting creation intelligently
+    let sharedTodayMeeting: any = null;
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    today.setHours(0, 0, 0, 0);
+    
+    // Process family plan users together for today's meetings
+    if (updatedSubs.length > 1) {
+      // Check if any subscription starts today
+      const todaySubscriptions = updatedSubs.filter(sub => {
+        const subscriptionStartDate = new Date(sub.startDate);
+        subscriptionStartDate.setHours(0, 0, 0, 0);
+        return subscriptionStartDate.getTime() === today.getTime();
+      });
+      
+      if (todaySubscriptions.length > 0) {
+        console.log(`Family plan with ${todaySubscriptions.length} users starting today, creating/finding shared meeting`);
+        
+        // Create or get today's meeting for all family members at once
+        try {
+          const allUserIds = todaySubscriptions.map(sub => sub.userId);
+          sharedTodayMeeting = await manageMeeting({
+            date: today.toISOString().split('T')[0],
+            userIds: allUserIds,
+            operation: 'getOrCreate',
+            syncFromCalendar: true
+          });
+          console.log(`Created/found shared meeting ${sharedTodayMeeting.id} for ${allUserIds.length} family members`);
+        } catch (meetingError) {
+          console.error(`Error creating shared meeting for family plan:`, meetingError);
+        }
+      }
+    }
+    
     await Promise.all(updatedSubs.map(async (subscription) => {
       // Send welcome email
       await sendWelcomeEmail({
@@ -309,30 +345,55 @@ export async function PATCH(request: NextRequest) {
         amount: parseFloat(subscription.price.toString()),
         paymentId: subscription.paymentRef || undefined
       });
-      /*
-      // Send meeting invite if subscription starts today
-      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      today.setHours(0, 0, 0, 0);
+      
+      // Send meeting invite if subscription starts today (using new messaging service)
       const subscriptionStartDate = new Date(subscription.startDate);
       subscriptionStartDate.setHours(0, 0, 0, 0);
+      
       if (subscriptionStartDate.getTime() === today.getTime()) {
-        const todayMeeting = await getOrCreateDailyMeetingLink();
-        if (todayMeeting) {
-          await sendMeetingInvite({
-            recipient: {
-              name: `${subscription.user.firstName} ${subscription.user.lastName}`,
-              email: subscription.user.email
-            },
-            meetingTitle: "GOALETE Club Session - Today",
-            meetingDescription: "Join us for today's GOALETE Club session to learn how to achieve any goal in life.",
-            meetingLink: todayMeeting.meetingLink,
-            startTime: todayMeeting.startTime,
-            endTime: todayMeeting.endTime,
-            platform: todayMeeting.platform === "zoom" ? "Zoom" : "Google Meet"
-          });
+        try {
+          console.log(`Subscription starts today for ${subscription.user.email}, sending immediate invite`);
+          
+          // Use shared meeting for family plans, or create individual meeting for single plans
+          let todayMeeting = sharedTodayMeeting;
+          if (!todayMeeting) {
+            // Add user to today's meeting (this will create if doesn't exist)
+            todayMeeting = await manageMeeting({
+              date: today.toISOString().split('T')[0],
+              userIds: [subscription.userId],
+              operation: 'getOrCreate',
+              syncFromCalendar: true
+            });
+          }
+          
+          if (todayMeeting && todayMeeting.meetingLink) {
+            const inviteSent = await sendImmediateInviteViaMessaging({
+              recipient: {
+                name: `${subscription.user.firstName} ${subscription.user.lastName}`,
+                email: subscription.user.email
+              },
+              meetingTitle: todayMeeting.meetingTitle || "GOALETE Club Session - Today",
+              meetingDescription: todayMeeting.meetingDesc || "Join us for today's GOALETE Club session to learn how to achieve any goal in life.",
+              meetingLink: todayMeeting.meetingLink,
+              startTime: todayMeeting.startTime,
+              endTime: todayMeeting.endTime,
+              platform: todayMeeting.platform === "zoom" ? "Zoom" : "Google Meet",
+              hostLink: todayMeeting.zoomStartUrl || undefined
+            });
+            
+            if (inviteSent) {
+              console.log(`Successfully sent immediate invite to ${subscription.user.email}`);
+            } else {
+              console.error(`Failed to send immediate invite to ${subscription.user.email}`);
+            }
+          } else {
+            console.log(`No meeting available for today, skipping immediate invite for ${subscription.user.email}`);
+          }
+        } catch (inviteError) {
+          console.error(`Error sending immediate invite to ${subscription.user.email}:`, inviteError);
+          // Don't fail the entire transaction for invite errors
         }
       }
-        */
     }));
     // Send admin notification
     if (updatedSubs.length > 1) {

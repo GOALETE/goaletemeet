@@ -3,6 +3,7 @@
  * Using nodemailer with Gmail SMTP
  */
 import nodemailer, { Transporter } from 'nodemailer';
+import { PLAN_PRICING, PLAN_TYPES } from './pricing';
 
 /**
  * Creates and returns a configured nodemailer transport
@@ -10,15 +11,15 @@ import nodemailer, { Transporter } from 'nodemailer';
  */
 export const createTransporter = (): Transporter | null => {
   try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-      console.error('Email configuration missing. Check your .env file for EMAIL_USER and EMAIL_PASSWORD.');
+    if (!process.env.ADMIN_EMAIL || !process.env.EMAIL_PASSWORD) {
+      console.error('Email configuration missing. Check your .env file for ADMIN_EMAIL and EMAIL_PASSWORD.');
       return null;
     }
 
     return nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,
+        user: process.env.ADMIN_EMAIL,
         pass: process.env.EMAIL_PASSWORD,
       },
       // Add connection timeout and pool settings for better reliability
@@ -67,8 +68,7 @@ export function isNonProductionEnvironment(): boolean {
   return nodeEnv === 'development' || 
          nodeEnv === 'test' || 
          vercelEnv === 'development' ||
-         vercelEnv === 'preview' ||
-         process.env.IS_DEVELOPMENT === 'true';
+         vercelEnv === 'preview';
 }
 
 /**
@@ -114,13 +114,13 @@ export function addEnvironmentBannerToHtml(htmlContent: string): string {
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
-    if (!process.env.EMAIL_USER) {
-      console.error('EMAIL_USER environment variable is not set');
+    if (!process.env.ADMIN_EMAIL) {
+      console.error('ADMIN_EMAIL environment variable is not set');
       return false;
     }
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.ADMIN_EMAIL,
       to: options.to,
       subject: getEnvironmentAwareSubject(options.subject),
       text: options.text,
@@ -228,11 +228,11 @@ export async function sendAdminNotificationEmail({
   });
   
   // Prepare readable plan type
-  const planDisplay = planType === 'daily' 
-    ? 'Daily Session' 
-    : planType === 'monthly' 
-      ? 'Monthly Plan' 
-      : 'Monthly Family Plan';
+  const planDisplay = planType === PLAN_TYPES.DAILY 
+    ? PLAN_PRICING[PLAN_TYPES.DAILY].name
+    : planType === PLAN_TYPES.MONTHLY 
+      ? PLAN_PRICING[PLAN_TYPES.MONTHLY].name
+      : PLAN_PRICING[PLAN_TYPES.COMBO_PLAN].name;
     // Create HTML content
   const htmlContent = `
     <!DOCTYPE html>
@@ -408,7 +408,8 @@ export async function sendFamilyAdminNotificationEmail({
         <h1>👨‍👩‍👧‍👦 New Family Registration Alert</h1>
       </div>
       
-      <p>A new <b>Monthly Family Plan</b> registration and payment has been completed.</p>
+      <p>A new <b>Combo Plan</b> registration and payment has been completed.</p>
+      
       
       <div class="section">
         <h2>Family Members</h2>
@@ -441,7 +442,7 @@ export async function sendFamilyAdminNotificationEmail({
         <table>
           <tr>
             <td>Plan Type:</td>
-            <td>Monthly Family Plan</td>
+            <td>Combo Plan</td>
           </tr>
           <tr>
             <td>Start Date:</td>
@@ -516,11 +517,11 @@ export async function sendWelcomeEmail({
     });
     
     // Prepare readable plan type
-    const planDisplay = planType === 'daily' 
-      ? 'Daily Session' 
-      : planType === 'monthly' 
-        ? 'Monthly Plan' 
-        : 'Monthly Family Plan';
+    const planDisplay = planType === PLAN_TYPES.DAILY 
+      ? PLAN_PRICING[PLAN_TYPES.DAILY].name
+      : planType === PLAN_TYPES.MONTHLY 
+        ? PLAN_PRICING[PLAN_TYPES.MONTHLY].name
+        : PLAN_PRICING[PLAN_TYPES.COMBO_PLAN].name;
       // Create HTML content with modern, elegant design
     const htmlContent = `
       <!DOCTYPE html>
@@ -565,9 +566,9 @@ export async function sendWelcomeEmail({
         
         <div class="instructions">
           <p><strong>What's Next?</strong></p>
-          <p>Our team will be in touch with you shortly to schedule your ${planType === 'daily' ? 'session' : 'first session'}.</p>
+          <p>Our team will be in touch with you shortly to schedule your ${planType === PLAN_TYPES.DAILY ? 'session' : 'first session'}.</p>
           <p>You will receive a calendar invitation via email with the meeting details.</p>
-          ${planType === 'daily' ? `
+          ${planType === PLAN_TYPES.DAILY ? `
             <p>Your session will be conducted online via Google Meet on the selected date.</p>
           ` : `
             <p>Your sessions will be conducted online via Google Meet according to the schedule we will establish together.</p>
@@ -578,7 +579,7 @@ export async function sendWelcomeEmail({
           <div class="contact-us">
           <p><strong>Questions or Need Help?</strong></p>
           <p>Our support team is ready to assist you with any questions you might have about your subscription or upcoming sessions.</p>
-          <a href="mailto:${process.env.EMAIL_USER || 'info@goaleteclub.com'}" class="button">Contact Support</a>
+          <a href="mailto:${process.env.ADMIN_EMAIL || 'info@goaleteclub.com'}" class="button">Contact Support</a>
         </div>
         
         <p class="note">Note: Please keep this email for your records. It serves as confirmation of your subscription.</p>
@@ -679,7 +680,7 @@ BEGIN:VEVENT
 DTSTART:${startDateISO.replace(/[-:]/g, '').replace(/\.\d+/g, '')}
 DTEND:${endDateISO.replace(/[-:]/g, '').replace(/\.\d+/g, '')}
 DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/g, '')}
-ORGANIZER;CN=GOALETE CLUB:mailto:${process.env.EMAIL_USER}
+ORGANIZER;CN=GOALETE CLUB:mailto:${process.env.ADMIN_EMAIL}
 UID:${Date.now()}@goaleteclub.com
 ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${recipient.name}:mailto:${recipient.email}
 SUMMARY:${meetingTitle}
@@ -754,7 +755,7 @@ END:VCALENDAR`;
 
         <div class="footer">
           <p>&copy; ${new Date().getFullYear()} GOALETE CLUB. All rights reserved.</p>
-          <p>If you have any questions, please contact us at ${process.env.EMAIL_USER || 'info@goaleteclub.com'}</p>
+          <p>If you have any questions, please contact us at ${process.env.ADMIN_EMAIL || 'info@goaleteclub.com'}</p>
         </div>
       </body>
       </html>

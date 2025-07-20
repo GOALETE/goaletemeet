@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Script from "next/script";
 import Image from "next/image";
-import { PLAN_PRICING, toPaise } from "@/lib/pricing";
+import { PLAN_PRICING, PLAN_TYPES, toPaise } from "@/lib/pricing";
+import type { PlanType } from "@/lib/pricing";
 
 // Declare the Razorpay interface
 declare global {
@@ -11,7 +12,8 @@ declare global {
   }
 }
 
-export default function RegistrationForm() {  // Add custom styles for 3D card flip
+export default function RegistrationForm() {
+  // Add custom styles for 3D card flip
   useEffect(() => {
     // Add the custom CSS needed for card flipping
     const style = document.createElement('style');
@@ -57,7 +59,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
   }, []);
 
   // Basic form state
-  const [plan, setPlan] = useState<"daily" | "monthly" | "monthlyFamily">("daily");
+  const [plan, setPlan] = useState<PlanType>(PLAN_TYPES.DAILY);
   const [startDate, setStartDate] = useState("");
   const [source, setSource] = useState("Instagram");
   const [reference, setReference] = useState("");
@@ -78,7 +80,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
   const [secondEmail, setSecondEmail] = useState("");
   const [secondPhone, setSecondPhone] = useState("");
     // Additional state
-  const [duration, setDuration] = useState(PLAN_PRICING.daily.duration);
+  const [duration, setDuration] = useState(PLAN_PRICING[plan as Exclude<PlanType, "unlimited">].duration);
   
   // Card flip state
   const [flippedCard, setFlippedCard] = useState<string | null>(null);
@@ -172,6 +174,12 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
   // Check for existing subscription conflicts - debounced implementation
   const checkSubscriptionConflict = useCallback(async () => {
     if (!email || !email.includes('@') || !startDate) return;
+    
+    // For family plans, also check if second email is provided
+    if (plan === PLAN_TYPES.COMBO_PLAN && (!secondEmail || !secondEmail.includes('@'))) {
+      return; // Don't check until both emails are provided
+    }
+    
     setIsCheckingSubscription(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -179,34 +187,43 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
     try {
       const start = new Date(startDate);
       const end = new Date(startDate);
-      end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
+      end.setDate(end.getDate() + PLAN_PRICING[plan as Exclude<PlanType, "unlimited">].duration);
+      
+      // Prepare emails array - for family plans, check both emails
+      const emailsToCheck = plan === PLAN_TYPES.COMBO_PLAN ? [email.toLowerCase(), secondEmail.toLowerCase()] : [email.toLowerCase()];
+      
       const response = await fetch("/api/check-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          emails: emailsToCheck, // Changed from single email to array
           planType: plan,
           startDate: start.toISOString(),
           endDate: end.toISOString()
         }),
       });
+      
       const data = await response.json();
       if (!data.canSubscribe) {
         setErrorMessage(data.message);
         setSuccessMessage(null);
       } else {
-        // Set success message when user can subscribe
-        const planText = plan === 'daily' ? 'daily session' : 'monthly plan';
+        // Set success message when user(s) can subscribe
+        const planText = plan === PLAN_TYPES.DAILY ? 'daily session' : 
+                        plan === PLAN_TYPES.COMBO_PLAN ? 'combo monthly plan' : 
+                        'monthly plan';
         let dateText = '';
-        if (plan === 'daily') {
+        if (plan === PLAN_TYPES.DAILY) {
           dateText = `on ${formatDateDDMMYYYY(startDate)}`;
         } else {
           // Monthly: show full range (inclusive)
           const endDateObj = new Date(startDate);
-          endDateObj.setDate(endDateObj.getDate() + PLAN_PRICING[plan].duration - 1);
+          endDateObj.setDate(endDateObj.getDate() + PLAN_PRICING[plan as Exclude<PlanType, "unlimited">].duration - 1);
           dateText = `from ${formatDateDDMMYYYY(startDate)} to ${formatDateDDMMYYYY(endDateObj.toISOString().split('T')[0])}`;
         }
-        setSuccessMessage(`You can subscribe to the ${planText} ${dateText} (IST)!`);
+        
+        const userText = plan === PLAN_TYPES.COMBO_PLAN ? "Both users" : "You";
+        setSuccessMessage(`${userText} can subscribe to the ${planText} ${dateText} (IST)!`);
         setErrorMessage(null);
       }
     } catch (error) {
@@ -215,24 +232,29 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
     } finally {
       setIsCheckingSubscription(false);
     }
-  }, [email, plan, startDate]); // Dependencies
+  }, [email, secondEmail, plan, startDate]); // Added secondEmail to dependencies
   
   // Check for subscription conflicts when user changes plan or date
   useEffect(() => {
-    // Only check if email is entered
+    // Only check if primary email is entered
     if (email && email.includes('@')) {
+      // For family plans, also wait for second email
+      if (plan === PLAN_TYPES.COMBO_PLAN && (!secondEmail || !secondEmail.includes('@'))) {
+        return; // Don't check until both emails are provided
+      }
+      
       // Use a timer to avoid too many API calls during rapid changes
       const timer = setTimeout(() => {
         checkSubscriptionConflict();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [email, plan, startDate, checkSubscriptionConflict]);
+  }, [email, secondEmail, plan, startDate, checkSubscriptionConflict]); // Added secondEmail to dependencies
   
   // Update duration when plan changes
-  const handlePlanChange = (newPlan: "daily" | "monthly" | "monthlyFamily") => {
+  const handlePlanChange = (newPlan: PlanType) => {
     setPlan(newPlan);
-    setDuration(PLAN_PRICING[newPlan].duration);
+    setDuration(PLAN_PRICING[newPlan as Exclude<PlanType, "unlimited">].duration);
     setErrorMessage(null);
     setSuccessMessage(null);
     
@@ -248,8 +270,8 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
       secondPhone: ''
     });
     
-    // Clear second person fields if not family plan
-    if (newPlan !== "monthlyFamily") {
+    // Clear second person fields if not combo plan
+    if (newPlan !== PLAN_TYPES.COMBO_PLAN) {
       setSecondFirstName("");
       setSecondLastName("");
       setSecondEmail("");
@@ -267,10 +289,10 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
       lastName: validationRules.lastName(lastName),
       email: validationRules.email(email),
       phone: validationRules.phone(phone),
-      secondFirstName: plan === 'monthlyFamily' ? validationRules.firstName(secondFirstName) : '',
-      secondLastName: plan === 'monthlyFamily' ? validationRules.lastName(secondLastName) : '',
-      secondEmail: plan === 'monthlyFamily' ? validationRules.secondEmail(secondEmail, email) : '',
-      secondPhone: plan === 'monthlyFamily' ? validationRules.phone(secondPhone) : ''
+      secondFirstName: plan === PLAN_TYPES.COMBO_PLAN ? validationRules.firstName(secondFirstName) : '',
+      secondLastName: plan === PLAN_TYPES.COMBO_PLAN ? validationRules.lastName(secondLastName) : '',
+      secondEmail: plan === PLAN_TYPES.COMBO_PLAN ? validationRules.secondEmail(secondEmail, email) : '',
+      secondPhone: plan === PLAN_TYPES.COMBO_PLAN ? validationRules.phone(secondPhone) : ''
     };
     
     // Check if Reference is required but empty
@@ -286,7 +308,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
     }
     
     // Additional check for family plan - emails must be different
-    if (plan === 'monthlyFamily' && email === secondEmail) {
+    if (plan === PLAN_TYPES.COMBO_PLAN && email === secondEmail) {
       setErrorMessage("Primary and secondary users must have different email addresses");
       setFieldErrors({
         ...newFieldErrors,
@@ -300,18 +322,21 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
     setSuccessMessage(null);
     
     try {
-      const price = PLAN_PRICING[plan].amount;
+      const price = PLAN_PRICING[plan as Exclude<PlanType, "unlimited">].amount;
       
       // Double-check subscription availability (using IST dates)
       const start = new Date(startDate);
       const end = new Date(startDate);
-      end.setDate(end.getDate() + PLAN_PRICING[plan].duration);
+      end.setDate(end.getDate() + PLAN_PRICING[plan as Exclude<PlanType, "unlimited">].duration);
+      
+      // Prepare emails array for checking
+      const emailsToCheck = plan === PLAN_TYPES.COMBO_PLAN ? [email.toLowerCase(), secondEmail.toLowerCase()] : [email.toLowerCase()];
       
       const checkResponse = await fetch("/api/check-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          emails: emailsToCheck, // Changed from single email to array
           planType: plan,
           startDate: start.toISOString(),
           endDate: end.toISOString()
@@ -333,7 +358,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
         body: JSON.stringify({
           firstName,
           lastName,
-          email,
+          email: email.toLowerCase(),
           phone,
           source,
           reference,
@@ -346,16 +371,16 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
       
       // For family plan, create or fetch second user
       let secondUserId = null;
-      if (plan === "monthlyFamily") {
+      if (plan === PLAN_TYPES.COMBO_PLAN) {
         const secondUserRes = await fetch("/api/createUser", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             firstName: secondFirstName,
             lastName: secondLastName,
-            email: secondEmail,
+            email: secondEmail.toLowerCase(),
             phone: secondPhone,
-            source: "Family Plan",
+            source: "Self - Family Plan",
             reference: "",
           }),      
         });
@@ -372,10 +397,10 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
           amount: toPaise(price),
           currency: "INR",
           planType: plan,
-          duration: PLAN_PRICING[plan].duration,
+          duration: PLAN_PRICING[plan as Exclude<PlanType, "unlimited">].duration,
           startDate,
           userId,
-          ...(plan === "monthlyFamily" ? {
+          ...(plan === PLAN_TYPES.COMBO_PLAN ? {
             secondUserId
           } : {})
         }),
@@ -404,7 +429,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
         setIsLoading(false);
         return;
       }
-      const isFamily = plan === "monthlyFamily";
+      const isFamily = plan === PLAN_TYPES.COMBO_PLAN;
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: toPaise(price),
@@ -687,15 +712,15 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                 onClick={(e) => {
                   // Don't handle click if info button was clicked
                   if (!(e.target as HTMLElement).closest('.info-btn')) {
-                    handlePlanChange("daily");
+                    handlePlanChange(PLAN_TYPES.DAILY);
                   }
                 }}                className={`                  relative rounded-xl shadow-md transition-all duration-300 cursor-pointer h-[420px] perspective-1000 max-w-full overflow-hidden
-                  ${plan === "daily" 
+                  ${plan === PLAN_TYPES.DAILY 
                     ? "ring-2 ring-offset-2 ring-blue-500 transform scale-[1.02]" 
                     : "hover:shadow-lg hover:translate-y-[-4px] border border-gray-200"
                   }
                 `}>
-                {plan === "daily" && (
+                {plan === PLAN_TYPES.DAILY && (
                   <div className="absolute top-0 right-0 z-2">
                     <div className="bg-blue-600 text-white py-1 px-4 text-xs font-bold shadow-md rounded-bl-md">
                       SELECTED
@@ -703,7 +728,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                   </div>
                 )}
                 
-                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === 'daily' ? 'rotate-y-180' : ''}`}>
+                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === PLAN_TYPES.DAILY ? 'rotate-y-180' : ''}`}>
                   {/* Card Front */}
                   <div className="flex flex-col h-[420px]">
                     {/* Header (fixed height) */}
@@ -714,7 +739,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                           className="text-blue-500 hover:text-blue-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setFlippedCard(flippedCard === 'daily' ? null : 'daily');
+                            setFlippedCard(flippedCard === PLAN_TYPES.DAILY ? null : PLAN_TYPES.DAILY);
                           }}
                           aria-label="More information"
                         >
@@ -755,19 +780,19 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                         <input
                           type="radio"
                           name="plan"
-                          value="daily"
-                          checked={plan === "daily"}
-                          onChange={() => handlePlanChange("daily")}
+                          value={PLAN_TYPES.DAILY}
+                          checked={plan === PLAN_TYPES.DAILY}
+                          onChange={() => handlePlanChange(PLAN_TYPES.DAILY)}
                           className="sr-only"
                         />
                         <div className={`
                           w-full py-2 px-4 rounded-md font-medium text-center transition-colors
-                          ${plan === "daily" 
+                          ${plan === PLAN_TYPES.DAILY 
                             ? "bg-blue-600 text-white" 
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                           }
                         `}>
-                          {plan === "daily" ? "Selected" : "Select Plan"}
+                          {plan === PLAN_TYPES.DAILY ? "Selected" : "Select Plan"}
                         </div>
                       </label>
                     </div>
@@ -801,12 +826,12 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePlanChange("daily");
+                            handlePlanChange(PLAN_TYPES.DAILY);
                             setFlippedCard(null);
                           }} 
                           className="bg-white text-blue-600 py-2 px-4 rounded-md font-medium hover:bg-blue-50 transition-colors w-full"
                         >
-                          {plan === "daily" ? "Already Selected" : "Select This Plan"}
+                          {plan === PLAN_TYPES.DAILY ? "Already Selected" : "Select This Plan"}
                         </button>
                       </div>
                     </div>
@@ -816,16 +841,16 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                 onClick={(e) => {
                   // Don't handle click if info button was clicked
                   if (!(e.target as HTMLElement).closest('.info-btn')) {
-                    handlePlanChange("monthly");
+                    handlePlanChange(PLAN_TYPES.MONTHLY);
                   }
                 }}                className={`
                   relative rounded-xl shadow-md transition-all duration-300 cursor-pointer h-[420px] perspective-1000 max-w-full overflow-hidden
-                  ${plan === "monthly" 
+                  ${plan === PLAN_TYPES.MONTHLY 
                     ? "ring-2 ring-offset-2 ring-blue-500 transform scale-[1.02]"                    : "hover:shadow-lg hover:translate-y-[-4px] border border-gray-200"
                   }
                 `}>
                 {/* SELECTED ribbon */}
-                {plan === "monthly" && (
+                {plan === PLAN_TYPES.MONTHLY && (
                   <div className="absolute top-0 right-0 z-2">
                     <div className="bg-indigo-600 text-white py-1 px-4 text-xs font-bold shadow-md rounded-bl-md">
                       SELECTED
@@ -840,7 +865,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                   </div>
                 </div>
                 
-                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === 'monthly' ? 'rotate-y-180' : ''}`}>
+                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === PLAN_TYPES.MONTHLY ? 'rotate-y-180' : ''}`}>
                   {/* Card Front */}
                   <div className="flex flex-col h-[420px]">
                     {/* Header (fixed height) */}
@@ -851,7 +876,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                           className="text-indigo-500 hover:text-indigo-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setFlippedCard(flippedCard === 'monthly' ? null : 'monthly');
+                            setFlippedCard(flippedCard === PLAN_TYPES.MONTHLY ? null : PLAN_TYPES.MONTHLY);
                           }}
                           aria-label="More information"
                         >
@@ -892,19 +917,19 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                         <input
                           type="radio"
                           name="plan"
-                          value="monthly"
-                          checked={plan === "monthly"}
-                          onChange={() => handlePlanChange("monthly")}
+                          value={PLAN_TYPES.MONTHLY}
+                          checked={plan === PLAN_TYPES.MONTHLY}
+                          onChange={() => handlePlanChange(PLAN_TYPES.MONTHLY)}
                           className="sr-only"
                         />
                         <div className={`
                           w-full py-2 px-4 rounded-md font-medium text-center transition-colors
-                          ${plan === "monthly" 
+                          ${plan === PLAN_TYPES.MONTHLY 
                             ? "bg-indigo-600 text-white" 
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                           }
                         `}>
-                          {plan === "monthly" ? "Selected" : "Select Plan"}
+                          {plan === PLAN_TYPES.MONTHLY ? "Selected" : "Select Plan"}
                         </div>
                       </label>
                     </div>
@@ -938,12 +963,12 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePlanChange("monthly");
+                            handlePlanChange(PLAN_TYPES.MONTHLY);
                             setFlippedCard(null);
                           }} 
                           className="bg-white text-indigo-600 py-2 px-4 rounded-md font-medium hover:bg-indigo-50 transition-colors w-full"
                         >
-                          {plan === "monthly" ? "Already Selected" : "Select This Plan"}
+                          {plan === PLAN_TYPES.MONTHLY ? "Already Selected" : "Select This Plan"}
                         </button>
                       </div>
                     </div>
@@ -953,15 +978,15 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                 onClick={(e) => {
                   // Don't handle click if info button was clicked
                   if (!(e.target as HTMLElement).closest('.info-btn')) {
-                    handlePlanChange("monthlyFamily");                  }
+                    handlePlanChange(PLAN_TYPES.COMBO_PLAN);                  }
                 }}                className={`
                   relative rounded-xl shadow-md transition-all duration-300 cursor-pointer h-[420px] perspective-1000 max-w-full overflow-hidden
-                  ${plan === "monthlyFamily" 
+                  ${plan === PLAN_TYPES.COMBO_PLAN 
                     ? "ring-2 ring-offset-2 ring-blue-500 transform scale-[1.02]" 
                     : "hover:shadow-lg hover:translate-y-[-4px] border border-gray-200"
                   }                `}>
                 {/* SELECTED ribbon */}
-                {plan === "monthlyFamily" && (
+                {plan === PLAN_TYPES.COMBO_PLAN && (
                   <div className="absolute top-0 right-0 z-2">
                     <div className="bg-amber-600 text-white py-1 px-4 text-xs font-bold shadow-md rounded-bl-md">
                       SELECTED
@@ -976,17 +1001,17 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                   </div>
                 </div>
                 
-                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === 'monthlyFamily' ? 'rotate-y-180' : ''}`}>
+                <div className={`flip-card-inner relative w-full h-full transition-transform duration-700 transform-style-3d ${flippedCard === PLAN_TYPES.COMBO_PLAN ? 'rotate-y-180' : ''}`}>
                   {/* Card Front */}
                   <div className="flex flex-col h-[420px]">
                     {/* Header (fixed height) */}
                     <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 border-b border-amber-200 rounded-t-xl flex-shrink-0" style={{ minHeight: 80 }}>                      <div className="flex justify-between items-center mb-1">
-                        <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.monthlyFamily.name}</h3>                        <button 
+                        <h3 className="font-bold text-gray-800 text-sm sm:text-base md:text-lg truncate">{PLAN_PRICING.comboPlan.name}</h3>                        <button 
                           type="button"
                           className="text-amber-500 hover:text-amber-700 focus:outline-none info-btn z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all duration-200 shadow-sm hover:shadow"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setFlippedCard(flippedCard === 'monthlyFamily' ? null : 'monthlyFamily');
+                            setFlippedCard(flippedCard === PLAN_TYPES.COMBO_PLAN ? null : PLAN_TYPES.COMBO_PLAN);
                           }}
                           aria-label="More information"
                         >
@@ -995,7 +1020,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                           </svg>
                         </button>
                       </div>
-                      <div className="text-amber-600 font-bold text-lg sm:text-xl md:text-2xl mb-1 flex items-center">{PLAN_PRICING.monthlyFamily.display} <span className="text-xs font-normal text-gray-500 ml-1 mt-1">• 2 users</span></div>
+                      <div className="text-amber-600 font-bold text-lg sm:text-xl md:text-2xl mb-1 flex items-center">{PLAN_PRICING.comboPlan.display} <span className="text-xs font-normal text-gray-500 ml-1 mt-1">• 2 users</span></div>
                       <div className="text-gray-500 text-xs">Achieve more together, save more together</div>
                     </div>
                     {/* Content (flex-grow) */}
@@ -1027,19 +1052,19 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                         <input
                           type="radio"
                           name="plan"
-                          value="monthlyFamily"
-                          checked={plan === "monthlyFamily"}
-                          onChange={() => handlePlanChange("monthlyFamily")}
+                          value={PLAN_TYPES.COMBO_PLAN}
+                          checked={plan === PLAN_TYPES.COMBO_PLAN}
+                          onChange={() => handlePlanChange(PLAN_TYPES.COMBO_PLAN)}
                           className="sr-only"
                         />
                         <div className={`
                           w-full py-2 px-4 rounded-md font-medium text-center transition-colors
-                          ${plan === "monthlyFamily" 
+                          ${plan === PLAN_TYPES.COMBO_PLAN 
                             ? "bg-amber-600 text-white" 
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                           }
                         `}>
-                          {plan === "monthlyFamily" ? "Selected" : "Select Plan"}
+                          {plan === PLAN_TYPES.COMBO_PLAN ? "Selected" : "Select Plan"}
                         </div>
                       </label>
                     </div>
@@ -1064,8 +1089,8 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                       </div>
                         {/* Description/content area */}
                       <div className="flex-grow flex flex-col justify-start px-4 py-2">
-                        <h3 className="font-bold text-xl mb-4 mt-2">{PLAN_PRICING.monthlyFamily.name}</h3>
-                        <p className="text-sm mb-6">{PLAN_PRICING.monthlyFamily.description}</p>
+                        <h3 className="font-bold text-xl mb-4 mt-2">{PLAN_PRICING.comboPlan.name}</h3>
+                        <p className="text-sm mb-6">{PLAN_PRICING.comboPlan.description}</p>
                       </div>
                       
                       {/* Button at the bottom - fixed positioning */}
@@ -1073,12 +1098,12 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePlanChange("monthlyFamily");
+                            handlePlanChange(PLAN_TYPES.COMBO_PLAN);
                             setFlippedCard(null);
                           }} 
                           className="bg-white text-amber-600 py-2 px-4 rounded-md font-medium hover:bg-amber-50 transition-colors w-full"
                         >
-                          {plan === "monthlyFamily" ? "Already Selected" : "Select This Plan"}
+                          {plan === PLAN_TYPES.COMBO_PLAN ? "Already Selected" : "Select This Plan"}
                         </button>
                       </div>
                     </div>
@@ -1088,7 +1113,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
             </div>
           </div>
           {/* Second Person Information - Only shown for Family Plan */}
-          {plan === "monthlyFamily" && (
+          {plan === PLAN_TYPES.COMBO_PLAN && (
             <div className="mt-4 rounded-xl shadow-md border border-amber-200 overflow-hidden animate__animated animate__fadeIn">
               <div className="bg-gradient-to-r from-amber-50 to-amber-100 py-3 px-4 border-b border-amber-200">
                 <p className="font-semibold text-gray-700 flex items-center">
@@ -1145,8 +1170,15 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                     placeholder="email@example.com"
                     value={secondEmail}
                     onChange={(e) => {
-                      setSecondEmail(e.target.value);
-                      setFieldErrors({...fieldErrors, secondEmail: ''});
+                      handleInputChange(setSecondEmail, 'secondEmail', e.target.value);
+                      setErrorMessage(null);
+                      setSuccessMessage(null);
+                    }}
+                    onBlur={() => {
+                      validateField('secondEmail', secondEmail, validationRules.secondEmail, email);
+                      if (secondEmail && secondEmail.includes('@') && !fieldErrors.secondEmail && email && email.includes('@')) {
+                        checkSubscriptionConflict();
+                      }
                     }}
                     className={`w-full p-3 border ${fieldErrors.secondEmail ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none bg-white text-gray-900 placeholder:text-gray-400 transition duration-200`}
                     required
@@ -1202,9 +1234,10 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
             <div className="p-5 bg-white">
               <div className="mb-3">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {plan === 'daily' 
+                  {plan === PLAN_TYPES.DAILY 
                     ? 'Session Date (IST)' 
                     : `Plan Start Date (IST)`}
+                  <span className="text-xs text-gray-500 ml-2">DD/MM/YYYY</span>
                 </label>                <input
                   type="date"
                   name="startDate"
@@ -1218,17 +1251,22 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none bg-white text-gray-900 transition duration-200 text-sm sm:text-base"
                   required
                 />
+                {startDate && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selected: {formatDateDDMMYYYY(startDate)}
+                  </p>
+                )}
               </div>
               
               <div className="flex items-start bg-blue-50 p-3 rounded-lg text-sm">
                 <svg className="h-5 w-5 mr-2 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div className="text-blue-700">
-                  {plan === 'daily' ? (
+                  {plan === PLAN_TYPES.DAILY ? (
                     <>Select the specific date for your single session. Access will be valid for this day only.</>
                   ) : (
-                    <>Your {plan === 'monthlyFamily' ? 'family ' : ''}plan will start on the selected date and continue for 30 days. You'll have access to all sessions during this period.</>
+                    <>Your {plan === PLAN_TYPES.COMBO_PLAN ? 'family ' : ''}plan will start on the selected date and continue for 30 days. You&apos;ll have access to all sessions during this period.</>
                   )}
                 </div>
               </div>
@@ -1237,7 +1275,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                 <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg">
                   <p className="text-sm text-green-700 flex items-center">
                     <svg className="h-5 w-5 mr-2 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                     </svg>
                     {successMessage}
                   </p>
@@ -1315,7 +1353,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                   </svg>
                 ) : (
                   <svg className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                   </svg>
                 )}
                 <span>{errorMessage || successMessage}</span>
@@ -1343,7 +1381,7 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
                 </span>
               ) : (
                 <span className="flex items-center justify-center">
-                  Register & Pay {PLAN_PRICING[plan].display}
+                  Register & Pay {PLAN_PRICING[plan as Exclude<PlanType, "unlimited">].display}
                   <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
@@ -1357,9 +1395,9 @@ export default function RegistrationForm() {  // Add custom styles for 3D card f
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div className="text-blue-700">
-              {plan === 'daily' ? (
+              {plan === PLAN_TYPES.DAILY ? (
                 <>Choose a single session to get started with GOALETE Club.</>
-              ) : plan === 'monthly' ? (
+              ) : plan === PLAN_TYPES.MONTHLY ? (
                 <>The monthly plan provides 30 days of continuous access to all GOALETE Club sessions.</>
               ) : (                <>Share your GOALETE Club journey with a family member or friend. Each person gets their own access to all sessions.</>
               )}

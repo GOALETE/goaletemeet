@@ -1,21 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { formatUserForAdmin, generateCSV } from "@/lib/admin";
-import type { Subscription } from "@/generated/prisma";
 
 export async function GET(req: NextRequest) {
   try {
+    // Verify admin authentication
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    
+    const token = authHeader.split(" ")[1];
+    if (token !== process.env.ADMIN_PASSCODE) {
+      return NextResponse.json({ message: "Invalid admin credentials" }, { status: 401 });
+    }
+
     const url = new URL(req.url);
     const planType = url.searchParams.get('planType');
     const status = url.searchParams.get('status');
     const startDate = url.searchParams.get('startDate');
     const endDate = url.searchParams.get('endDate');
     const paymentStatus = url.searchParams.get('paymentStatus');
+    const source = url.searchParams.get('source');
+    const search = url.searchParams.get('search');
     const isFullExport = url.searchParams.get('fullExport') === 'true';
     
     // Base query conditions
     let whereConditionUser: any = {};
     let whereConditionSubscription: any = {};
+    
+    // Add search filter if provided
+    if (search && search.trim() !== '') {
+      whereConditionUser.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    // Add source filter if provided
+    if (source && source !== 'all') {
+      whereConditionUser.source = source;
+    }
     
     // Add plan type filter if provided
     if (planType && planType !== 'all') {
@@ -66,7 +93,7 @@ export async function GET(req: NextRequest) {
     // Set response headers for file download
     const filename = isFullExport 
       ? "goalete-full-export.csv" 
-      : "goalete-users-export.csv";
+      : "goalete-filtered-export.csv";
       
     return new NextResponse(csvContent, {
       headers: {

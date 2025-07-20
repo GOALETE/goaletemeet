@@ -1,5 +1,6 @@
 import type { Subscription, User } from "@/generated/prisma";
 import { format } from "date-fns";
+import { PLAN_TYPES } from "./pricing";
 
 // Extended Subscription type with price field
 interface SubscriptionWithPrice extends Subscription {
@@ -21,6 +22,8 @@ export type AdminUserData = {
   status?: string;
   price?: number;
   paymentStatus?: string;
+  hasActiveOrUpcomingSubscriptions?: boolean;
+  nextSessionDate?: string;
 };
 
 export type AdminSubscriptionData = {
@@ -43,10 +46,35 @@ export type AdminUserWithSubscriptions = AdminUserData & {
 export function formatUserForAdmin(
   user: User & { subscriptions: SubscriptionWithPrice[] }
 ): AdminUserData {
+  const today = new Date();
+  
   // Get the most recent subscription
   const currentSubscription = user.subscriptions.length > 0 
     ? user.subscriptions.sort((a, b) => b.startDate.getTime() - a.startDate.getTime())[0]
     : null;
+
+  // Calculate if user has active or upcoming subscriptions
+  const hasActiveOrUpcomingSubscriptions = user.subscriptions.some(sub => {
+    const startDate = new Date(sub.startDate);
+    const endDate = new Date(sub.endDate);
+    return sub.status === 'active' && (
+      (startDate <= today && endDate >= today) || // Currently active
+      startDate > today // Upcoming
+    );
+  });
+
+  // Find next session date (earliest start date in the future or current active subscription)
+  const nextSessionDate = user.subscriptions
+    .filter(sub => {
+      const startDate = new Date(sub.startDate);
+      const endDate = new Date(sub.endDate);
+      return sub.status === 'active' && (
+        startDate > today || // Future subscription
+        (startDate <= today && endDate >= today) // Currently active
+      );
+    })
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0]?.startDate;
+
   return {
     id: user.id,
     name: `${user.firstName} ${user.lastName}`,
@@ -60,7 +88,9 @@ export function formatUserForAdmin(
     end: currentSubscription?.endDate.toISOString(),
     status: currentSubscription?.status,
     price: currentSubscription?.price,
-    paymentStatus: currentSubscription?.paymentStatus
+    paymentStatus: currentSubscription?.paymentStatus,
+    hasActiveOrUpcomingSubscriptions,
+    nextSessionDate: nextSessionDate?.toISOString()
   };
 }
 
@@ -86,7 +116,7 @@ export function formatUserWithSubscriptions(
 
 // Function to generate CSV content from user data
 export function generateCSV(users: AdminUserData[]): string {
-  const headers = ['ID', 'Name', 'Email', 'Phone', 'Source', 'Reference', 'Plan', 'Start Date', 'End Date', 'Status', 'Created At', 'Price (INR)'];
+  const headers = ['ID', 'Name', 'Email', 'Phone', 'Source', 'Reference', 'Plan', 'Start Date', 'End Date', 'Status', 'Active Status', 'Next Session', 'Created At', 'Price (INR)'];
   const rows = users.map(user => [
     user.id,
     user.name,
@@ -98,6 +128,8 @@ export function generateCSV(users: AdminUserData[]): string {
     user.start ? format(new Date(user.start), 'yyyy-MM-dd') : '',
     user.end ? format(new Date(user.end), 'yyyy-MM-dd') : '',
     user.status || '',
+    user.hasActiveOrUpcomingSubscriptions ? 'Active' : 'Inactive',
+    user.nextSessionDate ? format(new Date(user.nextSessionDate), 'yyyy-MM-dd') : 'No upcoming sessions',
     user.createdAt ? format(new Date(user.createdAt), 'yyyy-MM-dd') : '',
     user.price !== undefined && user.price !== null ? user.price.toString() : ''
   ]);
@@ -117,38 +149,43 @@ export function calculateSubscriptionStats(users: AdminUserData[]) {
     expired: 0,
     upcoming: 0,
     byPlan: {
-      monthly: 0,
-      quarterly: 0,
-      yearly: 0,
+      'daily': 0,
+      'monthly': 0,
+      'unlimited': 0,
       other: 0
     }
   };
 
   users.forEach(user => {
-    if (user.start && user.end) {
-      const startDate = new Date(user.start);
-      const endDate = new Date(user.end);
-      
-      // Count by status
-      if (startDate <= today && endDate >= today && user.status === 'active') {
-        stats.active++;
-      } else if (endDate < today || user.status !== 'active') {
-        stats.expired++;
-      } else if (startDate > today && user.status === 'active') {
+    // Count active users based on hasActiveOrUpcomingSubscriptions flag
+    if (user.hasActiveOrUpcomingSubscriptions) {
+      stats.active++;
+    } else {
+      stats.expired++;
+    }
+    
+    // Count upcoming users (subscriptions starting in the future)
+    if (user.start && user.nextSessionDate) {
+      const nextSession = new Date(user.nextSessionDate);
+      if (nextSession > today) {
         stats.upcoming++;
       }
-      
-      // Count by plan type
-      if (user.plan) {
-        if (user.plan.toLowerCase().includes('monthly')) {
-          stats.byPlan.monthly++;
-        } else if (user.plan.toLowerCase().includes('quarterly')) {
-          stats.byPlan.quarterly++;
-        } else if (user.plan.toLowerCase().includes('yearly')) {
-          stats.byPlan.yearly++;
-        } else {
-          stats.byPlan.other++;
-        }
+    }
+    
+    // Count by plan type - split family-monthly into monthly
+    if (user.plan) {
+      const planType = user.plan.toLowerCase();
+      if (planType === PLAN_TYPES.DAILY || planType === PLAN_TYPES.DAILY) {
+        stats.byPlan['daily']++;
+      } else if (planType === PLAN_TYPES.MONTHLY) {
+        stats.byPlan.monthly++;
+      } else if (planType === 'family-monthly' || planType === 'monthlyfamily' || planType === PLAN_TYPES.COMBO_PLAN) {
+        // Split family-monthly into 2 monthly entries
+        stats.byPlan.monthly += 2;
+      } else if (planType === PLAN_TYPES.UNLIMITED) {
+        stats.byPlan.unlimited++;
+      } else {
+        stats.byPlan.other++;
       }
     }
   });
