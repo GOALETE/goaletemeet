@@ -1,6 +1,7 @@
 // check-env.js
 // A utility script to check for required environment variables
 
+
 // Load environment variables from .env file
 require('dotenv').config();
 
@@ -27,6 +28,7 @@ const requiredEnvVars = [
   { name: 'ZOOM_ACCOUNT_ID', description: 'Zoom account ID', optional: true },
   // Notification control
   { name: 'DISABLE_ORGANIZER_NOTIFICATIONS', description: 'Disable Google Calendar organizer notifications (true/false)', optional: true },
+
 ];
 
 let missingVars = 0;
@@ -45,6 +47,7 @@ requiredEnvVars.forEach(envVar => {
     console.log(`✅ Found ${envVar.name}`);
   }
 });
+
 
 // Check for JWT service account configuration (preferred method)
 const hasJWT = process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY;
