@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format, addDays, differenceInDays } from 'date-fns';
 import { useRefresh } from '../../hooks/useRefresh';
+import { PLAN_TYPES } from '@/lib/pricing';
 
 // Helper function to check if a date is today
 const isToday = (dateString: string): boolean => {
@@ -92,13 +93,13 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
       
       // If daily plan, end date equals start date
       // If monthly plan was already selected, calculate new end date
-      if (planType === 'daily') {
+      if (planType === PLAN_TYPES.DAILY) {
         setEndDate(newStartDate);
-      } else if (planType === 'monthly') {
+      } else if (planType === PLAN_TYPES.MONTHLY) {
         // Set end date to one month from start date
         const newEndDate = format(addDays(startDateObj, 30), 'yyyy-MM-dd');
         setEndDate(newEndDate);
-      } else if (planType === 'unlimited') {
+      } else if (planType === PLAN_TYPES.UNLIMITED) {
         // For unlimited, no end date needed - set to far future for database compatibility
         const newEndDate = format(addDays(startDateObj, 36500), 'yyyy-MM-dd'); // 100 years in future
         setEndDate(newEndDate);
@@ -121,14 +122,14 @@ const AddUserToMeetingModal: React.FC<AddUserToMeetingModalProps> = ({
         return;
       }
       
-      if (newPlanType === 'daily') {
+      if (newPlanType === PLAN_TYPES.DAILY) {
         // For daily, end date is same as start date
         setEndDate(selectedDate);
-      } else if (newPlanType === 'monthly') {
+      } else if (newPlanType === PLAN_TYPES.MONTHLY) {
         // For monthly plans, end date is 30 days after start date
         const newEndDate = format(addDays(startDateObj, 30), 'yyyy-MM-dd');
         setEndDate(newEndDate);
-      } else if (newPlanType === 'unlimited') {
+      } else if (newPlanType === PLAN_TYPES.UNLIMITED) {
         // For unlimited, no end date needed - set to far future for database compatibility
         const newEndDate = format(addDays(startDateObj, 36500), 'yyyy-MM-dd'); // 100 years in future
         setEndDate(newEndDate);

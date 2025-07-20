@@ -3,6 +3,7 @@
  * Using nodemailer with Gmail SMTP
  */
 import nodemailer, { Transporter } from 'nodemailer';
+import { PLAN_PRICING, PLAN_TYPES } from './pricing';
 
 /**
  * Creates and returns a configured nodemailer transport
@@ -227,11 +228,11 @@ export async function sendAdminNotificationEmail({
   });
   
   // Prepare readable plan type
-  const planDisplay = planType === 'daily' 
-    ? 'Daily Session' 
-    : planType === 'monthly' 
-      ? 'Monthly Plan' 
-      : 'Monthly Family Plan';
+  const planDisplay = planType === PLAN_TYPES.DAILY 
+    ? PLAN_PRICING[PLAN_TYPES.DAILY].name
+    : planType === PLAN_TYPES.MONTHLY 
+      ? PLAN_PRICING[PLAN_TYPES.MONTHLY].name
+      : PLAN_PRICING[PLAN_TYPES.COMBO_PLAN].name;
     // Create HTML content
   const htmlContent = `
     <!DOCTYPE html>
@@ -515,11 +516,11 @@ export async function sendWelcomeEmail({
     });
     
     // Prepare readable plan type
-    const planDisplay = planType === 'daily' 
-      ? 'Daily Session' 
-      : planType === 'monthly' 
-        ? 'Monthly Plan' 
-        : 'Monthly Family Plan';
+    const planDisplay = planType === PLAN_TYPES.DAILY 
+      ? PLAN_PRICING[PLAN_TYPES.DAILY].name
+      : planType === PLAN_TYPES.MONTHLY 
+        ? PLAN_PRICING[PLAN_TYPES.MONTHLY].name
+        : PLAN_PRICING[PLAN_TYPES.COMBO_PLAN].name;
       // Create HTML content with modern, elegant design
     const htmlContent = `
       <!DOCTYPE html>
@@ -564,9 +565,9 @@ export async function sendWelcomeEmail({
         
         <div class="instructions">
           <p><strong>What's Next?</strong></p>
-          <p>Our team will be in touch with you shortly to schedule your ${planType === 'daily' ? 'session' : 'first session'}.</p>
+          <p>Our team will be in touch with you shortly to schedule your ${planType === PLAN_TYPES.DAILY ? 'session' : 'first session'}.</p>
           <p>You will receive a calendar invitation via email with the meeting details.</p>
-          ${planType === 'daily' ? `
+          ${planType === PLAN_TYPES.DAILY ? `
             <p>Your session will be conducted online via Google Meet on the selected date.</p>
           ` : `
             <p>Your sessions will be conducted online via Google Meet according to the schedule we will establish together.</p>

@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { canUserSubscribeForDates } from "@/lib/subscription";
 import { manageMeeting } from "@/lib/meetingLink";
-import { toPaise, fromPaise } from "@/lib/pricing";
+import { toPaise, fromPaise, PLAN_TYPES } from "@/lib/pricing";
 import { sendAdminNotificationEmail, sendFamilyAdminNotificationEmail } from "@/lib/email";
 import { sendImmediateInviteViaMessaging } from "@/lib/messaging";
 
@@ -96,13 +96,13 @@ export async function POST(request: NextRequest) {
         details: subscriptionCheck.reason,
         subscriptionDetails: subscriptionCheck.subscriptionDetails
       }, { status: 409 }); // 409 Conflict
-    }    // Handle monthlyFamily plan logic
-    if (planType === "monthlyFamily") {
+    }    // Handle comboPlan logic
+    if (planType === PLAN_TYPES.COMBO_PLAN) {
       // Validate second user ID
       if (!secondUserId) {
-        return NextResponse.json({ message: "Second user ID required for family plan." }, { status: 400 });
+        return NextResponse.json({ message: "Second user ID required for combo plan." }, { status: 400 });
       }
-      
+
       // Fetch both users by their IDs
       const [user1, user2] = await Promise.all([
         prisma.user.findUnique({ where: { id: userId } }),

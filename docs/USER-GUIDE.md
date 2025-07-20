@@ -31,23 +31,19 @@ GoaleteMeet is a meeting management platform that allows users to register for v
 
 ## Plan Types and Pricing
 
-### Daily Plan
-- **Duration**: 1 day
-- **Access**: Single meeting session
-- **Price**: ₹99
-- **Best for**: Trial users or one-time attendees
+All plan pricing and details are dynamically managed. Please refer to the registration form in the application for the most up-to-date pricing and plan features.
 
-### Monthly Plan
-- **Duration**: 30 days
-- **Access**: Daily meetings for entire month
-- **Price**: ₹299
-- **Best for**: Regular attendees
+### Available Plans
+- **Daily Session**: Perfect for trying out the experience or attending specific sessions
+- **Monthly Plan**: Consistent access for sustained motivation and results  
+- **Family Plan**: Share the journey with someone important in your life
+- **Unlimited Plan**: Special access (admin-granted only)
 
-### Unlimited Plan
-- **Duration**: Ongoing
-- **Access**: Unlimited meeting access
-- **Price**: Admin-granted only
-- **Best for**: Special users granted by administrators
+### Key Features
+- All plans include automatic Google Calendar integration
+- Meeting links sent 30 minutes before sessions
+- SMS notifications for important updates
+- Email confirmations and reminders
 
 ## Support and FAQ
 

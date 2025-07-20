@@ -1,5 +1,6 @@
 import type { Subscription, User } from "@/generated/prisma";
 import { format } from "date-fns";
+import { PLAN_TYPES } from "./pricing";
 
 // Extended Subscription type with price field
 interface SubscriptionWithPrice extends Subscription {
@@ -174,14 +175,14 @@ export function calculateSubscriptionStats(users: AdminUserData[]) {
     // Count by plan type - split family-monthly into monthly
     if (user.plan) {
       const planType = user.plan.toLowerCase();
-      if (planType === 'daily' || planType === 'daily') {
+      if (planType === PLAN_TYPES.DAILY || planType === PLAN_TYPES.DAILY) {
         stats.byPlan['daily']++;
-      } else if (planType === 'monthly') {
+      } else if (planType === PLAN_TYPES.MONTHLY) {
         stats.byPlan.monthly++;
-      } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {
+      } else if (planType === 'family-monthly' || planType === 'monthlyfamily' || planType === PLAN_TYPES.COMBO_PLAN) {
         // Split family-monthly into 2 monthly entries
         stats.byPlan.monthly += 2;
-      } else if (planType === 'unlimited') {
+      } else if (planType === PLAN_TYPES.UNLIMITED) {
         stats.byPlan.unlimited++;
       } else {
         stats.byPlan.other++;

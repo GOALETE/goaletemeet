@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { PLAN_TYPES } from "@/lib/pricing";
 import { formatUserForAdmin, calculateSubscriptionStats } from "@/lib/admin";
 import { format, subDays, parseISO, isSameDay } from "date-fns";
 
@@ -218,14 +219,14 @@ export async function GET(req: NextRequest) {
     
     // Group subscriptions by plan type for earnings analytics
     const subscriptionsByPlan: Record<string, number> = {
-      'daily': 0,
-      'monthly': 0,
-      'unlimited': 0
+      [PLAN_TYPES.DAILY]: 0,
+      [PLAN_TYPES.MONTHLY]: 0,
+      [PLAN_TYPES.UNLIMITED]: 0
     };
     const revenueByPlan: Record<string, number> = {
-      'daily': 0,
-      'monthly': 0,
-      'unlimited': 0
+      [PLAN_TYPES.DAILY]: 0,
+      [PLAN_TYPES.MONTHLY]: 0,
+      [PLAN_TYPES.UNLIMITED]: 0
     };
     
     subscriptions.forEach(sub => {
@@ -233,15 +234,15 @@ export async function GET(req: NextRequest) {
       const planType = sub.planType.toLowerCase();
       
       // Count by plan - split family-monthly into 2 monthly entries
-      if (planType === 'daily' || planType === 'daily') {
-        subscriptionsByPlan['daily']++;
-      } else if (planType === 'monthly') {
-        subscriptionsByPlan['monthly']++;
-      } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {
+      if (planType === PLAN_TYPES.DAILY || planType === PLAN_TYPES.DAILY) {
+        subscriptionsByPlan[PLAN_TYPES.DAILY]++;
+      } else if (planType === PLAN_TYPES.MONTHLY) {
+        subscriptionsByPlan[PLAN_TYPES.MONTHLY]++;
+      } else if (planType === 'family-monthly' || planType === 'monthlyfamily' || planType === PLAN_TYPES.COMBO_PLAN) {
         // Split family-monthly into 2 monthly entries
-        subscriptionsByPlan['monthly'] += 2;
-      } else if (planType === 'unlimited') {
-        subscriptionsByPlan['unlimited']++;
+        subscriptionsByPlan[PLAN_TYPES.MONTHLY] += 2;
+      } else if (planType === PLAN_TYPES.UNLIMITED) {
+        subscriptionsByPlan[PLAN_TYPES.UNLIMITED]++;
       }
       
       // Revenue by plan (use inclusive payment status logic - include both admin statuses)
@@ -253,15 +254,15 @@ export async function GET(req: NextRequest) {
       const isValidPayment = !isInvalidPayment;
       
       if (isValidPayment) {
-        if (planType === 'daily' || planType === 'daily') {
-          revenueByPlan['daily'] += (sub as any).price || 0;
-        } else if (planType === 'monthly') {
-          revenueByPlan['monthly'] += (sub as any).price || 0;
-        } else if (planType === 'family-monthly' || planType === 'monthlyfamily') {
+        if (planType === PLAN_TYPES.DAILY || planType === PLAN_TYPES.DAILY) {
+          revenueByPlan[PLAN_TYPES.DAILY] += (sub as any).price || 0;
+        } else if (planType === PLAN_TYPES.MONTHLY) {
+          revenueByPlan[PLAN_TYPES.MONTHLY] += (sub as any).price || 0;
+        } else if (planType === 'family-monthly' || planType === 'monthlyfamily' || planType === PLAN_TYPES.COMBO_PLAN) {
           // For family-monthly, add the revenue to monthly (since it represents 2 monthly subscriptions)
-          revenueByPlan['monthly'] += (sub as any).price || 0;
-        } else if (planType === 'unlimited') {
-          revenueByPlan['unlimited'] += (sub as any).price || 0;
+          revenueByPlan[PLAN_TYPES.MONTHLY] += (sub as any).price || 0;
+        } else if (planType === PLAN_TYPES.UNLIMITED) {
+          revenueByPlan[PLAN_TYPES.UNLIMITED] += (sub as any).price || 0;
         }
       }
     });
